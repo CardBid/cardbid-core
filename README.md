@@ -18,3 +18,9 @@ Platforma e-commerce łącząca tradycyjny sklep z kartami kolekcjonerskimi oraz
 * **Baza Danych:** PostgreSQL + Redis
 * **Backend:** Django + Django REST Framework + Channels
 * **Frontend:** React + TailwindCSS
+
+## 🤝 Zasady współpracy (GitFlow)
+
+Zanim zaczniesz pisać kod i tworzyć gałęzie, koniecznie zapoznaj się z naszym kodeksem współpracy. Znajdziesz tam info o tym, jak nazywać branche, jak pisać commity i jak robić Pull Requesty:
+
+👉 **[PRZECZYTAJ: Zasady współpracy (CONTRIBUTING.md)](./CONTRIBUTING.md)**
