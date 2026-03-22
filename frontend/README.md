@@ -1,16 +1,40 @@
-# React + Vite
+# 🃏 CardBid - Frontend (React + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Ten folder zawiera aplikację kliencką (interfejs użytkownika) dla platformy CardBid. Projekt jest zbudowany w oparciu o React i zoptymalizowany za pomocą Vite.
 
-Currently, two official plugins are available:
+## 🛠️ Stack Technologiczny
+* **Framework:** React 18
+* **Bundler:** Vite (zapewnia błyskawiczne budowanie i HMR)
+* **Styling:** Tailwind CSS *(do skonfigurowania)*
+* **Komunikacja z API:** Axios *(do komunikacji z backendem Django)*
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Szybki start
 
-## React Compiler
+Jeśli infrastruktura (Docker) i backend już u Ciebie działają, wykonaj te kroki, aby odpalić sam frontend:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 1. Wejdź do folderu frontendu
+`cd frontend`
 
-## Expanding the ESLint configuration
+### 2. Zainstaluj biblioteki
+`npm install`
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 3. Uruchom serwer
+`npm run dev`
+
+👉 *Aplikacja uruchomi się pod adresem: http://localhost:5173*
+
+## 📂 Architektura folderu src/ (Zasady zespołu)
+
+Aby utrzymać porządek w kodzie, trzymajmy się poniższej struktury wewnątrz folderu `src/`:
+
+* `components/` - Reużywalne, małe elementy UI (np. przyciski, karty produktów, inputy).
+* `pages/` - Główne widoki aplikacji (np. Home.jsx, LiveRoom.jsx, Profile.jsx).
+* `api/` - Konfiguracja zapytań do naszego backendu Django.
+* `hooks/` - Nasze customowe hooki Reacta.
+* `assets/` - Statyczne pliki (obrazki, ikony, fonty).
+
+## 📜 Dostępne skrypty
+
+* `npm run dev` - Odpala projekt w trybie deweloperskim (odświeża się sam po zapisie pliku).
+* `npm run build` - Buduje zoptymalizowaną aplikację gotową do wrzucenia na produkcję.
+* `npm run lint` - Uruchamia linter (ESLint), aby sprawdzić czystość kodu.
