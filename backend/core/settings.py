@@ -1,3 +1,6 @@
+
+# [@] My additions are marked as [@]
+
 """
 Django settings for core project.
 
@@ -30,6 +33,9 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
+# [@] Required for djangah to not misidentify CardbidUser as User (spits out horrible errors!)
+AUTH_USER_MODEL = 'auctions.CardbidUser'
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -37,6 +43,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # [@] Include the djangah database structure definition (../auctions/models.py)
+    'auctions'
 ]
 
 MIDDLEWARE = [
