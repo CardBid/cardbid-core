@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function LiveRoom() {
   const [messages, setMessages] = useState([
@@ -7,12 +7,19 @@ export default function LiveRoom() {
   ]);
   const [newMessage, setNewMessage] = useState('');
 
+  const chatContainerRef = useRef(null);
+  
+  //funkcja wysyłania
   const handleSendMessage = (e) => {
-    if (e.key === 'Enter' && newMessage.trim() !== '') {
-      setMessages([...messages, { id: Date.now(), user: 'Ty', text: newMessage }]);
+    if (e && e.key !== 'Enter') return; 
+
+    if (newMessage.trim() !== '') {
+      //Doklejamy nową wiadomość, a potem ucinamy do 50 ostatnich
+      setMessages(prev => [...prev, { id: Date.now(), user: 'Ty', text: newMessage }].slice(-50));
       setNewMessage('');
     }
   };
+
   const [currentPrice, setCurrentPrice] = useState(50); // Aktualna cena slota
   const [bidIncrement, setBidIncrement] = useState(5); // Kwota, o którą podbijamy
 
@@ -22,12 +29,35 @@ export default function LiveRoom() {
     setCurrentPrice(prevPrice => prevPrice + bidIncrement);
     setIsWinning(true);
 
-    // MOCK: Po 4 sekundach system symuluje, że ktoś inny przebił naszą ofertę o $5
+    //Po 4 sekundach system symuluje, że ktoś inny przebił naszą ofertę o $5
     setTimeout(() => {
       setIsWinning(false);
       setCurrentPrice(prevPrice => prevPrice + 5);
     }, 4000);
   };
+
+  //Symulacja przychodzących wiadomości (odpala się co 5-10 sekund)
+  useEffect(() => {
+    const fakeUsers = ['PikaPika', 'CardMaster', 'Zbiórka', 'FanatykKart'];
+    const fakeMessages = ['Lecimy z tym!', 'Ale emocje 🔥','🔥🔥🔥', 'Ile jeszcze zostało?'];
+
+    const interval = setInterval(() => {
+      const randomUser = fakeUsers[Math.floor(Math.random() * fakeUsers.length)];
+      const randomText = fakeMessages[Math.floor(Math.random() * fakeMessages.length)];
+      
+      setMessages(prev => [...prev, { id: Date.now(), user: randomUser, text: randomText }].slice(-50));
+    }, Math.random() * 5000 + 5000); // Losowy czas od 5s do 10s
+
+    return () => clearInterval(interval); // Czyszczenie interwału po zamknięciu komponentu
+  }, []);
+  
+  //Auto-scroll na dół przy każdej nowej wiadomości
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+
   return (
     <div className="min-h-screen bg-gray-950 text-white p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
       
@@ -140,7 +170,9 @@ export default function LiveRoom() {
         <div className="bg-gray-900 rounded-xl p-4 flex flex-col border border-gray-800 flex-1 overflow-hidden">
           <h2 className="text-sm font-bold mb-4 text-blue-400 uppercase tracking-wider">💬 Czat</h2>
           
-          <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2 custom-scrollbar">
+          <div 
+            ref={chatContainerRef} // Podpinamy naszą referencję
+            className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2 custom-scrollbar">
             {messages.map(m => (
               <div key={m.id} className="text-sm leading-relaxed break-words">
                 <span className="font-bold text-gray-400">{m.user}: </span>
@@ -151,7 +183,8 @@ export default function LiveRoom() {
             ))}
           </div>
           
-          <div className="mt-auto shrink-0">
+          {/* NOWE: Input i Przycisk Wyślij opakowane we flex */}
+          <div className="mt-auto shrink-0 flex gap-2">
             <input 
               type="text" 
               placeholder="Napisz..." 
@@ -160,8 +193,19 @@ export default function LiveRoom() {
               onKeyDown={handleSendMessage}
               className="w-full bg-gray-800 text-white text-sm rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700" 
             />
+            {/* Przycisk Wyślij */}
+            <button 
+              onClick={() => handleSendMessage()} 
+              className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-lg transition border border-blue-500 hover:border-blue-400 flex items-center justify-center"
+              title="Wyślij wiadomość"
+            >
+              {/* Ikonka papierowego samolotu (SVG) */}
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+              </svg>
+            </button>
           </div>
-        </div>
+        </div>    
 
       </div>
     </div>
