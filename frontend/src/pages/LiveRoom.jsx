@@ -35,6 +35,15 @@ export default function LiveRoom() {
       setCurrentPrice(prevPrice => prevPrice + 5);
     }, 4000);
   };
+  
+  //Harmonogram streamu (Oś czasu)
+  const timelineSlots = [
+    { id: 1, time: '20:00', title: 'Chicago Bulls', status: 'opened', info: 'Otwarto', winner: 'Janek' },
+    { id: 2, time: '20:15', title: 'Boston Celtics', status: 'queued', info: 'Otwarcie ok. 20:45', winner: 'KarcianyŚwir' },
+    { id: 3, time: '20:30', title: 'Los Angeles Lakers', status: 'active', info: 'Licytacja trwa!', winner: null },
+    { id: 4, time: '20:45', title: 'Golden State', status: 'upcoming', info: 'Licytacja za 15 min', winner: null },
+    { id: 5, time: '21:00', title: 'Miami Heat', status: 'upcoming', info: 'Licytacja za 30 min', winner: null },
+  ];
 
   //Symulacja przychodzących wiadomości (odpala się co 5-10 sekund)
   useEffect(() => {
@@ -74,19 +83,65 @@ export default function LiveRoom() {
           </div>
         </div>
 
-        <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 hidden lg:block">
-          <h3 className="text-gray-400 font-semibold mb-3">📅 Harmonogram / Sprzedane Sloty</h3>
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            <div className="bg-gray-800 min-w-[200px] p-3 rounded-lg border border-gray-700 opacity-50">
-              <span className="block text-sm text-gray-400">Slot #1</span>
-              <span className="font-bold line-through">Chicago Bulls</span>
-              <span className="block text-xs text-red-400 mt-1">Sprzedane</span>
-            </div>
-            <div className="bg-gray-800 min-w-[200px] p-3 rounded-lg border border-gray-700">
-              <span className="block text-sm text-gray-400">Slot #3</span>
-              <span className="font-bold">Boston Celtics</span>
-              <span className="block text-xs text-gray-500 mt-1">Oczekuje...</span>
-            </div>
+        {/* Strefa pod wideo - Interaktywna Oś Czasu (Timeline) */}
+        <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 hidden lg:flex flex-col">
+          <div className="flex justify-between items-end mb-4">
+            <h3 className="text-gray-400 font-semibold uppercase tracking-wider text-sm flex items-center gap-2">
+              <span>📅 Harmonogram Otwierania</span>
+              <span className="bg-gray-800 text-gray-500 px-2 py-0.5 rounded text-xs">Kolejka na dziś</span>
+            </h3>
+          </div>
+          
+          <div className="flex gap-4 overflow-x-auto pb-3 pt-1 px-1 custom-scrollbar">
+            {timelineSlots.map((slot) => {
+              let borderStyle = "border-gray-700";
+              let bgStyle = "bg-gray-800";
+              let textStyle = "text-gray-400";
+              let badge = null;
+
+              if (slot.status === 'opened') {
+                bgStyle = "bg-gray-800/50";
+                borderStyle = "border-gray-800";
+                textStyle = "text-gray-600 line-through";
+                badge = <span className="text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg">✅ ZAKOŃCZONE</span>;
+              } else if (slot.status === 'queued') {
+                borderStyle = "border-blue-500/50";
+                bgStyle = "bg-blue-900/20";
+                textStyle = "text-gray-200";
+                badge = <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">📦 W KOLEJCE</span>;
+              } else if (slot.status === 'active') {
+                borderStyle = "border-yellow-500";
+                bgStyle = "bg-yellow-900/20";
+                textStyle = "text-yellow-400";
+                badge = <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg animate-pulse">🔥 TERAZ</span>;
+              } else {
+                badge = <span className="text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg">⏳ WKRÓTCE</span>;
+              }
+
+              return (
+                <div key={slot.id} className={`min-w-[220px] p-4 rounded-xl border-2 transition-all ${borderStyle} ${bgStyle} relative flex flex-col justify-between shrink-0 overflow-hidden`}>
+                  <div className="absolute top-0 right-0 z-10">
+                    {badge}
+                  </div>
+                  
+                  <div className="mt-2">
+                    <span className="block text-xs text-gray-500 font-mono mb-1">Slot #{slot.id}</span>
+                    <span className={`font-bold text-lg block ${textStyle} pr-16`}>{slot.title}</span>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-gray-700/50">
+                    <span className={`block text-xs font-medium ${slot.status === 'active' ? 'text-yellow-500' : 'text-gray-400'}`}>
+                      {slot.info}
+                    </span>
+                    {slot.winner && (
+                      <span className="block text-xs text-gray-500 mt-1 truncate">
+                        Wygrał: <span className="text-gray-300 font-semibold">{slot.winner}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
