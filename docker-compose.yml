@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   db:
@@ -18,6 +18,36 @@ services:
     container_name: cardbid_redis
     ports:
       - "6379:6379"
+
+  backend:
+    build: ./backend
+    container_name: cardbid_backend
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=cardbid_db
+      - DB_USER=admin
+      - DB_PASSWORD=adminpassword
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+  frontend:
+    build: ./frontend
+    container_name: cardbid_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
