@@ -1,0 +1,25 @@
+
+Supportive notes
+
+1. Doin anythingah port-related in configuraton docker+vpn will fail,
+   turn off one of themah.
+
+2. Enter cardbid_db PostgreSQL database inside docker container:
+$  sudo docker exec -it cardbid_postgres psql -U admin -d cardbid_db
+   use 'template1' instead of 'cardbid_db' to enter emergency database.
+
+3. To set password of 'admin' postgres database user, use SQL on any database:
+$  ALTER USER admin WITH PASSWORD 'adminpassword';
+
+4. If 'cardbid_db' was dropped in means of debugging, create it in 'template1'
+   database context and grant privileges afterwards:
+$  GRANT ALL PRIVILEGES ON DATABASE cardbid_db TO admin;
+
+5. To update djangah database with new 'models.py' stored inside 'x' directory:
+$  python manage.py makemigrations x  # NOTE: x directory MUST exist and contain __init__.py
+$  python manage.py migrate
+
+6. In order to completely wipe out docker activity, and test it freshly do:
+$  sudo docker compose down --rmi all -v
+$  sudo docker compose up -d
+
