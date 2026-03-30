@@ -1,10 +1,16 @@
-import LiveRoom from './pages/LiveRoom'; 
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Home from './pages/Home';
+import LiveRoom from './pages/LiveRoom';
 
 function App() {
   return (
-    <div className="App">
-      <LiveRoom />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        
+        <Route path="/live" element={<LiveRoom />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
