@@ -1,98 +1,78 @@
-# 🃏 CardBid - Live-Commerce MVP
+# 🃏 CardBid - Platforma Aukcyjna
 
-Platforma e-commerce łącząca tradycyjny sklep z kartami kolekcjonerskimi oraz moduł licytacji na żywo (Live Rooms) z niskim opóźnieniem.
-
-## 🛠️ Wymagania wstępne
-
-Zanim zaczniesz, upewnij się, że masz zainstalowane w systemie:
-* **Docker Desktop** (na Windowsie/Macu) lub silnik Dockera (na Linuxie). **Musi być uruchomiony w tle!**
-* **Python 3.10+** (na Windowsie upewnij się, że dodałeś Pythona do zmiennej PATH podczas instalacji).
-* **Node.js 18+** oraz **npm**.
-* **Git**.
+To jest główne repozytorium platformy aukcyjnej **CardBid**. Projekt wykorzystuje architekturę kontenerową (Docker), co pozwala na błyskawiczne uruchomienie całego środowiska deweloperskiego.
 
 ---
 
-## 🚀 Jak odpalić projekt u siebie
+## 🚀 Szybki Start (Docker)
 
-### Krok 1: Pobranie kodu i infrastruktura (Wspólne dla wszystkich)
+Najprostszy sposób na odpalenie projektu. Docker automatycznie skonfiguruje bazę danych, redis, backend i frontend.
 
-Niezależnie od systemu, otwórz terminal (lub wiersz poleceń) i wpisz po kolei:
-
-```bash
-git clone [https://github.com/CardBid/cardbid-core.git](https://github.com/CardBid/cardbid-core.git)
-cd cardbid-core
-git checkout dev
-docker compose up -d
-```
-
----
-
-### Krok 2: Uruchomienie aplikacji (Wybierz swój system)
-
-Otwórz w VS Code **dwa osobne terminale**. Wybierz instrukcję poniżej, w zależności od tego, na jakim systemie pracujesz.
-
-#### 🪟 Ścieżka dla systemu Windows
-
-**Terminal 1: Backend (Django)**
-```powershell
-cd backend
-python -m venv venv
-.\venv\Scripts\activate
-pip install django psycopg2-binary django-cors-headers
-python manage.py migrate
-python manage.py runserver
-```
-👉 *API działa pod adresem: http://127.0.0.1:8000*
-
-**Terminal 2: Frontend (React)**
-```powershell
-cd frontend
-npm install
-npm run dev
-```
-👉 *Aplikacja działa pod adresem: http://localhost:5173*
+1.  **Uruchomienie całego stosu:**
+    ```bash
+    docker compose up --build -d
+    ```
+2.  **Aplikacja dostępna pod adresami:**
+    * **Frontend (React):** [http://localhost:5173](http://localhost:5173)
+    * **Backend Admin:** [http://localhost:8000/admin](http://localhost:8000/admin)
 
 ---
 
-#### 🐧/🍏 Ścieżka dla systemu Linux / macOS
+## 💻 Frontend (React + Vite)
 
-**Terminal 1: Backend (Django)**
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install django psycopg2-binary django-cors-headers
-python manage.py migrate
-python manage.py runserver
-```
-👉 *API działa pod adresem: http://127.0.0.1:8000*
+Folder: `/frontend`
 
-**Terminal 2: Frontend (React)**
-```bash
-cd frontend
-npm install
-npm run dev
-```
-👉 *Aplikacja działa pod adresem: http://localhost:5173*
+### Stack Technologiczny:
+* **Framework:** React 18
+* **Bundler:** Vite (zapewnia błyskawiczny Hot Module Replacement)
+* **Styling:** Tailwind CSS
+* **Komunikacja:** Axios
+
+### 📂 Architektura folderu `src/` (Zasady zespołu):
+Proszę o trzymanie się poniższej struktury plików:
+* `components/` - Małe, reużywalne elementy UI (przyciski, karty, inputy).
+* `pages/` - Główne widoki aplikacji (np. Home.jsx, LiveRoom.jsx).
+* `api/` - Konfiguracja zapytań Axios i definicje endpointów.
+* `hooks/` - Customowe hooki Reacta.
+* `assets/` - Statyczne pliki (grafiki, ikony, fonty).
 
 ---
 
-## 📂 Struktura katalogów
+## 🐍 Backend (Django 6.0)
 
-* `/backend` - Tu żyje nasze API oparte na Django i Pythonie.
-* `/frontend` - Tu żyje nasz interfejs użytkownika (React + Vite).
-* `docker-compose.yml` - Konfiguracja kontenerów infrastruktury (Postgres, Redis).
+Folder: `/backend`
 
-## 🛠️ Stack Technologiczny
+### Specyfikacja:
+* **Runtime:** Python 3.13-slim
+* **Baza danych:** PostgreSQL 15
+* **Cache/Real-time:** Redis (obsługa licytacji live)
 
-* **Baza Danych:** PostgreSQL + Redis
-* **Backend:** Django + Django REST Framework + Channels
-* **Frontend:** React + TailwindCSS + Vite
+---
 
-## 🤝 Zasady współpracy (GitFlow)
+## 🛠️ Przydatne Komendy (Zarządzanie kontenerami)
 
-⚠️ **WAŻNE:** Foldery `venv/` (w backendzie) oraz `node_modules/` (we frontendzie) są ignorowane przez Git. **Nigdy ich nie dodawaj do commitów!**
+Używamy `docker compose exec`, aby wykonywać komendy bezpośrednio wewnątrz uruchomionych kontenerów.
 
-Zanim zaczniesz pisać kod i tworzyć nowe gałęzie, koniecznie zapoznaj się z naszym kodeksem współpracy. Znajdziesz tam info o tym, jak nazywać branche, jak pisać commity i jak robić Pull Requesty:
+| Zadanie | Komenda |
+| :--- | :--- |
+| **Zatrzymanie projektu** | `docker compose stop` |
+| **Usunięcie kontenerów** | `docker compose down` |
+| **Migracje bazy danych** | `docker compose exec backend python manage.py migrate` |
+| **Tworzenie Superusera** | `docker compose exec backend python manage.py createsuperuser` |
+| **Logi na żywo (Backend)** | `docker compose logs -f backend` |
+| **Restart serwerów** | `docker compose restart` |
 
-👉 **[PRZECZYTAJ: Zasady współpracy (CONTRIBUTING.md)](./CONTRIBUTING.md)**
+---
+
+## ⚠️ Praca bez Dockera (Lokalnie)
+
+Jeśli z jakiegoś powodu musisz odpalić frontend bez kontenera:
+1. Wejdź do `/frontend`
+2. `npm install`
+3. `npm run dev`
+
+*Uwaga: Aby frontend działał poprawnie, backend (API) musi być uruchomiony (najlepiej w Dockerze).*
+
+---
+
+&copy; 2026 CardBid Team
