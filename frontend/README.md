@@ -1,40 +1,78 @@
-# 🃏 CardBid - Frontend (React + Vite)
+# 🃏 CardBid - Platforma Aukcyjna
 
-Ten folder zawiera aplikację kliencką (interfejs użytkownika) dla platformy CardBid. Projekt jest zbudowany w oparciu o React i zoptymalizowany za pomocą Vite.
+To jest główne repozytorium platformy aukcyjnej **CardBid**. Projekt wykorzystuje architekturę kontenerową (Docker), co pozwala na błyskawiczne uruchomienie całego środowiska deweloperskiego.
 
-## 🛠️ Stack Technologiczny
+---
+
+## 🚀 Szybki Start (Docker)
+
+Najprostszy sposób na odpalenie projektu. Docker automatycznie skonfiguruje bazę danych, redis, backend i frontend.
+
+1.  **Uruchomienie całego stosu:**
+    ```bash
+    docker compose up --build -d
+    ```
+2.  **Aplikacja dostępna pod adresami:**
+    * **Frontend (React):** [http://localhost:5173](http://localhost:5173)
+    * **Backend Admin:** [http://localhost:8000/admin](http://localhost:8000/admin)
+
+---
+
+## 💻 Frontend (React + Vite)
+
+Folder: `/frontend`
+
+### Stack Technologiczny:
 * **Framework:** React 18
-* **Bundler:** Vite (zapewnia błyskawiczne budowanie i HMR)
-* **Styling:** Tailwind CSS *(do skonfigurowania)*
-* **Komunikacja z API:** Axios *(do komunikacji z backendem Django)*
+* **Bundler:** Vite (zapewnia błyskawiczny Hot Module Replacement)
+* **Styling:** Tailwind CSS
+* **Komunikacja:** Axios
 
-## 🚀 Szybki start
+### 📂 Architektura folderu `src/` (Zasady zespołu):
+Proszę o trzymanie się poniższej struktury plików:
+* `components/` - Małe, reużywalne elementy UI (przyciski, karty, inputy).
+* `pages/` - Główne widoki aplikacji (np. Home.jsx, LiveRoom.jsx).
+* `api/` - Konfiguracja zapytań Axios i definicje endpointów.
+* `hooks/` - Customowe hooki Reacta.
+* `assets/` - Statyczne pliki (grafiki, ikony, fonty).
 
-Jeśli infrastruktura (Docker) i backend już u Ciebie działają, wykonaj te kroki, aby odpalić sam frontend:
+---
 
-### 1. Wejdź do folderu frontendu
-`cd frontend`
+## 🐍 Backend (Django 6.0)
 
-### 2. Zainstaluj biblioteki
-`npm install`
+Folder: `/backend`
 
-### 3. Uruchom serwer
-`npm run dev`
+### Specyfikacja:
+* **Runtime:** Python 3.13-slim
+* **Baza danych:** PostgreSQL 15
+* **Cache/Real-time:** Redis (obsługa licytacji live)
 
-👉 *Aplikacja uruchomi się pod adresem: http://localhost:5173*
+---
 
-## 📂 Architektura folderu src/ (Zasady zespołu)
+## 🛠️ Przydatne Komendy (Zarządzanie kontenerami)
 
-Aby utrzymać porządek w kodzie, trzymajmy się poniższej struktury wewnątrz folderu `src/`:
+Używamy `docker compose exec`, aby wykonywać komendy bezpośrednio wewnątrz uruchomionych kontenerów.
 
-* `components/` - Reużywalne, małe elementy UI (np. przyciski, karty produktów, inputy).
-* `pages/` - Główne widoki aplikacji (np. Home.jsx, LiveRoom.jsx, Profile.jsx).
-* `api/` - Konfiguracja zapytań do naszego backendu Django.
-* `hooks/` - Nasze customowe hooki Reacta.
-* `assets/` - Statyczne pliki (obrazki, ikony, fonty).
+| Zadanie | Komenda |
+| :--- | :--- |
+| **Zatrzymanie projektu** | `docker compose stop` |
+| **Usunięcie kontenerów** | `docker compose down` |
+| **Migracje bazy danych** | `docker compose exec backend python manage.py migrate` |
+| **Tworzenie Superusera** | `docker compose exec backend python manage.py createsuperuser` |
+| **Logi na żywo (Backend)** | `docker compose logs -f backend` |
+| **Restart serwerów** | `docker compose restart` |
 
-## 📜 Dostępne skrypty
+---
 
-* `npm run dev` - Odpala projekt w trybie deweloperskim (odświeża się sam po zapisie pliku).
-* `npm run build` - Buduje zoptymalizowaną aplikację gotową do wrzucenia na produkcję.
-* `npm run lint` - Uruchamia linter (ESLint), aby sprawdzić czystość kodu.
+## ⚠️ Praca bez Dockera (Lokalnie)
+
+Jeśli z jakiegoś powodu musisz odpalić frontend bez kontenera:
+1. Wejdź do `/frontend`
+2. `npm install`
+3. `npm run dev`
+
+*Uwaga: Aby frontend działał poprawnie, backend (API) musi być uruchomiony (najlepiej w Dockerze).*
+
+---
+
+&copy; 2026 CardBid Team
