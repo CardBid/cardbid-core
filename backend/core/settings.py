@@ -87,7 +87,7 @@ DATABASES = {
         'NAME': 'cardbid_db',
         'USER': 'admin',
         'PASSWORD': 'adminpassword',
-        'HOST': 'db',
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': '5432',
     }
 }
