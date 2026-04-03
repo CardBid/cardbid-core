@@ -55,9 +55,12 @@ Używamy `docker compose exec`, aby wykonywać komendy bezpośrednio wewnątrz u
 
 | Zadanie | Komenda |
 | :--- | :--- |
+| **Uruchomienie projektu (w tle)** | `docker compose up -d` |
 | **Zatrzymanie projektu** | `docker compose stop` |
 | **Usunięcie kontenerów** | `docker compose down` |
+| **Generowanie nowych migracji** | `docker compose exec backend python manage.py makemigrations` |
 | **Migracje bazy danych** | `docker compose exec backend python manage.py migrate` |
+| **Generowanie fake danych do bazy** | `docker compose exec backend python manage.py seed_data` |
 | **Tworzenie Superusera** | `docker compose exec backend python manage.py createsuperuser` |
 | **Logi na żywo (Backend)** | `docker compose logs -f backend` |
 | **Restart serwerów** | `docker compose restart` |
