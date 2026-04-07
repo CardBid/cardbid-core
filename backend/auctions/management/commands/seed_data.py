@@ -1,11 +1,12 @@
 import random
 import unicodedata
+import uuid
 from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
 from django.core.management.base import BaseCommand
 from faker import Faker
-from auctions.models import CardbidUser, Card, Auction, Category, Bid, StreamRoom
+from auctions.models import CardbidUser, Card, Auction, Category, Bid, StreamRoom, AuctionSlot
 
 
 class Command(BaseCommand):
@@ -20,6 +21,7 @@ class Command(BaseCommand):
         fake = Faker("pl_PL")
 
         self.stdout.write("Usuwam stare dane testowe...")
+        AuctionSlot.objects.all().delete()
         Bid.objects.all().delete()
         StreamRoom.objects.all().delete()
         Auction.objects.all().delete()
@@ -57,6 +59,7 @@ class Command(BaseCommand):
                 StreamRoom.objects.create(
                     streamer=user,
                     title=f"Licytacje u {username}",
+                    stream_key=f"sb_{uuid.uuid4().hex[:8]}",
                     is_live=random.choice([True, False])
                 )
 
@@ -195,6 +198,8 @@ class Command(BaseCommand):
         statuses = ["active", "active", "ended", "ended", "cancelled"]
         auction_types = ["bidding", "buy_now", "hybrid"]
 
+        all_auctions = []
+
         for card in cards:
             a_type = random.choice(auction_types)
             status = random.choice(statuses)
@@ -229,6 +234,8 @@ class Command(BaseCommand):
                 end_date=end_date,
             )
 
+            all_auctions.append(auction)
+
             auction.clean()
             auction.save()
 
@@ -257,5 +264,22 @@ class Command(BaseCommand):
             elif a_type == "buy_now" and status == "ended":
                 auction.winner = random.choice(buyers)
                 auction.save()
+
+        self.stdout.write("Tworzę harmonogramy (AuctionSlots) dla streamerów...")
+        rooms = StreamRoom.objects.all()
+        random.shuffle(all_auctions)
+
+        for room in rooms:
+            for i in range(1, 4):
+                if not all_auctions: break
+                
+                slot_status = 'FINISHED' if i == 1 else ('ACTIVE' if i == 2 else 'PENDING')
+                
+                AuctionSlot.objects.create(
+                    room=room,
+                    auction=all_auctions.pop(),
+                    order=i,
+                    status=slot_status
+                )
 
         self.stdout.write(self.style.SUCCESS("Gotowe! Wygenerowano lepsze losowe dane przez Faker."))

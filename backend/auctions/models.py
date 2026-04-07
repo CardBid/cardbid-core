@@ -23,7 +23,7 @@ class CardbidUser(AbstractUser):
 class StreamRoom(models.Model):
     streamer = models.OneToOneField(CardbidUser, on_delete=models.CASCADE, related_name="stream_room")
     title = models.CharField(max_length=100, default="Licytacje na żywo")
-    stream_url = models.URLField(blank=True, null=True, help_text="Link do YouTube/Twitch")
+    stream_key = models.CharField(max_length=100, unique=True, blank=True, null=True, help_text="Unikalny klucz do serwera")
     is_live = models.BooleanField(default=False)
 
     def __str__(self):
@@ -119,3 +119,21 @@ class Bid(models.Model):
 
     def __str__(self):
         return f"{self.user.email} | {self.amount} PLN | {self.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
+
+class AuctionSlot(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'W kolejce'),
+        ('ACTIVE', 'Teraz'),
+        ('FINISHED', 'Zakończone'),
+    ]
+
+    room = models.ForeignKey(StreamRoom, on_delete=models.CASCADE, related_name="slots")
+    auction = models.OneToOneField('Auction', on_delete=models.CASCADE)
+    order = models.PositiveIntegerField(help_text="Numer slotu (np. 1, 2, 3...)")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return f"Slot #{self.order}: {self.auction.card.name} ({self.get_status_display()})"
