@@ -239,3 +239,9 @@ yarn-error.log*
 .idea/
 *.swp
 *.swo
+
+# --- CardBid Custom Ignores ---
+
+backend/media/
+postgres_data/
+backend/staticfiles/
