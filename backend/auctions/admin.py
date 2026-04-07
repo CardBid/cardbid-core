@@ -3,34 +3,41 @@ from .models import CardbidUser, Category, Card, Auction, Bid, StreamRoom, Aucti
 
 @admin.register(CardbidUser)
 class CardbidUserAdmin(admin.ModelAdmin):
-    list_display = ('email', 'username', 'role', 'is_staff')
+    list_display = ('id','email', 'username', 'role', 'is_staff')
+    list_display_links = ('email',)
     list_filter = ('role',)
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug')
+    list_display = ('id','name', 'slug')
+    list_display_links = ('name',)
     prepopulated_fields = {'slug': ('name',)}
 
 @admin.register(Card)
 class CardAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'grade', 'certificate_number')
+    list_display = ('id','name', 'category', 'grade', 'certificate_number')
+    list_display_links = ('name',)
     search_fields = ('name', 'certificate_number')
 
 @admin.register(Auction)
 class AuctionAdmin(admin.ModelAdmin):
-    list_display = ('card', 'seller', 'current_price', 'status', 'auction_type')
+    list_display = ('id','card', 'seller', 'current_price', 'status', 'auction_type')
+    list_display_links = ('card',)
     list_filter = ('status', 'auction_type')
 
 @admin.register(Bid)
 class BidAdmin(admin.ModelAdmin):
     list_display = ('auction', 'user', 'amount', 'created_at')
+    list_display_links = ('auction',)
 
 @admin.register(StreamRoom)
 class StreamRoomAdmin(admin.ModelAdmin):
-    list_display = ('streamer', 'title', 'is_live', 'stream_key')
-    list_editable = ('is_live',) # Możesz przełączać LIVE prosto z listy!
+    list_display = ('id','streamer', 'title', 'is_live', 'stream_key')
+    list_display_links = ('streamer',)
+    list_editable = ('is_live',)
 
 @admin.register(AuctionSlot)
 class AuctionSlotAdmin(admin.ModelAdmin):
-    list_display = ('room', 'auction', 'order', 'status')
+    list_display = ('id', 'room', 'auction', 'order', 'status')
+    list_display_links = ('room',)
     list_editable = ('status', 'order')
