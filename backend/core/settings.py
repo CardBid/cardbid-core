@@ -47,7 +47,10 @@ INSTALLED_APPS = [
     # [@] Include the djangah database structure definition (../auctions/models.py)
     'rest_framework',
     'corsheaders',
-    'auctions'
+    'auctions',
+    "channels",
+    "chat"
+
 ]
 
 MIDDLEWARE = [
@@ -79,6 +82,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'
+ASGI_APPLICATION = "config.asgi.application"
 
 
 # Database
@@ -150,4 +154,18 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+}
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [
+                (
+                    os.environ.get("REDIS_HOST", "localhost"),
+                    int(os.environ.get("REDIS_PORT", 6379)),
+                )
+            ],
+        },
+    },
 }
