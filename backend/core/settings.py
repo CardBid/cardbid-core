@@ -49,7 +49,6 @@ INSTALLED_APPS = [
     'corsheaders',
     'auctions',
     "channels",
-    "chat"
 
 ]
 
