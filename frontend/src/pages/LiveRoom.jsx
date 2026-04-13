@@ -210,7 +210,7 @@ export default function LiveRoom() {
             {/* 3. Główny przycisk podbicia */}
             <button 
               onClick={handleBid}
-              disabled={isWinning} // Wyłączamy przycisk, gdy wygrywamy (nie licytujemy sami ze sobą)
+              disabled={isWinning} // Wyłącz przycisk, gdy użytkownik jest na prowadzeniu
               className={`w-full py-3 rounded-lg font-bold text-xl transition text-center tracking-wide ${
                 isWinning 
                   ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
@@ -226,7 +226,7 @@ export default function LiveRoom() {
           <h2 className="text-sm font-bold mb-4 text-blue-400 uppercase tracking-wider">💬 Czat</h2>
           
           <div 
-            ref={chatContainerRef} // Podpinamy naszą referencję
+            ref={chatContainerRef}
             className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2 custom-scrollbar">
             {messages.map(m => (
               <div key={m.id} className="text-sm leading-relaxed break-words">
@@ -238,7 +238,6 @@ export default function LiveRoom() {
             ))}
           </div>
           
-          {/* NOWE: Input i Przycisk Wyślij opakowane we flex */}
           <div className="mt-auto shrink-0 flex gap-2">
             <input 
               type="text" 
@@ -254,7 +253,6 @@ export default function LiveRoom() {
               className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-lg transition border border-blue-500 hover:border-blue-400 flex items-center justify-center"
               title="Wyślij wiadomość"
             >
-              {/* Ikonka papierowego samolotu (SVG) */}
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
               </svg>
