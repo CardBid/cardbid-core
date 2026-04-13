@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
+import VideoPlayer from '../components/VideoPlayer';
+
+const videoJsOptions = {
+  autoplay: true,
+  muted: true,
+  controls: true,
+  fill: true,         
+  responsive: true,
+  sources: [{
+    src: 'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
+    type: 'application/x-mpegURL'
+  }]
+};
 
 export default function LiveRoom() {
+
   const [messages, setMessages] = useState([
     { id: 1, user: 'KarcianyŚwir', text: 'Kiedy zaczynamy?!' },
     { id: 2, user: 'System', text: 'Użytkownik X właśnie kupił slota #1!', isSystem: true },
@@ -72,15 +86,14 @@ export default function LiveRoom() {
       
       <div className="lg:col-span-9 flex flex-col gap-4">
         
-        <div className="bg-black rounded-xl flex items-center justify-center aspect-video border border-gray-800 shadow-2xl relative overflow-hidden">
-           {/* Znaczek LIVE */}
-           <div className="absolute top-4 left-4 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse">
-             LIVE
-           </div>
-          <div className="text-center">
-            <span className="block text-gray-600 text-6xl mb-4">🎥</span>
-            <span className="text-gray-500 font-bold">Odtwarzacz Wideo</span>
+        <div className="bg-black rounded-xl flex items-center justify-center aspect-video border border-gray-800 shadow-2xl relative overflow-hidden w-full">
+          {/* Znaczek LIVE */}
+          <div className="absolute top-4 left-4 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse z-20">
+            LIVE
           </div>
+          
+          {/* Prawdziwy odtwarzacz */}
+          <VideoPlayer options={videoJsOptions} />
         </div>
 
         {/* Strefa pod wideo - Interaktywna Oś Czasu (Timeline) */}
