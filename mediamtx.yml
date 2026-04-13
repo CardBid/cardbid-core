@@ -1,6 +1,11 @@
-paths:
-  all:
-    source: publisher
+hlsVariant: lowLatency
+hlsSegmentCount: 7
+hlsSegmentDuration: 1s
+hlsPartDuration: 500ms
 
 rtmp: yes
 hls: yes
+
+paths:
+  all:
+    source: publisher
