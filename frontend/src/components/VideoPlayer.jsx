@@ -38,9 +38,16 @@ export const VideoPlayer = (props) => {
     } else {
       const player = playerRef.current;
       player.autoplay(options.autoplay);
-      player.src(options.sources);
+      
+      // POPRAWKA: Zmieniamy źródło TYLKO jeśli faktycznie jest inne
+      const currentSrc = player.src();
+      const newSrc = options.sources[0].src;
+      if (currentSrc !== newSrc) {
+        player.src(options.sources);
+      }
     }
-  }, [options, onReady]);
+  }, [options, onReady]); 
+
 
   useEffect(() => {
     const player = playerRef.current;
