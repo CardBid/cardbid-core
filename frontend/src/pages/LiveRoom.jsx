@@ -20,8 +20,47 @@ export default function LiveRoom() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const [volume, setVolume] = useState(0); 
-  const [isTheater, setIsTheater] = useState(false);
+const [isTheater, setIsTheater] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // Domyślne widoczności nakładek na wideo
   const [showOverlayChat, setShowOverlayChat] = useState(false);
+  const [showOverlayBid, setShowOverlayBid] = useState(true);
+
+  // --- LOGIKA PRZESUWANIA PANELI (DRAG & DROP) ---
+  const [bidPos, setBidPos] = useState({ x: 0, y: 0 });
+  const [chatPos, setChatPos] = useState({ x: 0, y: 0 });
+  const dragInfo = useRef({ type: null, startX: 0, startY: 0 });
+
+  const handlePointerDown = (e, type) => {
+    dragInfo.current = { type, startX: e.clientX, startY: e.clientY };
+    e.target.setPointerCapture(e.pointerId); // Utrzymuje chwyt, nawet gdy kursor ucieknie z elementu
+  };
+
+  const handlePointerMove = (e) => {
+    if (!dragInfo.current.type) return;
+    const dx = e.clientX - dragInfo.current.startX;
+    const dy = e.clientY - dragInfo.current.startY;
+    dragInfo.current.startX = e.clientX;
+    dragInfo.current.startY = e.clientY;
+    
+    if (dragInfo.current.type === 'bid') setBidPos(p => ({ x: p.x + dx, y: p.y + dy }));
+    if (dragInfo.current.type === 'chat') setChatPos(p => ({ x: p.x + dx, y: p.y + dy }));
+  };
+
+  const handlePointerUp = (e) => {
+    if (dragInfo.current.type) {
+      e.target.releasePointerCapture(e.pointerId);
+      dragInfo.current.type = null;
+    }
+  };
+
+  // --- NASŁUCHIWANIE PEŁNEGO EKRANU ---
+  useEffect(() => {
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
 
   const videoContainerRef = useRef(null);
 
@@ -130,99 +169,112 @@ export default function LiveRoom() {
       {/* LEWA STRONA (Wideo + Harmonogram) */}
       <div className={`${isTheater ? 'w-full mb-8 flex flex-col gap-6' : 'lg:col-span-9 flex flex-col gap-4'}`}>
         
-        {/* === KONTENER WIDEO === */}
+{/* === KONTENER WIDEO === */}
         <div 
           ref={videoContainerRef}
           className={`bg-black rounded-xl flex flex-col relative overflow-hidden shadow-2xl group transition-all duration-300
-            ${isTheater ? 'w-full h-[60vh] lg:h-[80vh] border border-gray-800' : 'aspect-video border border-gray-800 w-full min-h-[40vh] lg:min-h-[60vh]'}
+            ${(isTheater || isFullscreen) ? 'w-full h-[60vh] lg:h-[80vh] border border-gray-800' : 'aspect-video border border-gray-800 w-full min-h-[40vh] lg:min-h-[60vh]'}
           `}
         >
           {/* Znaczek LIVE */}
-          <div className="absolute top-4 left-4 bg-red-600/90 backdrop-blur-sm text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse z-20 shadow-lg">
+          <div className="absolute top-4 left-4 bg-red-600/90 backdrop-blur-sm text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse z-20 shadow-lg pointer-events-none">
             LIVE
           </div>
           
           <VideoPlayer options={videoJsOptions} onReady={handlePlayerReady} />
 
           {/* ========================================= */}
-          {/* OVERLAY LICYTACJI (Tryb kinowy / Mobile) */}
-          <div className={`absolute bottom-24 right-4 w-72 bg-gray-900/60 backdrop-blur-md border border-gray-700/50 rounded-2xl p-5 shadow-2xl z-30 transition-all ${isTheater ? 'block' : 'block lg:hidden'}`}>
-            <div className="flex justify-between items-start mb-4">
-              <div>
+          {/* NOWY, PRZESUWALNY OVERLAY LICYTACJI (Tylko w trybie kinowym/pełnoekranowym lub na Mobile) */}
+          <div 
+            style={{ transform: `translate(${bidPos.x}px, ${bidPos.y}px)` }}
+            className={`absolute bottom-24 right-4 w-64 bg-gray-900/80 backdrop-blur-md border border-gray-700/50 rounded-xl shadow-2xl z-30 flex flex-col overflow-hidden transition-opacity duration-300 ${(isTheater || isFullscreen) ? 'block' : 'block lg:hidden'} ${showOverlayBid ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          >
+            {/* Uchwyt do przesuwania */}
+            <div 
+              onPointerDown={(e) => handlePointerDown(e, 'bid')} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
+              className="w-full h-7 bg-gray-800/80 flex items-center justify-center cursor-move touch-none border-b border-gray-700/50" title="Chwyć i przesuń"
+            >
+              <div className="w-10 h-1 bg-gray-500 rounded-full pointer-events-none"></div>
+            </div>
+            
+            <div className="p-4">
+              <div className="flex justify-between items-center mb-2">
                 <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Los Angeles Lakers</p>
-                <p className={`text-3xl font-black italic transition-colors ${isWinning ? 'text-green-400' : 'text-white'}`}>${currentPrice}</p>
+                {isWinning && <span className="text-[9px] bg-green-500/20 text-green-400 font-bold px-1.5 py-0.5 rounded animate-pulse border border-green-500/30">👑 PROWADZISZ</span>}
               </div>
-              {isWinning && <span className="text-[10px] bg-green-500/20 text-green-400 font-bold px-2 py-1 rounded animate-pulse border border-green-500/30">👑 PROWADZISZ</span>}
+              <p className={`text-3xl font-black mb-3 transition-colors ${isWinning ? 'text-green-400' : 'text-white'}`}>${currentPrice}</p>
+              
+              <div className="flex gap-1.5 mb-3">
+                {[5, 10, 25].map(v => (
+                  <button key={v} onClick={() => setBidIncrement(v)} className={`flex-1 text-xs py-1.5 rounded-lg border font-bold transition ${bidIncrement === v ? 'bg-yellow-500 text-black border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-black/50 text-gray-400 border-gray-600 hover:bg-gray-800'}`}>
+                    +${v}
+                  </button>
+                ))}
+              </div>
+              
+              <button onClick={handleBid} disabled={isWinning} className={`w-full py-2.5 rounded-lg font-black uppercase text-xs tracking-wider transition ${isWinning ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_15px_rgba(22,163,7,0.4)]'}`}>
+                {isWinning ? 'Oczekiwanie...' : `Podbij o $${bidIncrement}`}
+              </button>
             </div>
-            
-            <div className="flex gap-2 mb-4">
-              {[5, 10, 25].map(v => (
-                <button key={v} onClick={() => setBidIncrement(v)} className={`flex-1 text-xs py-1.5 rounded-lg border font-bold transition ${bidIncrement === v ? 'bg-yellow-500 text-black border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-black/50 text-gray-400 border-gray-600 hover:bg-gray-800'}`}>
-                  +${v}
-                </button>
-              ))}
-            </div>
-            
-            <button onClick={handleBid} disabled={isWinning} className={`w-full py-3 rounded-xl font-black uppercase text-sm tracking-wider transition ${isWinning ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_15px_rgba(22,163,7,0.4)]'}`}>
-              {isWinning ? 'Oczekiwanie...' : `Podbij o $${bidIncrement}`}
-            </button>
           </div>
 
-          {/* PŁYWAJĄCY CZAT (Tryb kinowy / Mobile) */}
-          <div className={`absolute bottom-24 left-4 z-30 transition-all ${isTheater ? 'block' : 'block lg:hidden'}`}>
-            {showOverlayChat ? (
-              <div className="w-72 h-64 bg-gray-900/60 backdrop-blur-md border border-gray-700/50 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
-                <div className="bg-black/40 p-3 flex justify-between items-center border-b border-gray-700/50">
-                  <span className="text-xs text-gray-300 font-bold uppercase tracking-wider">💬 Czat na żywo</span>
-                  <button onClick={() => setShowOverlayChat(false)} className="text-gray-400 hover:text-white transition">✕</button>
+          {/* NOWY, PRZESUWALNY OVERLAY CZATU */}
+          <div 
+            style={{ transform: `translate(${chatPos.x}px, ${chatPos.y}px)` }}
+            className={`absolute bottom-24 left-4 w-72 h-64 bg-gray-900/80 backdrop-blur-md border border-gray-700/50 rounded-xl flex flex-col shadow-2xl z-30 overflow-hidden transition-opacity duration-300 ${(isTheater || isFullscreen) ? 'block' : 'block lg:hidden'} ${showOverlayChat ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          >
+            {/* Uchwyt do przesuwania */}
+            <div 
+              onPointerDown={(e) => handlePointerDown(e, 'chat')} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
+              className="w-full h-7 bg-gray-800/80 flex items-center justify-center cursor-move touch-none border-b border-gray-700/50" title="Chwyć i przesuń"
+            >
+              <div className="w-10 h-1 bg-gray-500 rounded-full pointer-events-none"></div>
+            </div>
+
+            <div className="bg-black/20 px-3 py-1.5 flex justify-between items-center border-b border-gray-700/30">
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Czat na żywo</span>
+            </div>
+            <div ref={overlayChatRef} className="flex-1 overflow-y-auto p-3 space-y-2 text-xs custom-scrollbar">
+              {messages.map(m => (
+                <div key={m.id} className="break-words leading-relaxed">
+                  <span className="font-bold text-gray-400">{m.user}: </span>
+                  <span className={m.isSystem ? 'text-green-400 font-bold' : 'text-gray-200'}>{m.text}</span>
                 </div>
-                <div ref={overlayChatRef} className="flex-1 overflow-y-auto p-3 space-y-2 text-xs custom-scrollbar">
-                  {messages.map(m => (
-                    <div key={m.id} className="break-words leading-relaxed">
-                      <span className="font-bold text-gray-400">{m.user}: </span>
-                      <span className={m.isSystem ? 'text-green-400 font-bold' : 'text-gray-200'}>{m.text}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <button onClick={() => setShowOverlayChat(true)} className="bg-gray-900/60 backdrop-blur-md border border-gray-700/50 p-3 rounded-full hover:bg-gray-800 transition text-white shadow-xl hover:scale-110">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-              </button>
-            )}
+              ))}
+            </div>
           </div>
           {/* ========================================= */}
 
-          {/* KONTROLKI ODTWARZACZA */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 flex items-center justify-between">
+          {/* KONTROLKI ODTWARZACZA Z PRZYCISKAMI WŁĄCZANIA PANELI */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-40 flex items-center justify-between">
             <div className="flex items-center gap-6">
-              
               <button onClick={togglePlay} className="text-white hover:text-blue-400 transition transform hover:scale-110">
-                {isPlaying ? (
-                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                ) : (
-                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> 
-                )}
+                {isPlaying ? <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg> : <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>}
               </button>
 
               <div className="flex items-center gap-2 group/vol">
                 <button onClick={toggleMute} className="text-white hover:text-blue-400 transition">
-                  {isMuted || volume === 0 ? (
-                    <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
-                  ) : (
-                    <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                  )}
+                  {isMuted || volume === 0 ? <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg> : <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>}
                 </button>
-                <input 
-                  type="range" min="0" max="1" step="0.05" 
-                  value={isMuted ? 0 : volume} 
-                  onChange={handleVolumeChange}
-                  className="w-0 opacity-0 group-hover/vol:w-24 group-hover/vol:opacity-100 transition-all duration-300 accent-blue-500 h-1 cursor-pointer"
-                />
+                <input type="range" min="0" max="1" step="0.05" value={isMuted ? 0 : volume} onChange={handleVolumeChange} className="w-0 opacity-0 group-hover/vol:w-24 group-hover/vol:opacity-100 transition-all duration-300 accent-blue-500 h-1 cursor-pointer" />
               </div>
             </div>
 
             <div className="flex items-center gap-4">
+              {/* NOWE: PRZYCISKI DO WŁĄCZANIA NAKŁADEK (Widoczne tylko, gdy są aktywne Overlaye) */}
+              {((isTheater || isFullscreen || window.innerWidth < 1024)) && (
+                <div className="flex items-center gap-3 border-r border-gray-700 pr-4 mr-1">
+                  <button onClick={() => setShowOverlayChat(!showOverlayChat)} className={`transition tooltip-container relative group/btn ${showOverlayChat ? 'text-blue-500' : 'text-gray-400 hover:text-white'}`}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition">Czat</span>
+                  </button>
+                  <button onClick={() => setShowOverlayBid(!showOverlayBid)} className={`transition tooltip-container relative group/btn ${showOverlayBid ? 'text-yellow-500' : 'text-gray-400 hover:text-white'}`}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition">Licytacja</span>
+                  </button>
+                </div>
+              )}
+
               <button onClick={() => setIsTheater(!isTheater)} className={`transition tooltip-container relative group/btn ${isTheater ? 'text-blue-500' : 'text-white hover:text-blue-400'}`}>
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 6h16v12H4z" /><path d="M8 6v12M16 6v12" /></svg>
                 <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition">Tryb Kinowy</span>
