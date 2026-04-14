@@ -20,7 +20,7 @@ export default function LiveRoom() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const [volume, setVolume] = useState(0); 
-const [isTheater, setIsTheater] = useState(false);
+  const [isTheater, setIsTheater] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Domyślne widoczności nakładek na wideo
@@ -37,15 +37,28 @@ const [isTheater, setIsTheater] = useState(false);
     e.target.setPointerCapture(e.pointerId); // Utrzymuje chwyt, nawet gdy kursor ucieknie z elementu
   };
 
-  const handlePointerMove = (e) => {
-    if (!dragInfo.current.type) return;
+const handlePointerMove = (e) => {
+    if (!dragInfo.current.type || !videoContainerRef.current) return;
+    
+    const container = videoContainerRef.current.getBoundingClientRect();
     const dx = e.clientX - dragInfo.current.startX;
     const dy = e.clientY - dragInfo.current.startY;
+    
+    if (dragInfo.current.type === 'bid') {
+      setBidPos(p => ({ 
+        x: Math.max(-(container.width - 208 - 16), Math.min(16, p.x + dx)), // max w lewo do krawędzi, max w prawo do punktu startu
+        y: Math.max(-(container.height - 180 - 96), Math.min(96, p.y + dy)) // max w górę, max w dół
+      }));
+    }
+    if (dragInfo.current.type === 'chat') {
+      setChatPos(p => ({ 
+        x: Math.max(-16, Math.min(container.width - 288 - 16, p.x + dx)),  
+        y: Math.max(-(container.height - 256 - 96), Math.min(96, p.y + dy)) 
+      }));
+    }
+
     dragInfo.current.startX = e.clientX;
     dragInfo.current.startY = e.clientY;
-    
-    if (dragInfo.current.type === 'bid') setBidPos(p => ({ x: p.x + dx, y: p.y + dy }));
-    if (dragInfo.current.type === 'chat') setChatPos(p => ({ x: p.x + dx, y: p.y + dy }));
   };
 
   const handlePointerUp = (e) => {
@@ -169,7 +182,7 @@ const [isTheater, setIsTheater] = useState(false);
       {/* LEWA STRONA (Wideo + Harmonogram) */}
       <div className={`${isTheater ? 'w-full mb-8 flex flex-col gap-6' : 'lg:col-span-9 flex flex-col gap-4'}`}>
         
-{/* === KONTENER WIDEO === */}
+      {/* === KONTENER WIDEO === */}
         <div 
           ref={videoContainerRef}
           className={`bg-black rounded-xl flex flex-col relative overflow-hidden shadow-2xl group transition-all duration-300
@@ -183,45 +196,48 @@ const [isTheater, setIsTheater] = useState(false);
           
           <VideoPlayer options={videoJsOptions} onReady={handlePlayerReady} />
 
-          {/* ========================================= */}
-          {/* NOWY, PRZESUWALNY OVERLAY LICYTACJI (Tylko w trybie kinowym/pełnoekranowym lub na Mobile) */}
+          {/*PRZESUWALNY OVERLAY LICYTACJI (Tylko w trybie kinowym/pełnoekranowym lub na Mobile) */}
           <div 
             style={{ transform: `translate(${bidPos.x}px, ${bidPos.y}px)` }}
-            className={`absolute bottom-24 right-4 w-64 bg-gray-900/80 backdrop-blur-md border border-gray-700/50 rounded-xl shadow-2xl z-30 flex flex-col overflow-hidden transition-opacity duration-300 ${(isTheater || isFullscreen) ? 'block' : 'block lg:hidden'} ${showOverlayBid ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+            className={`absolute bottom-24 right-4 w-52 bg-gray-900/85 backdrop-blur-md border border-gray-600/50 rounded-xl shadow-2xl z-30 flex flex-col overflow-hidden transition-opacity duration-300 ${(isTheater || isFullscreen) ? 'block' : 'block lg:hidden'} ${showOverlayBid ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
           >
             {/* Uchwyt do przesuwania */}
             <div 
               onPointerDown={(e) => handlePointerDown(e, 'bid')} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
-              className="w-full h-7 bg-gray-800/80 flex items-center justify-center cursor-move touch-none border-b border-gray-700/50" title="Chwyć i przesuń"
+              className="w-full h-6 bg-gray-800/80 flex items-center justify-center cursor-move touch-none border-b border-gray-600/50" title="Chwyć i przesuń"
             >
-              <div className="w-10 h-1 bg-gray-500 rounded-full pointer-events-none"></div>
+              <div className="w-8 h-1 bg-gray-500 rounded-full pointer-events-none"></div>
             </div>
             
-            <div className="p-4">
-              <div className="flex justify-between items-center mb-2">
-                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Los Angeles Lakers</p>
-                {isWinning && <span className="text-[9px] bg-green-500/20 text-green-400 font-bold px-1.5 py-0.5 rounded animate-pulse border border-green-500/30">👑 PROWADZISZ</span>}
+            <div className="p-3">
+              <div className="flex justify-between items-center mb-1">
+                <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest">Los Angeles Lakers</p>
+                {isWinning && <span className="text-[8px] bg-green-500/20 text-green-400 font-bold px-1.5 py-0.5 rounded animate-pulse border border-green-500/30">👑 PROWADZISZ</span>}
               </div>
-              <p className={`text-3xl font-black mb-3 transition-colors ${isWinning ? 'text-green-400' : 'text-white'}`}>${currentPrice}</p>
               
-              <div className="flex gap-1.5 mb-3">
+              <div className="flex justify-between items-end mb-2 mt-1">
+                <span className="text-[9px] text-gray-400 uppercase font-bold tracking-widest pb-1">Aktualna cena:</span>
+                <span className={`text-2xl font-black tracking-tight transition-colors ${isWinning ? 'text-green-400' : 'text-white'}`}>${currentPrice}</span>
+              </div>
+              
+              <div className="flex gap-1 mb-2">
                 {[5, 10, 25].map(v => (
-                  <button key={v} onClick={() => setBidIncrement(v)} className={`flex-1 text-xs py-1.5 rounded-lg border font-bold transition ${bidIncrement === v ? 'bg-yellow-500 text-black border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-black/50 text-gray-400 border-gray-600 hover:bg-gray-800'}`}>
+                  <button key={v} onClick={() => setBidIncrement(v)} className={`flex-1 text-[10px] py-1 rounded-md border font-bold transition ${bidIncrement === v ? 'bg-yellow-500 text-black border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-black/50 text-gray-400 border-gray-600 hover:bg-gray-700'}`}>
                     +${v}
                   </button>
                 ))}
               </div>
               
-              <button onClick={handleBid} disabled={isWinning} className={`w-full py-2.5 rounded-lg font-black uppercase text-xs tracking-wider transition ${isWinning ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_15px_rgba(22,163,7,0.4)]'}`}>
+              <button onClick={handleBid} disabled={isWinning} className={`w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition ${isWinning ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_10px_rgba(22,163,7,0.4)]'}`}>
                 {isWinning ? 'Oczekiwanie...' : `Podbij o $${bidIncrement}`}
               </button>
             </div>
           </div>
 
-          {/* NOWY, PRZESUWALNY OVERLAY CZATU */}
+          {/*PRZESUWALNY OVERLAY CZATU */}
           <div 
             style={{ transform: `translate(${chatPos.x}px, ${chatPos.y}px)` }}
-            className={`absolute bottom-24 left-4 w-72 h-64 bg-gray-900/80 backdrop-blur-md border border-gray-700/50 rounded-xl flex flex-col shadow-2xl z-30 overflow-hidden transition-opacity duration-300 ${(isTheater || isFullscreen) ? 'block' : 'block lg:hidden'} ${showOverlayChat ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+            className={`absolute bottom-24 left-4 w-72 h-64 bg-gray-900/80 backdrop-blur-md border border-gray-700/50 rounded-xl flex flex-col shadow-2xl z-20 overflow-hidden transition-opacity duration-300 ${(isTheater || isFullscreen) ? 'block' : 'block lg:hidden'} ${showOverlayChat ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
           >
             {/* Uchwyt do przesuwania */}
             <div 
@@ -243,8 +259,6 @@ const [isTheater, setIsTheater] = useState(false);
               ))}
             </div>
           </div>
-          {/* ========================================= */}
-
           {/* KONTROLKI ODTWARZACZA Z PRZYCISKAMI WŁĄCZANIA PANELI */}
           <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-40 flex items-center justify-between">
             <div className="flex items-center gap-6">
@@ -261,7 +275,6 @@ const [isTheater, setIsTheater] = useState(false);
             </div>
 
             <div className="flex items-center gap-4">
-              {/* NOWE: PRZYCISKI DO WŁĄCZANIA NAKŁADEK (Widoczne tylko, gdy są aktywne Overlaye) */}
               {((isTheater || isFullscreen || window.innerWidth < 1024)) && (
                 <div className="flex items-center gap-3 border-r border-gray-700 pr-4 mr-1">
                   <button onClick={() => setShowOverlayChat(!showOverlayChat)} className={`transition tooltip-container relative group/btn ${showOverlayChat ? 'text-blue-500' : 'text-gray-400 hover:text-white'}`}>
@@ -277,11 +290,11 @@ const [isTheater, setIsTheater] = useState(false);
 
               <button onClick={() => setIsTheater(!isTheater)} className={`transition tooltip-container relative group/btn ${isTheater ? 'text-blue-500' : 'text-white hover:text-blue-400'}`}>
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 6h16v12H4z" /><path d="M8 6v12M16 6v12" /></svg>
-                <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition">Tryb Kinowy</span>
+                <span className="absolute -top-8 right-0 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition z-50">Tryb Kinowy</span>
               </button>
               <button onClick={toggleFullscreen} className="text-white hover:text-blue-400 transition tooltip-container relative group/btn">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-                <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition">Pełny Ekran</span>
+                <span className="absolute -top-8 right-0 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition z-50">Pełny Ekran</span>
               </button>
             </div>
           </div>
@@ -303,7 +316,6 @@ const [isTheater, setIsTheater] = useState(false);
               if (slot.status === 'opened') { bgStyle = "bg-gray-800/50"; borderStyle = "border-gray-800"; textStyle = "text-gray-600 line-through"; badge = <span className="text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg">✅ ZAKOŃCZONE</span>; } 
               else if (slot.status === 'queued') { borderStyle = "border-blue-500/50"; bgStyle = "bg-blue-900/20"; textStyle = "text-gray-200"; badge = <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">📦 W KOLEJCE</span>; } 
               else if (slot.status === 'active') { borderStyle = "border-yellow-500"; bgStyle = "bg-yellow-900/20"; textStyle = "text-yellow-400"; badge = <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg animate-pulse">🔥 TERAZ</span>; } 
-              // DODANY WARUNEK DLA UPCOMING (Brakowało go i sloty się psuły)
               else { badge = <span className="text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg">⏳ WKRÓTCE</span>; }
               
               return (
