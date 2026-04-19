@@ -3,8 +3,6 @@ import { useParams, Link } from 'react-router-dom';
 import Countdown from 'react-countdown';
 
 // --- BAZA DANYCH (Mock Data) ---
-// Przykładowe paczki kart do testowania interfejsu.
-// Docelowo te dane będą pobierane z backendu (np. bazy PostgreSQL) za pomocą biblioteki Axios.
 const mockProducts = [
   {
     id: "1",
@@ -34,7 +32,7 @@ const mockProducts = [
 ];
 
 export default function ProductDetail() {
-  // Pobieramy parametr 'id' z paska adresu (np. z /product/1 pobierze "1")
+  // Pobieramy parametr 'id' z paska adresu
   const { id } = useParams();
   
   // Szukamy odpowiedniego produktu w naszej testowej tablicy
@@ -49,7 +47,6 @@ export default function ProductDetail() {
 
   // --- EFEKTY (Side Effects) ---
   // Ten kod uruchamia się za każdym razem, gdy użytkownik wejdzie na nowy produkt.
-  // Gwarantuje to, że po przejściu z produktu A na produkt B, stany (np. cena) się zresetują.
   useEffect(() => {
     if (product) {
       setCurrentPrice(product.currentBid || product.price || 0);
@@ -94,7 +91,7 @@ export default function ProductDetail() {
   return (
     <div className="min-h-screen bg-gray-950 text-white p-4 md:p-8 font-sans">
       
-      {/* Przycisk powrotu (Nawigacja) */}
+      {/* Przycisk powrotu */}
       <Link to="/" className="text-gray-400 hover:text-white mb-8 inline-block transition">
         &larr; Wróć
       </Link>
