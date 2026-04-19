@@ -1,21 +1,32 @@
+
+# = Websocket controller, database state
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
+from auctions.permissions import Roles
+from auctions.managers import CustomUserManager
+
 class CardbidUser(AbstractUser):
     ROLE_CHOICES = (
-        ("buyer", "Kupujący"),
-        ("seller", "Sprzedający"),
-        ("streamer", "Streamer"),
-        ("admin", "Admin"),
+        (Roles.BUYER, "Kupujący"),
+        (Roles.SELLER, "Sprzedający"),
+        (Roles.STREAMER, "Streamer"),
+        (Roles.ADMIN, "Admin"),
     )
 
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="buyer")
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default=Roles.BUYER)
 
+    # Use custom manager for email field login
+    objects = CustomUserManager()
+
+    # email-only login
+    username = None
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["username"]
+    REQUIRED_FIELDS = []
 
     def __str__(self):
         return f"{self.email} ({self.role})"

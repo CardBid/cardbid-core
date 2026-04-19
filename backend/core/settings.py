@@ -1,6 +1,4 @@
 
-# [@] My additions are marked as [@]
-
 """
 Django settings for core project.
 
@@ -13,6 +11,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 import os
 
@@ -34,26 +33,31 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
-# [@] Required for djangah to not misidentify CardbidUser as User (spits out horrible errors!)
+# Required for djangah to not misidentify CardbidUser as User (spits out horrible errors!)
 AUTH_USER_MODEL = 'auctions.CardbidUser'
 
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
-    'django.contrib.sessions',
+    #'django.contrib.sessions', remove for JWT implementation
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # [@] Include the djangah database structure definition (../auctions/models.py)
+    # Include the djangah database structure definition (../auctions/models.py)
     'rest_framework',
     'corsheaders',
-    'auctions'
+    'auctions',
+    'users',
+    # for JWT
+    'rest_framework_simplejwt',
+    'channels'
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware', # Just for admin application
+    #'core.middleware.JWTAuthMiddleware',  # Custom middleware for JWT, dont put it here for some reason
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -143,11 +147,34 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+    # [@] User identification is done through JWT, so it is stateless (every request
+    # requires a token). It is the only authentication method.
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    # [@] Interaction with REST API is allowed only for authenticated users. In this
+    # JWT-auth-only context, to those who provide JWT token alongside the request.
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+        
+        # In the future, one would uncomment this permission check to allow only
+        # the admin role to receive JWT tokens. These does not apply in testing
+        # suite (api/token, api/token/refresh).
+        #'auctions.permissions.IsAdmin',
+    ],
+    # [@] Response to a request is in JSON format, but if accessed through a web browser
+    # it is HTML-ized to show the data more neatly.
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+}
+
+SIMPLE_JWT = {
+    # [@] User can use the same token for 15 min. after he refreshed it, to perform requests
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    # [@] With this token, user can refresh his access token but only for 7 days after the manual login
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    # [@] Authentication HTTP header prefix i.e. the header must be "Authorization: Bearer <access_token>"
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
