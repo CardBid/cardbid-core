@@ -1,0 +1,3 @@
+
+- check if things are understood correctly
+- refactor core/settings.py

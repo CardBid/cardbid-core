@@ -1,26 +1,38 @@
 
-# Handles websocket connections
+"""
+Provides class(es) allowing for the real-time WebSocket-based communication.
+For now there is only an auction consumer (i.e. user, the one experiencing) which
+is provided data by core.asgi module. 
+
+Provided by Whisper.
+"""
 
 from channels.generic.websocket import AsyncWebsocketConsumer
-import json
+from json                       import loads
+
 
 class AuctionConsumer(AsyncWebsocketConsumer):
 
-    # Runs when websocket connects
     async def connect(self):
+        """
+        Runs when connection opens.
+        """
         await self.accept()
 
-    # Runs when connection closes
     async def disconnect(self, close_code):
+        """
+        Runs when connection closes.
+        """
         pass
 
-    # Runs when client sends a message to us
     async def receive(self, text_data):
-        data = json.loads(text_data)
+        """
+        Runs when a client sends some data to us.
+        """
+        data = loads(text_data)
 
         await self.send(text_data=json.dumps({
-            "message": "received",
-            "data": data
+            "message":  "received",
+            "data":     data
         }))
-        
-    # There is also `send` method, which sends message back to client
+

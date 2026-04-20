@@ -45,3 +45,6 @@ $  user = User.objects.get(email="dawtwilun@plm.com")
 
 10. RBAC test - for now impossible, one has to have some view first
 
+11. Create super user (admin), so you can log into /admin control panel:
+$   docker compose exec backend python manage.py createsuperuser
+

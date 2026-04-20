@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
-    #'django.contrib.sessions', remove for JWT implementation
+    'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Include the djangah database structure definition (../auctions/models.py)

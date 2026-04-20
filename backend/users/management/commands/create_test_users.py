@@ -1,37 +1,29 @@
 
-from django.core.management.base import BaseCommand
-from django.contrib.auth import get_user_model
+"""
+Command of manage.py utility, which creates 4 example users with all available roles.
 
-from auctions.permissions import Roles
+Provided by Whisper.
+"""
+
+
+from auctions.permissions           import Roles
+from django.core.management.base    import BaseCommand
+from django.contrib.auth            import get_user_model
+
 
 User = get_user_model()
 
 class Command(BaseCommand):
+    
     def handle(self, *args, **kwargs):
-        User.objects.create_user(
-            email="dawtwilun@plm.com",
-            password="1234",
-            role=Roles.ADMIN
-        )
-        self.stdout.write("Created test user 'dawtwilun@plm.com' with password '1234' as ADMIN")
         
-        User.objects.create_user(
-            email="bonzo@alonzo.com",
-            password="1234",
-            role=Roles.BUYER
-        )
-        self.stdout.write("Created test user 'bonzo@alonzo.com' with password '1234' as BUYER")
+        creds = [
+            ("dawtwilun@plm.com",   "1234", Roles.ADMIN),
+            ("canter@tol.com",      "1234", Roles.BUYER),
+            ("sduolc@dale.com",     "1234", Roles.SELLER),
+            ("lun@gamin.com",       "1234", Roles.STREAMER),
+        ]
         
-        User.objects.create_user(
-            email="celinka@canter.com",
-            password="1234",
-            role=Roles.SELLER
-        )
-        self.stdout.write("Created test user 'celinka@canter.com' with password '1234' as SELLER")
-        
-        User.objects.create_user(
-            email="lun@gamin.com",
-            password="1234",
-            role=Roles.STREAMER
-        )
-        self.stdout.write("Created test user 'lun@gamin.com' with password '1234' as STREAMER")
+        for cred in creds:
+            user = User.objects.create_user(email=cred[0], password=cred[1], role=cred[2])
+            self.stdout.write(f"Created user {user} with password '{cred[1]}'")

@@ -1,30 +1,30 @@
+
 """
-ASGI config for core project.
+General request (HTTP, WebSocket, etc.) procesor.
 
-It exposes the ASGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/
+Provided by Whisper.
 """
 
-import os
+from channels.auth      import AuthMiddlewareStack
+from channels.routing   import ProtocolTypeRouter, URLRouter
+from core.middleware    import JWTAuthMiddleware
+from core.routing       import websocket_urlpatterns
+from django.core.asgi   import get_asgi_application
+from os                 import environ
 
-from django.core.asgi import get_asgi_application
-from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.auth import AuthMiddlewareStack
 
-from core.middleware import JWTAuthMiddleware
-from core.routing import websocket_urlpatterns
-
-# Tell where are the settings (settings.py file)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 
 application = ProtocolTypeRouter({
-    # Route http to application, nothing fancy
-    "http": get_asgi_application(),
-    # Route web sockets to JWT middleware, which will process them. Normally django
-    # does not know how to handle such web sockets, so we do it with our own script
-    "websocket": JWTAuthMiddleware(
+
+    # HTTP requests does not need any special care. It eventually ends up in some
+    # controller from auctions.views module.
+    "http":         get_asgi_application(),
+    
+    # Django does not know how to handle JWT web socket connection by default,
+    # so we provide our 'middleware' that makes the data django-like (includes user).
+    # It eventually ends up inside some controller from auctions.consumers module.
+    "websocket":    JWTAuthMiddleware(
         AuthMiddlewareStack(
             URLRouter(websocket_urlpatterns)
         )
