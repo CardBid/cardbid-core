@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-=d4bw6aqv$*g&wnzg47#3dr@--#wu3#^5cv(9nmk(=arf0vt8s
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -38,6 +38,7 @@ ALLOWED_HOSTS = []
 AUTH_USER_MODEL = 'auctions.CardbidUser'
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

@@ -28,6 +28,7 @@ services:
     command: daphne -b 0.0.0.0 -p 8000 core.asgi:application
     volumes:
       - ./backend:/app
+      - ./media:/app/media
     environment:
       - DB_HOST=db
       - DB_PORT=5432
