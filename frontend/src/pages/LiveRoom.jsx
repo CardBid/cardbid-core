@@ -9,7 +9,7 @@ const videoJsOptions = {
   fill: true,
   responsive: true,
   sources: [{
-    src: 'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
+    src: 'http://localhost:8888/live/index.m3u8',
     type: 'application/x-mpegURL'
   }]
 };
