@@ -44,7 +44,7 @@ class Command(BaseCommand):
 
         self.stdout.write("Tworzę losowych użytkowników...")
         users = []
-        
+
         for i in range(2):
             username = f"streamer_{i+1}"
             user = CardbidUser.objects.create_user(
@@ -63,7 +63,7 @@ class Command(BaseCommand):
                 is_live=True
             )
 
-        roles = ["buyer", "seller", "seller", "buyer", "seller", "streamer", "admin"]
+        roles = ["buyer", "seller", "seller", "buyer", "seller"]
 
         # najpierw tworzymy zwykłych userów
         for _ in range(15):
