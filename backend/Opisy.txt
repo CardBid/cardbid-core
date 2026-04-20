@@ -1,0 +1,50 @@
+mr_mime – Mr. Mime – Pokémon typu Psychic, specjalizujący się w efektach obronnych. Jego zdolności ograniczają obrażenia.
+genesect_ex – Genesect EX – potężny Pokémon EX typu Metal. Łączy wysokie obrażenia z możliwością korzystania ze specjalnych narzędzi.
+seismitoad – Seismitoad – Pokémon typu Water/Fighting z solidnym zapasem HP. Często blokuje używanie kart Item przez przeciwnika.
+magcargo – Magcargo – Pokémon typu Fire, ewolucja Slugmy. Słynie z ability pozwalających manipulować wierzchem talii.
+charmeleon – Charmeleon – forma pośrednia między Charmanderem a Charizardem, typ Fire. Przygotowuje pole pod wejście Charizarda.
+charizard – Charizard – kultowy Pokémon typu Fire z wysokim HP i bardzo silnymi atakami. Główny win-condition wielu talii.
+ponyta – Ponyta – podstawowy Pokémon typu Fire, szybki, choć niezbyt wytrzymały. Przydatny na starcie gry jako baza do ewolucji.
+pikachu – Pikachu – klasyczny Pokémon typu Lightning, maskotka serii. Oferuje szybkie, elastyczne ataki i dobre synergie.
+clefairy – Clefairy – Pokémon typu Psychic/Fairy, nastawiony na wsparcie. Często posiada zdolności związane z dobieraniem kart.
+dunsparce – Dunsparce – podstawowy Pokémon o użytecznych zdolnościach. Pozwala szybko wyciągać kolejne Pokémony na ławkę.
+miltank – Miltank – Pokémon typu Colorless z dobrą wytrzymałością. Jego ataki skalują się z liczbą ewolucji na ławce.
+bosss_orders – Boss’s Orders – karta Trenera (Supporter). Pozwala wybrać jednego z Pokémonów przeciwnika z ławki i przeciągnąć go na aktywną pozycję.
+basic_r_energy – Basic R Energy – podstawowa karta Energii typu Fire. Służy do zasilania ataków Pokémonów ognistych.
+steelix – Steelix – ciężki Pokémon typu Metal, ewolucja Onixa. Znany z bardzo wysokiego HP i efektów obniżających atak wroga.
+sudowoodo – Sudowoodo – Pokémon typu Fighting, udający drzewo. Ogranicza ławkę przeciwnika i spowalnia popularne archetypy.
+ludicolo – Ludicolo – Pokémon typu Water/Grass. Jego zdolności pozwalają dobrać dodatkowe karty lub zwiększyć siłę ataków.
+sacred_charm – Sacred Charm – karta Trenera (Tool). Redukuje otrzymywane obrażenia lub chroni nosiciela przed efektami ataków.
+tyrantrum – Tyrantrum – Pokémon typu Fighting/Dragon z agresywnym profilem. Zadaje bardzo wysokie obrażenia jako główny agresor.
+doublade – Doublade – Pokémon typu Metal/Ghost. Posiada ataki omijające redukcje obrażeń przeciwnika.
+sawsbuck – Sawsbuck – Pokémon typu Grass/Normal. Oferuje elastyczne ataki i zdolności wspierające, np. leczenie ławki.
+Caris_LeVert – Caris LeVert – dynamiczny obrońca z niesamowitym zasięgiem ramion.
+Damian_Lillard – Damian Lillard – "Dame Time", jeden z najlepszych strzelców za trzy w historii.
+Daniel_Gafford – Daniel Gafford – król bloków i efektownych wsadów pod koszem.
+Deandre_Ayton – Deandre Ayton – potężny środkowy, dominator strefy podkoszowej.
+Donovan_Clingan – Donovan Clingan – młody talent, nadzieja defensywy prosto z draftu.
+Giannis_Antetokounmpo – Giannis Antetokounmpo – "Greek Freak", dwukrotny MVP ligi NBA.
+Joel_Embiid – Joel Embiid – dominująca siła, mistrz gry tyłem do kosza i rzutów z półdystansu.
+Jordan_Clarkson – Jordan Clarkson – król punktów z ławki, niezwykle kreatywny strzelec.
+Kentavious_Caldwell-Pope – Kentavious Caldwell-Pope – mistrzowski obrońca i specjalista od rzutów za trzy.
+Marcus_Sasser – Marcus Sasser – młoda krew, szybki i celny rozgrywający.
+Paolo_Banchero – Paolo Banchero – debiutant roku, lider nowej generacji gwiazd.
+RJ_Barrett – RJ Barrett – wszechstronny skrzydłowy z kanadyjskim zacięciem.
+Saddiq_Bey – Saddiq Bey – silny skrzydłowy, gwarancja twardej walki o każdą piłkę.
+Tyrese_Maxey – Tyrese Maxey – jeden z najszybszych graczy w lidie, przyszłość All-Star.
+Victor_Wembanyama – Victor Wembanyama – fenomen warunków fizycznych i techniki, przyszłość NBA.
+Ayden_Heaven – Ayden Heaven – Młody talent Arsenalu, obrońca o świetnych warunkach fizycznych.
+Diego_Leon – Diego Leon – Paragwajski talent, bramkarz o ogromnym potencjale.
+Diogo_Dalot – Diogo Dalot – Dynamiczny boczny obrońca Manchesteru United.
+Evander – Evander – Brazylijski magik środka pola, gwiazda ligi MLS.
+Jules-Anthony_Vilsaint – Jules-Anthony Vilsaint – Szybki napastnik z Kanady, wschodząca gwiazda.
+Leny_Yoro – Leny_Yoro – Jeden z najbardziej utalentowanych środkowych obrońców młodego pokolenia.
+Lionel_Messi – Lionel Messi – Legenda futbolu, mistrz świata i wielokrotny zdobywca Złotej Piłki.
+Lisandro_Martinez – Lisandro Martinez – Argentyński rzeźnik z defensywy Manchesteru United.
+Luis_Suarez – Luis Suarez – El Pistolero, jeden z najlepszych napastników w historii piłki.
+Noah_Darvich – Noah Darvich – Niemiecki talent z akademii FC Barcelony, świetna technika.
+Patrick_Dorgu – Patrick Dorgu – Duński wahadłowy o niesamowitej wydolności.
+Rayan_Cherki – Rayan Cherki – Francuski drybler, talent czystej wody z Lyonu.
+Thierry_Henry – Thierry Henry – Ikona Arsenalu i reprezentacji Francji, karta z serii Legendy.
+Thomas_Aviles – Thomas Aviles – Młody argentyński obrońca grający u boku Messiego.
+Antonio_Sivera – Antonio Sivera – Solidny bramkarz, który zawsze zachowuje zimną krew w polu karnym.
