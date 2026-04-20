@@ -11,6 +11,8 @@ from django.core.management.base import BaseCommand
 from faker import Faker
 from auctions.models import CardbidUser, Card, Auction, Category, Bid, StreamRoom, AuctionSlot
 
+import shutil
+
 
 class Command(BaseCommand):
     help = "Generuje dane Faker + realne zdjęcia i opisy z pliku TXT"
@@ -42,25 +44,44 @@ class Command(BaseCommand):
         Category.objects.all().delete()
         CardbidUser.objects.filter(is_superuser=False).delete()
 
+        cards_dir = os.path.join(settings.MEDIA_ROOT, 'cards')
+        if os.path.exists(cards_dir):
+            shutil.rmtree(cards_dir)
+            self.stdout.write("Folder media/cards wyczyszczony.")
+
+        os.makedirs(cards_dir, exist_ok=True)
+
         self.stdout.write("Tworzę losowych użytkowników...")
         users = []
 
-        for i in range(2):
-            username = f"streamer_{i+1}"
-            user = CardbidUser.objects.create_user(
+        for i in range(1, 3):
+            username = f"streamer_{i}"
+            user, created = CardbidUser.objects.get_or_create(
                 username=username,
-                email=f"{username}@example.com",
-                password="Test1234!",
-                role="streamer",
-                first_name="Streamer",
-                last_name=str(i+1)
+                defaults={
+                    'email': f"{username}@example.com",
+                    'role': 'streamer',
+                    'first_name': 'Streamer',
+                    'last_name': str(i)
+                }
             )
+            
+            if created:
+                user.set_password("Test1234!")
+                user.save()
+                self.stdout.write(f"Stworzono nowego użytkownika: {username}")
+            else:
+                self.stdout.write(f"Użytkownik {username} już istnieje, pomijam tworzenie.")
+            
             users.append(user)
-            StreamRoom.objects.create(
+
+            StreamRoom.objects.update_or_create(
                 streamer=user,
-                title=f"Wielkie otwieranie kart u {username}",
-                stream_key=f"sb_{uuid.uuid4().hex[:8]}",
-                is_live=True
+                defaults={
+                    'title': f"Wielkie otwieranie kart u {username}",
+                    'stream_key': f"sb_{uuid.uuid4().hex[:8]}",
+                    'is_live': True
+                }
             )
 
         roles = ["buyer", "seller", "seller", "buyer", "seller"]
