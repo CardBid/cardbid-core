@@ -241,6 +241,7 @@ yarn-error.log*
 *.swo
 
 # --- CardBid Custom Ignores ---
+media/cards/
 
 backend/media/
 postgres_data/

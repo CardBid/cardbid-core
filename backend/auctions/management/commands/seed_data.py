@@ -1,16 +1,21 @@
+import os
+from django.conf import settings
 import random
 import unicodedata
 import uuid
 from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
+from django.core.files import File
 from django.core.management.base import BaseCommand
 from faker import Faker
 from auctions.models import CardbidUser, Card, Auction, Category, Bid, StreamRoom, AuctionSlot
 
+import shutil
+
 
 class Command(BaseCommand):
-    help = "Generuje losowe dane testowe przy użyciu Faker"
+    help = "Generuje dane Faker + realne zdjęcia i opisy z pliku TXT"
 
     def slugify_text(self, text):
         text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
@@ -19,6 +24,16 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         fake = Faker("pl_PL")
+        source_dir = os.path.join(settings.MEDIA_ROOT, 'source_images')
+        txt_path = os.path.join(settings.BASE_DIR, 'Opisy.txt')
+
+        if not os.path.exists(source_dir):
+            self.stdout.write(self.style.ERROR(f"BŁĄD: Folder {source_dir} nie istnieje!"))
+            return
+
+        if not os.path.exists(txt_path):
+            self.stdout.write(self.style.ERROR(f"BŁĄD: Brak pliku {txt_path}"))
+            return
 
         self.stdout.write("Usuwam stare dane testowe...")
         AuctionSlot.objects.all().delete()
@@ -29,9 +44,47 @@ class Command(BaseCommand):
         Category.objects.all().delete()
         CardbidUser.objects.filter(is_superuser=False).delete()
 
+        cards_dir = os.path.join(settings.MEDIA_ROOT, 'cards')
+        if os.path.exists(cards_dir):
+            shutil.rmtree(cards_dir)
+            self.stdout.write("Folder media/cards wyczyszczony.")
+
+        os.makedirs(cards_dir, exist_ok=True)
+
         self.stdout.write("Tworzę losowych użytkowników...")
         users = []
-        roles = ["buyer", "seller", "seller", "buyer", "seller", "streamer", "admin"]
+
+        for i in range(1, 3):
+            username = f"streamer_{i}"
+            user, created = CardbidUser.objects.get_or_create(
+                username=username,
+                defaults={
+                    'email': f"{username}@example.com",
+                    'role': 'streamer',
+                    'first_name': 'Streamer',
+                    'last_name': str(i)
+                }
+            )
+            
+            if created:
+                user.set_password("Test1234!")
+                user.save()
+                self.stdout.write(f"Stworzono nowego użytkownika: {username}")
+            else:
+                self.stdout.write(f"Użytkownik {username} już istnieje, pomijam tworzenie.")
+            
+            users.append(user)
+
+            StreamRoom.objects.update_or_create(
+                streamer=user,
+                defaults={
+                    'title': f"Wielkie otwieranie kart u {username}",
+                    'stream_key': f"sb_{uuid.uuid4().hex[:8]}",
+                    'is_live': True
+                }
+            )
+
+        roles = ["buyer", "seller", "seller", "buyer", "seller"]
 
         # najpierw tworzymy zwykłych userów
         for _ in range(15):
@@ -89,192 +142,112 @@ class Command(BaseCommand):
             buyers.append(fallback)
 
         self.stdout.write("Tworzę kategorie w bazie...")
-        cat_anime = Category.objects.create(name="Anime", slug="anime")
-        cat_sport = Category.objects.create(name="Sport", slug="sport")
-        cat_auto = Category.objects.create(name="Motoryzacja", slug="motoryzacja")
-        cat_gry = Category.objects.create(name="Gry Karciane", slug="gry-karciane")
+        cat_map = {
+            'pkmn': Category.objects.create(name='Pokémon', slug='pokemon'),
+            'nba': Category.objects.create(name='Koszykówka', slug='koszykowka'),
+            'fifa': Category.objects.create(name='Piłka Nożna', slug='pilka-nozna')
+        }
 
-        self.stdout.write("Tworzę losowe karty...")
+        with open(txt_path, 'r', encoding='utf-8') as f:
+            lines = [line.strip() for line in f.readlines() if " – " in line]
+        
+        desc_groups = {
+            'pkmn': lines[0:20],
+            'nba': lines[20:35],
+            'fifa': lines[35:50]
+        }
 
-        anime_cards = [
-            "Naruto Sage Mode",
-            "One Piece Gear 5 Luffy",
-            "Dragon Ball Ultra Instinct Goku",
-            "Attack on Titan Levi Ackerman",
-            "Demon Slayer Rengoku Flame",
-            "Jujutsu Kaisen Gojo Limitless",
-            "Bleach Bankai Ichigo",
-            "Chainsaw Man Denji Hybrid",
-        ]
+        all_files = []
+        for root, dirs, files in os.walk(source_dir):
+            for file in files:
+                if file.lower().endswith(('.jpg', '.png', '.jpeg')):
+                    all_files.append(os.path.join(root, file))
 
-        sport_cards = [
-            "NBA LeBron James Prizm",
-            "NBA Stephen Curry Mosaic",
-            "Football Lionel Messi Chrome",
-            "Football Cristiano Ronaldo Elite",
-            "F1 Max Verstappen Pole Position",
-            "NFL Patrick Mahomes Select",
-            "MLB Shohei Ohtani Diamond",
-            "UFC Conor McGregor Spotlight",
-        ]
-
-        auto_cards = [
-            "Nissan Skyline GT-R R34 Midnight",
-            "Toyota Supra MK4 Turbo",
-            "Mazda RX-7 Spirit R",
-            "Honda NSX Type R",
-            "BMW M3 GTR Street",
-            "Porsche 911 GT3 RS Track",
-            "Ferrari F40 Legend",
-            "Lamborghini Aventador SVJ Carbon",
-        ]
-
-        game_cards = [
-            "Pokemon Charizard VMAX",
-            "Pokemon Mewtwo EX",
-            "Yu-Gi-Oh Blue-Eyes White Dragon",
-            "Yu-Gi-Oh Dark Magician",
-            "Magic Black Lotus Vintage",
-            "Magic Jace the Mind Sculptor",
-            "Witcher Gwent Geralt Hero",
-            "Cyberpunk Johnny Silverhand Relic",
-        ]
-
-        all_cards = anime_cards + sport_cards + auto_cards + game_cards
-
-        category_map = {}
-        for c in anime_cards: category_map[c] = cat_anime
-        for c in sport_cards: category_map[c] = cat_sport
-        for c in auto_cards: category_map[c] = cat_auto
-        for c in game_cards: category_map[c] = cat_gry
-
-        rarity_levels = [
-            "Common",
-            "Uncommon",
-            "Rare",
-            "Epic",
-            "Legendary",
-            "Collector",
-            "Ultra Rare",
-        ]
-
-        description_tags = [
-            "edycja limitowana",
-            "stan kolekcjonerski",
-            "wysokie zainteresowanie na rynku",
-            "dobry egzemplarz do gradingu",
-            "rzadko spotykana karta",
-            "atrakcyjna pozycja dla kolekcjonera",
-            "wydanie premium",
-            "ceniony motyw wśród fanów",
-        ]
-
-        cards = []
-        used_names = set()
-
-        while len(cards) < 30:
-            base_name = random.choice(all_cards)
-            extra = random.choice(["Holo", "Full Art", "1st Edition", "Signed", "Gold", "Alt Art"])
-            card_name = f"{base_name} {extra}"
-
-            if card_name in used_names:
-                continue
-
-            used_names.add(card_name)
-
-            correct_category = category_map[base_name]
-
-            card = Card.objects.create(
-                name=card_name,
-                description=f"{fake.sentence(nb_words=10).rstrip('.')} - {random.choice(description_tags)}.",
-                category=correct_category,
-                grade=random.choice(rarity_levels),
-                certificate_number=f"CERT-{random.randint(10000, 99999)}",
-            )
-            cards.append(card)
-
-        self.stdout.write("Tworzę losowe aukcje i historię licytacji...")
-
-        statuses = ["active", "active", "ended", "ended", "cancelled"]
-        auction_types = ["bidding", "buy_now", "hybrid"]
+        img_groups = {
+            'pkmn': [f for f in all_files if "pokemon" in f.lower() or "pkmn" in f.lower()],
+            'nba': [f for f in all_files if "nba" in f.lower()],
+            'fifa': [f for f in all_files if "fifa" in f.lower() or "football" in f.lower() or "pilka" in f.lower()]
+        }
 
         all_auctions = []
 
-        for card in cards:
-            a_type = random.choice(auction_types)
-            status = random.choice(statuses)
-
-            start_date = timezone.now() - timedelta(days=random.randint(0, 5))
-            end_date = timezone.now() + timedelta(days=random.randint(1, 10)) if status == "active" else timezone.now() - timedelta(days=1)
-
-            base_price = Decimal(str(round(random.uniform(40, 7000), 2)))
-
-            if a_type == "buy_now":
-                sp = None
-                bnp = base_price
-                cp = base_price
-            elif a_type == "bidding":
-                sp = base_price
-                bnp = None
-                cp = sp
-            else: # hybrid
-                sp = base_price
-                bnp = base_price * Decimal('1.5')
-                cp = sp
-
-            auction = Auction.objects.create(
-                seller=random.choice(sellers),
-                card=card,
-                starting_price=sp,
-                current_price=cp,
-                buy_now_price=bnp,
-                auction_type=a_type,
-                status=status,
-                start_date=start_date,
-                end_date=end_date,
-            )
-
-            all_auctions.append(auction)
-
-            auction.clean()
-            auction.save()
-
-            if a_type in ["bidding", "hybrid"] and random.choice([True, False]):
-                num_bids = random.randint(1, 5)
-                current_bid_val = sp
-                winner = None
+        def process_group(descriptions, available_images, category, label):
+            count = 0
+            used_images = set()
+            
+            for desc in descriptions:
+                full_name_raw = desc.split(' – ')[0].strip().lower()
+                keyword = max(full_name_raw.replace('_', ' ').split(), key=len)
                 
-                for _ in range(num_bids):
-                    current_bid_val += Decimal(str(round(random.uniform(10, 200), 2)))
-                    bidder = random.choice(buyers)
+                matched_img = None
+                for img_path in available_images:
+                    if img_path not in used_images and keyword in os.path.basename(img_path).lower():
+                        matched_img = img_path
+                        used_images.add(img_path)
+                        break
+                
+                if not matched_img:
+                    for img_path in available_images:
+                        if img_path not in used_images:
+                            matched_img = img_path
+                            used_images.add(img_path)
+                            break
+                
+                if matched_img:
+                    display_name = desc.split(' – ')[0].replace('_', ' ')
+                    card = Card.objects.create(
+                        name=f"{display_name} #2026",
+                        description=desc,
+                        category=category,
+                        grade=random.choice(['PSA 10', 'PSA 9', 'BGS 9.5', 'Mint 9']),
+                        certificate_number=f"CERT-{random.randint(1000000, 9999999)}"
+                    )
                     
+                    with open(matched_img, 'rb') as f:
+                        card.image.save(os.path.basename(matched_img), File(f), save=True)
+
+                    chance = random.randint(1, 100)
+                    a_type = 'buy_now' if chance <= 40 else 'bidding'
+                    price = Decimal(str(random.randint(50, 2000)))
+
+                    auction = Auction.objects.create(
+                        card=card,
+                        seller=random.choice(sellers),
+                        auction_type=a_type,
+                        starting_price=price if a_type == 'bidding' else None,
+                        buy_now_price=price * Decimal('1.5') if a_type != 'bidding' else price * Decimal('2.0'),
+                        current_price=price if a_type == 'bidding' else price * Decimal('2.0'),
+                        status='active',
+                        start_date=timezone.now(),
+                        end_date=timezone.now() + timedelta(days=7)
+                    )
+                    all_auctions.append(auction)
+                    count += 1
+            return count
+
+        self.stdout.write("Generuję aukcje...")
+        process_group(desc_groups['pkmn'], img_groups['pkmn'], cat_map['pkmn'], "PKMN")
+        process_group(desc_groups['nba'], img_groups['nba'], cat_map['nba'], "NBA")
+        process_group(desc_groups['fifa'], img_groups['fifa'], cat_map['fifa'], "FIFA")
+
+        self.stdout.write("Generuję historię licytacji...")
+        for auction in all_auctions:
+            if auction.auction_type == 'bidding' and random.choice([True, False]):
+                for _ in range(random.randint(1, 5)):
+                    bidder = random.choice(buyers)
                     if bidder != auction.seller:
-                        Bid.objects.create(
-                            auction=auction,
-                            user=bidder,
-                            amount=current_bid_val
-                        )
-                        winner = bidder
-                        
-                auction.current_price = current_bid_val
-                if status == "ended" and winner:
-                    auction.winner = winner
-                auction.save()
+                        amount = auction.current_price + Decimal(random.randint(5, 50))
+                        Bid.objects.create(auction=auction, user=bidder, amount=amount)
+                        auction.current_price = amount
+                        auction.save()
 
-            elif a_type == "buy_now" and status == "ended":
-                auction.winner = random.choice(buyers)
-                auction.save()
-
-        self.stdout.write("Tworzę harmonogramy (AuctionSlots) dla streamerów...")
+        self.stdout.write("Ustawiam sloty u streamerów...")
         rooms = StreamRoom.objects.all()
         random.shuffle(all_auctions)
-
         for room in rooms:
             for i in range(1, 4):
                 if not all_auctions: break
-                
                 slot_status = 'FINISHED' if i == 1 else ('ACTIVE' if i == 2 else 'PENDING')
-                
                 AuctionSlot.objects.create(
                     room=room,
                     auction=all_auctions.pop(),
@@ -282,4 +255,4 @@ class Command(BaseCommand):
                     status=slot_status
                 )
 
-        self.stdout.write(self.style.SUCCESS("Gotowe! Wygenerowano lepsze losowe dane przez Faker."))
+        self.stdout.write(self.style.SUCCESS(f"Dane gotowe, użyto realnych zdjęć i opisów."))
