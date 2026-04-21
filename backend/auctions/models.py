@@ -41,13 +41,13 @@ class CardbidUser(AbstractUser):
 
     # Make django consider our email field as its username field, which is used as
     # login during authentication.
-    username        = None
+    username        = models.CharField(max_length=150, unique=True)
     USERNAME_FIELD  = "email"
-    REQUIRED_FIELDS = []
+    REQUIRED_FIELDS = ["username"]
 
     def __str__(self):
         # Do not include password, because it is a hash anyways ...
-        return f"CardbidUser(email={self.email}, role={self.role})"
+        return f"{self.username} ({self.email}) - role: {self.role}"
 
 
 class StreamRoom(models.Model):
@@ -152,20 +152,20 @@ class Auction(models.Model):
         Validate the model data.
         """
         
-        if self.auction_type == Type.BIDDING:
+        if self.auction_type == self.Type.BIDDING:
             if self.starting_price is None:
                 raise ValidationError("Licytacja musi mieć podaną cenę wywoławczą (starting_price).")
             self.buy_now_price = None
             if self.current_price is None or self.current_price == 0:
                 self.current_price = self.starting_price
         
-        elif self.auction_type == Type.BUY_NOW:
+        elif self.auction_type == self.Type.BUY_NOW:
             if self.buy_now_price is None:
                 raise ValidationError("Aukcja 'Kup Teraz' musi mieć podaną cenę buy_now_price.")
             self.starting_price = None
             self.current_price  = self.buy_now_price 
 
-        elif self.auction_type == Type.HYBRID:
+        elif self.auction_type == self.Type.HYBRID:
             if self.starting_price is None or self.buy_now_price is None:
                 raise ValidationError("Tryb hybrydowy wymaga podania ZARÓWNO ceny wywoławczej, jak i ceny Kup Teraz.")
             if self.buy_now_price <= self.starting_price:
