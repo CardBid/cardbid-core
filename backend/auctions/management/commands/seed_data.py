@@ -143,9 +143,9 @@ class Command(BaseCommand):
 
         self.stdout.write("Tworzę kategorie w bazie...")
         cat_map = {
-            'pkmn': Category.objects.create(name='Pokémon', slug='pokemon'),
-            'nba': Category.objects.create(name='Koszykówka', slug='koszykowka'),
-            'fifa': Category.objects.create(name='Piłka Nożna', slug='pilka-nozna')
+            'pkmn': Category.objects.get_or_create(name='Pokémon', defaults={'slug': 'pokemon'})[0],
+            'nba': Category.objects.get_or_create(name='Koszykówka', defaults={'slug': 'koszykowka'})[0],
+            'fifa': Category.objects.get_or_create(name='Piłka Nożna', defaults={'slug': 'pilka-nozna'})[0]
         }
 
         with open(txt_path, 'r', encoding='utf-8') as f:

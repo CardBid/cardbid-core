@@ -1,26 +1,22 @@
-"""
-URL configuration for core project.
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+Mapping of HTTP endpoints to 'views' i.e. request handlers, defined in auctions.views module.
+
+Provided by Whisper.
+"""
+
+from auctions.views import TokenObtainPairView, TokenRefreshView
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('admin/',              admin.site.urls),
+    path("api/token/",          TokenObtainPairView.as_view()),
+    path("api/token/refresh/",  TokenRefreshView.as_view()),
+
+    path("api/", include("auctions.urls")),
 ]
 
 if settings.DEBUG:

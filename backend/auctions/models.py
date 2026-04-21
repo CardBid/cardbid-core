@@ -1,99 +1,171 @@
-from django.db import models
+
+"""
+Database definition. The following tables (models) are defined:
+- CardbidUser   - The application user
+- StreamRoom    - Place where one can share her screen
+- Category      - Trading card category
+- Card          - Actual trading card
+- Auction       - Card trading process
+- Bid           - Some user's bid on some auction
+- AuctionSlot   - Binding of an auction to some stream room
+
+Provided by Whisper.
+"""
+
 from django.contrib.auth.models import AbstractUser
-from django.utils import timezone
-from django.core.exceptions import ValidationError
+from django.core.exceptions     import ValidationError
+from django.db                  import models
+from django.utils               import timezone
+
+from auctions.managers      import CardbidUserManager
+from auctions.permissions   import Roles
+
 
 class CardbidUser(AbstractUser):
+    
+    DEFAULT_ROLE = Roles.BUYER
+    
     ROLE_CHOICES = (
-        ("buyer", "Kupujący"),
-        ("seller", "Sprzedający"),
-        ("streamer", "Streamer"),
-        ("admin", "Admin"),
+        (Roles.ADMIN,       "Admin"),
+        (Roles.BUYER,       "Kupujący"),
+        (Roles.SELLER,      "Sprzedający"),
+        (Roles.STREAMER,    "Streamer"),
     )
 
-    email = models.EmailField(unique=True)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="buyer")
+    email   = models.EmailField(unique=True)
+    # password field is implicitly created by django ...
+    role    = models.CharField(max_length=10, choices=ROLE_CHOICES, default=DEFAULT_ROLE)
 
-    USERNAME_FIELD = "email"
+    # Replace default user manager with the cardbid one
+    objects = CardbidUserManager()
+
+    # Make django consider our email field as its username field, which is used as
+    # login during authentication.
+    username        = models.CharField(max_length=150, unique=True)
+    USERNAME_FIELD  = "email"
     REQUIRED_FIELDS = ["username"]
 
     def __str__(self):
-        return f"{self.email} ({self.role})"
+        # Do not include password, because it is a hash anyways ...
+        return f"{self.username} ({self.email}) - role: {self.role}"
+
 
 class StreamRoom(models.Model):
-    streamer = models.OneToOneField(CardbidUser, on_delete=models.CASCADE, related_name="stream_room")
-    title = models.CharField(max_length=100, default="Licytacje na żywo")
-    stream_key = models.CharField(max_length=100, unique=True, blank=True, null=True, help_text="Unikalny klucz do serwera")
-    is_live = models.BooleanField(default=False)
+    
+    is_live     = models.BooleanField(default=False)
+    
+    # 'related_name' usage: when you have a CardbidUser 'U', you can access all stream
+    # rooms related to her using format <U>.<related_name>.all()
+    streamer    = models.OneToOneField(CardbidUser, on_delete=models.CASCADE, related_name="stream_rooms")
+    
+    stream_key  = models.CharField(max_length=100, unique=True, blank=True, null=True, help_text="Unikalny klucz do serwera")
+    title       = models.CharField(max_length=100, default="Licytacje na żywo")
 
     def __str__(self):
-        status = "LIVE" if self.is_live else "OFFLINE"
-        return f"[{status}] Pokój: {self.streamer.username}"
+        return f"StreamRoom(is_live={self.is_live}, streamer={self.streamer}, stream_key={self.stream_key}, title={self.title})"
+
 
 class Category(models.Model):
+    
+    class Meta:
+        verbose_name_plural = "Categories"  # Plural form of the model used in admin panel
+    
     name = models.CharField(max_length=50)
+    
+    # URL-friendly string uniquely identifying the category, e.g.:
+    # https://polc.lpm/blog/complete-basics -> slug is 'complete-basics'
     slug = models.SlugField(max_length=50, unique=True)
 
-    class Meta:
-        verbose_name_plural = "Categories"
-
     def __str__(self):
-        return self.name
+        return f"Category(name={self.name}, slug={self.slug})"
+
 
 class Card(models.Model):
-    name = models.CharField(max_length=100)
-    description = models.TextField()
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name="cards")
-    grade = models.CharField(max_length=20)
-    certificate_number = models.CharField(max_length=50, blank=True)
-    image = models.ImageField(upload_to="cards/", null=True, blank=True)
+    
+    # This path is relative to 'MEDIA_ROOT' defined in core/settings.py
+    CARD_IMAGES_DIR = "cards/"
+    
+    # So you can access all cards in a Category 'C' like: C.cards.all()
+    category            = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name="cards")
+    
+    certificate_number  = models.CharField(max_length=50, blank=True)
+    description         = models.TextField()
+    grade               = models.CharField(max_length=20)
+    image               = models.ImageField(upload_to=CARD_IMAGES_DIR, null=True, blank=True)
+    name                = models.CharField(max_length=100)
 
     def __str__(self):
-        cert = self.certificate_number if self.certificate_number else "brak certyfikatu"
-        return f"{self.name} - {self.grade} - {cert}"
+        return f"Card(category={self.category}, certificate_number={self.certificate_number}, description={self.description}, grade={self.grade}, image={self.image}, name={self.name})"
+
 
 class Auction(models.Model):
+    
+    class Status:
+        ACTIVE      = "active"
+        CANCELLED   = "cancelled"
+        ENDED       = "ended"
+        
+    class Type:
+        BIDDING = "bidding"
+        BUY_NOW = "buy_now"
+        HYBRID  = "hybrid"
+    
+    DEFAULT_STATUS = Status.ACTIVE
+    
     STATUS_CHOICES = (
-        ("active", "Aktywna"),
-        ("ended", "Zakończona"),
-        ("cancelled", "Anulowana"),
+        (Status.ACTIVE,     "Aktywna"),
+        (Status.CANCELLED,  "Anulowana"),
+        (Status.ENDED,      "Zakończona"),
     )
+    
+    DEFAULT_TYPE = Type.BIDDING;
 
     TYPE_CHOICES = (
-        ("bidding", "Tylko Licytacja"),
-        ("buy_now", "Tylko Kup Teraz"),
-        ("hybrid", "Licytacja + Kup Teraz"),
+        (Type.BIDDING,  "Tylko Licytacja"),
+        (Type.BUY_NOW,  "Tylko Kup Teraz"),
+        (Type.HYBRID,   "Licytacja + Kup Teraz"),
     )
 
-    seller = models.ForeignKey(CardbidUser, on_delete=models.CASCADE, related_name="auctions_selling")
-    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="auctions")
-    auction_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default="bidding")
+    # So you can access all auctions for sale of CardbidUser 'U' like: U.auctions_selling.all()
+    seller          = models.ForeignKey(CardbidUser, on_delete=models.CASCADE, related_name="auctions_selling")
+    
+    # So you can access all auctions including Card 'C' like: C.auctions.all()
+    card            = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="auctions")
+    
+    auction_type    = models.CharField(max_length=10, choices=TYPE_CHOICES, default=DEFAULT_TYPE)
+    starting_price  = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    current_price   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
+    buy_now_price   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    start_date      = models.DateTimeField(default=timezone.now)
+    end_date        = models.DateTimeField(default=timezone.now)
+    status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default=DEFAULT_STATUS)
+    
+    # So you can access all auctions won by CardbidUser 'U' like: U.auctions_won.all()
+    winner          = models.ForeignKey('CardbidUser', on_delete=models.SET_NULL, null=True, blank=True, related_name="auctions_won")
 
-    starting_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    current_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
-    buy_now_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-
-    start_date = models.DateTimeField(default=timezone.now)
-    end_date = models.DateTimeField(default=timezone.now)
-
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
-    winner = models.ForeignKey('CardbidUser', on_delete=models.SET_NULL, null=True, blank=True, related_name="auctions_won")
+    def __str__(self):
+        return f"Auction(seller={self.seller}, card={self.card}, auction_type={self.auction_type}, starting_price={self.starting_price}, current_price={self.current_price}, \
+        buy_now_price={self.buy_now_price}, start_date={self.start_date}, end_date={self.end_date}, status={self.status}, winner={self.winner})"
 
     def clean(self):
-        if self.auction_type == "buy_now":
-            if self.buy_now_price is None:
-                raise ValidationError("Aukcja 'Kup Teraz' musi mieć podaną cenę buy_now_price.")
-            self.starting_price = None
-            self.current_price = self.buy_now_price 
-
-        elif self.auction_type == "bidding":
+        """
+        Validate the model data.
+        """
+        
+        if self.auction_type == self.Type.BIDDING:
             if self.starting_price is None:
                 raise ValidationError("Licytacja musi mieć podaną cenę wywoławczą (starting_price).")
             self.buy_now_price = None
             if self.current_price is None or self.current_price == 0:
                 self.current_price = self.starting_price
+        
+        elif self.auction_type == self.Type.BUY_NOW:
+            if self.buy_now_price is None:
+                raise ValidationError("Aukcja 'Kup Teraz' musi mieć podaną cenę buy_now_price.")
+            self.starting_price = None
+            self.current_price  = self.buy_now_price 
 
-        elif self.auction_type == "hybrid":
+        elif self.auction_type == self.Type.HYBRID:
             if self.starting_price is None or self.buy_now_price is None:
                 raise ValidationError("Tryb hybrydowy wymaga podania ZARÓWNO ceny wywoławczej, jak i ceny Kup Teraz.")
             if self.buy_now_price <= self.starting_price:
@@ -102,38 +174,58 @@ class Auction(models.Model):
                 self.current_price = self.starting_price
 
     def save(self, *args, **kwargs):
+        """
+        Commit the model to the database.
+        """
+        
+        # Before doing so, validate it using our method
         self.clean()
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        return f"{self.card.name} | {self.seller.email} | {self.current_price} PLN | [{self.get_auction_type_display()}] | {self.get_status_display()}"
 
 class Bid(models.Model):
-    auction = models.ForeignKey(Auction, on_delete=models.CASCADE, related_name="bids")
-    user = models.ForeignKey(CardbidUser, on_delete=models.CASCADE, related_name="bids_placed")
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    created_at = models.DateTimeField(auto_now_add=True)
-
+    
     class Meta:
-        ordering = ["-amount"]
+        ordering = ["-amount"]  # = ORDER BY amount DESC
+    
+    amount      = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # So you can access all bids including Auction 'A' like: A.bids.all()
+    auction     = models.ForeignKey(Auction, on_delete=models.CASCADE, related_name="bids")
+    
+    created_at  = models.DateTimeField(auto_now_add=True)
+    
+    # So you can access all bids placed by CardbidUser 'U' like: U.bids_placed.all()
+    user        = models.ForeignKey(CardbidUser, on_delete=models.CASCADE, related_name="bids_placed")
 
     def __str__(self):
-        return f"{self.user.email} | {self.amount} PLN | {self.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
+        return f"Bid(amount={self.amount}, auction={self.auction}, created_at={self.created_at}, user={self.user})"
+
 
 class AuctionSlot(models.Model):
+    
+    class Meta:
+        ordering = ['order']  # ORDER BY order ASC
+    
+    class Status:
+        ACTIVE      = "active"
+        FINISHED    = "finished"
+        PENDING     = "pending"
+    
     STATUS_CHOICES = [
-        ('PENDING', 'W kolejce'),
-        ('ACTIVE', 'Teraz'),
-        ('FINISHED', 'Zakończone'),
+        (Status.ACTIVE,     'Teraz'),
+        (Status.FINISHED,   'Zakończone'),
+        (Status.PENDING,    'W kolejce'),
     ]
 
-    room = models.ForeignKey(StreamRoom, on_delete=models.CASCADE, related_name="slots")
     auction = models.OneToOneField('Auction', on_delete=models.CASCADE)
-    order = models.PositiveIntegerField(help_text="Numer slotu (np. 1, 2, 3...)")
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
-
-    class Meta:
-        ordering = ['order']
+    order   = models.PositiveIntegerField(help_text="Numer slotu (np. 1, 2, 3...)")
+    
+    # So you can access all auction slots in StreamRoom 'SR' like: SR.slots.all()
+    room    = models.ForeignKey(StreamRoom, on_delete=models.CASCADE, related_name="slots")
+    
+    status  = models.CharField(max_length=10, choices=STATUS_CHOICES, default=Status.PENDING)
 
     def __str__(self):
-        return f"Slot #{self.order}: {self.auction.card.name} ({self.get_status_display()})"
+        return f"AuctionSlot(auction={self.auction}, order={self.order}, room={self.room}, status={self.status})"
+
