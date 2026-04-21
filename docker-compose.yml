@@ -25,8 +25,10 @@ services:
   backend:
     build: ./backend
     container_name: cardbid_backend
+    command: daphne -b 0.0.0.0 -p 8000 core.asgi:application
     volumes:
       - ./backend:/app
+      - ./media:/app/media
     environment:
       - DB_HOST=db
       - DB_PORT=5432
@@ -55,6 +57,16 @@ services:
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: cardbid_mediamtx
+    ports:
+      - "1935:1935" # RTMP (OBS)
+      - "8888:8888" # HLS (wyjście Frontend)
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml
+    restart: unless-stopped
 
 volumes:
   postgres_data:

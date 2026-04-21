@@ -10,7 +10,7 @@ from pathlib    import Path
 import os
 
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 AUTH_USER_MODEL = 'auctions.CardbidUser'
 
@@ -23,6 +23,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Github project directory with trailing slash included, use it like: BASE_DIR / 'subdir'
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+# Database
+# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
     'default': {
@@ -39,6 +43,7 @@ DATABASES = {
 DEBUG = True
 
 INSTALLED_APPS = [
+    'daphne',
     'auctions',
     'channels',
     'django.contrib.admin',
@@ -47,6 +52,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',      # required for admin UI
     'django.contrib.sessions',      # required for admin login
     'django.contrib.staticfiles',
+    'corsheaders',
     'users',
     'rest_framework',               # API
     'rest_framework_simplejwt',     # JWT authentication
@@ -59,7 +65,11 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+
     'django.middleware.security.SecurityMiddleware',
+
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     
     'django.contrib.sessions.middleware.SessionMiddleware',
     
@@ -108,6 +118,15 @@ SIMPLE_JWT = {
 }
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 TEMPLATES = [
     {
@@ -128,3 +147,18 @@ TEMPLATES = [
 TIME_ZONE = 'UTC'
 
 WSGI_APPLICATION = 'core.wsgi.application'
+ASGI_APPLICATION = 'core.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [
+                (
+                    os.environ.get("REDIS_HOST", "localhost"),
+                    int(os.environ.get("REDIS_PORT", 6379)),
+                )
+            ],
+        },
+    },
+}
