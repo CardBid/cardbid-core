@@ -1,9 +1,8 @@
 from django.urls import path
-from .views import MyTokenObtainPairView, TokenRefreshView, StreamerTestView
+from .views import PSAVerifyView, StreamerTestView
 
 urlpatterns = [
-    path("token/",          MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("token/refresh/",  TokenRefreshView.as_view(), name="token_refresh"),
+    path('v1/psa-verify/', PSAVerifyView.as_view(), name='psa-verify'),
 
     path('test-streamer/', StreamerTestView.as_view(), name='test_streamer'),
 

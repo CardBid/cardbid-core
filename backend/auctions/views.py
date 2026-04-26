@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework.permissions import AllowAny
 
 from .permissions import IsStreamer
 
@@ -49,6 +50,7 @@ class PSAVerifyView(APIView):
     - Poprawny numer → 200 OK z danymi karty
     - Niepoprawny numer → 404 Not Found
     """
+    permission_classes = [AllowAny]
 
     def get(self, request):
         cert_number = request.query_params.get("cert_number", "").strip()
