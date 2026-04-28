@@ -1,12 +1,14 @@
 import random
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import generics, permissions, status
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .permissions import IsStreamer
+from .models import Card, Category, Auction, CardbidUser
+from .serializers import CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer
 
 from .utils import calculate_fees
 from decimal import Decimal
@@ -114,3 +116,72 @@ class TopUpBalanceView(APIView):
             })
         except Exception as e:
             return Response({"error": "Invalid amount"}, status=400)
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+class CardListCreateView(generics.ListCreateAPIView):
+    serializer_class = CardSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Card.objects.filter(id__in=self.request.user.auctions_selling.values_list('card_id', flat=True)) | Card.objects.all() 
+    
+    def perform_create(self, serializer):
+        serializer.save()
+
+class CategoryListView(generics.ListAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = [permissions.AllowAny]
+
+class AuctionListCreateView(generics.ListCreateAPIView):
+    queryset = Auction.objects.filter(status='active')
+    serializer_class = AuctionSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def perform_create(self, serializer):
+        serializer.save(seller=self.request.user)
+
+class AuctionDetailView(generics.RetrieveAPIView):
+    queryset = Auction.objects.all()
+    serializer_class = AuctionSerializer
+
+class PlaceBidView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            auction = Auction.objects.get(pk=pk, status='active')
+            bid_amount = Decimal(request.data.get('amount'))
+        except Auction.DoesNotExist:
+            return Response({"error": "Auction does not exist or is closed."}, status=404)
+        except (TypeError, ValueError):
+            return Response({"error": "Invalid bid amount."}, status=400)
+
+        if bid_amount <= auction.current_price:
+            return Response({"error": f"You must bid more than {auction.current_price}"}, status=400)
+
+        fees = calculate_fees(bid_amount, request.user)
+        total_cost = fees['total_cost']
+
+        if request.user.balance < total_cost:
+            return Response({
+                "error": "Insufficient funds in account (including taxes and duties).",
+                "required_total": total_cost,
+                "current_balance": request.user.balance
+            }, status=400)
+
+        auction.current_price = bid_amount
+        auction.winner = request.user
+        auction.save()
+
+        return Response({
+            "message": "Bid accepted!",
+            "new_price": auction.current_price,
+            "total_cost_with_tax": total_cost
+        })
