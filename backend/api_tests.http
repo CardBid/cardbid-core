@@ -9,8 +9,7 @@ Content-Type: application/json
 }
 
 ###
-
 ### 2. TEST UPRAWNIEŃ (Jako Streamer)
 # SKOPIUJ 'access' z odpowiedzi powyżej i WKLEJ go zamiast <TWOJ_TOKEN>
-GET http://localhost:8000/api/test-streamer/
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc2Nzc0ODM0LCJpYXQiOjE3NzY3NzM5MzQsImp0aSI6IjZjMTQ2NWQ0OTUwODRhOGFiYTI0MWY1ZWRhYzFjMzdlIiwidXNlcl9pZCI6MTksInJvbGUiOiJzdHJlYW1lciIsInVzZXJuYW1lIjoic3RyZWFtZXJfMSJ9.kBw992Lwbu6TovEutpupNAohHieLkqOuxhGbz_z_C9Q
+GET http://localhost:8000/api/tax-calc/?amount=100
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc3Mzg5NDY3LCJpYXQiOjE3NzczODg1NjcsImp0aSI6IjhiMjY5ZDgyYTJiMDQwMDU4NmQ2ZGVkN2UzZDUwNDliIiwidXNlcl9pZCI6MSwicm9sZSI6InN0cmVhbWVyIiwidXNlcm5hbWUiOiJzdHJlYW1lcl8xIn0.Bnd53cLkNFr3FNgEQQexI31dhcfxgQdMlP7byYRhYzs

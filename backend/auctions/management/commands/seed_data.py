@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.core.files import File
 from django.core.management.base import BaseCommand
 from faker import Faker
-from auctions.models import CardbidUser, Card, Auction, Category, Bid, StreamRoom, AuctionSlot
+from auctions.models import CardbidUser, Card, Auction, Category, Bid, StreamRoom, AuctionSlot, Country, State
 
 import shutil
 
@@ -50,6 +50,25 @@ class Command(BaseCommand):
             self.stdout.write("Folder media/cards wyczyszczony.")
 
         os.makedirs(cards_dir, exist_ok=True)
+
+        self.stdout.write("Tworzę kraje i stany...")
+        poland, _ = Country.objects.get_or_create(
+            code="PL", 
+            defaults={'name': 'Poland', 'default_vat': Decimal('0.23'), 'has_states': False}
+        )
+        usa, _ = Country.objects.get_or_create(
+            code="US", 
+            defaults={'name': 'USA', 'default_vat': Decimal('0.00'), 'has_states': True, 'duty_rate': Decimal('0.05')}
+        )
+        states_data = [
+            {'name': 'California', 'code': 'CA', 'tax_rate': Decimal('0.08')},
+            {'name': 'New York', 'code': 'NY', 'tax_rate': Decimal('0.04')},
+            {'name': 'Texas', 'code': 'TX', 'tax_rate': Decimal('0.06')},
+        ]
+        all_states = []
+        for s in states_data:
+            state_obj, _ = State.objects.get_or_create(country=usa, code=s['code'], defaults={'name': s['name'], 'tax_rate': s['tax_rate']})
+            all_states.append(state_obj)
 
         self.stdout.write("Tworzę losowych użytkowników...")
         users = []
@@ -98,6 +117,9 @@ class Command(BaseCommand):
             email = f"{first_part}.{last_part}{number}@example.com"
             role = random.choice(roles)
 
+            user_country = random.choice([poland, usa])
+            user_state = random.choice(all_states) if user_country.has_states else None
+
             user = CardbidUser.objects.create_user(
                 username=username,
                 email=email,
@@ -105,6 +127,11 @@ class Command(BaseCommand):
                 role=role,
                 first_name=first_name,
                 last_name=last_name,
+                # --- NOWE POLA ---
+                country=user_country,
+                state=user_state,
+                balance=Decimal(random.randint(500, 5000)),
+                shipping_address=fake.address()
             )
             users.append(user)
 
