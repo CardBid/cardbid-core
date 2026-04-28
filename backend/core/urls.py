@@ -9,13 +9,14 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from auctions.views import TokenObtainPairView, TokenRefreshView
+from auctions.views import RegisterView, MyTokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     
-    path("api/token/", TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path("api/token/refresh/", TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/register/', RegisterView.as_view(), name='auth_register'),
+    path('auth/login/', MyTokenObtainPairView.as_view(), name='auth_login'),
+    path('auth/refresh/', TokenRefreshView.as_view(), name='auth_refresh'),
 
     path("api/", include("auctions.urls")),
 ]

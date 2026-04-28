@@ -8,7 +8,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .permissions import IsStreamer
 from .models import Card, Category, Auction, CardbidUser
-from .serializers import CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer
+from .serializers import CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer, RegisterSerializer
 
 from .utils import calculate_fees
 from decimal import Decimal
@@ -185,3 +185,21 @@ class PlaceBidView(APIView):
             "new_price": auction.current_price,
             "total_cost_with_tax": total_cost
         })
+
+class RegisterView(generics.CreateAPIView):
+    queryset = CardbidUser.objects.all()
+    permission_classes = [permissions.AllowAny]
+    serializer_class = RegisterSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response({
+            "message": "User registered successfully.",
+            "user": {
+                "username": user.username,
+                "email": user.email,
+                "role": user.role
+            }
+        }, status=status.HTTP_201_CREATED)

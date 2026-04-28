@@ -11,9 +11,18 @@ Content-Type: application/json
 ###
 ### 2. TEST UPRAWNIEŃ (Jako Streamer)
 # SKOPIUJ 'access' z odpowiedzi powyżej i WKLEJ go zamiast <TWOJ_TOKEN>
-GET http://localhost:8000/api/tax-calc/?amount=100
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc3MzkzNDEzLCJpYXQiOjE3NzczOTI1MTMsImp0aSI6ImRiNWI3NjI1YzhjZjRhMmM4ZmVjNDk5YjNmYTI4NDU2IiwidXNlcl9pZCI6MTksInJvbGUiOiJzdHJlYW1lciIsInVzZXJuYW1lIjoic3RyZWFtZXJfMSJ9.yxsK6ZoGc6zouQK3ZgwwuoUcGEPF3CH0-2tIOFWvvxw
+POST http://localhost:8000/auth/register/
+Content-Type: application/json
 
-### 3. Test aukcji
+{
+    "username": "tester_nowy_1",
+    "email": "test@test.pl",
+    "password": "Haslo12345!",
+    "password_confirm": "Haslo12345!",
+    "country": 1,
+    "role": "buyer"
+}
+
+### 3. Test
 GET http://localhost:8000/api/auctions/
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc3MzkzNDEzLCJpYXQiOjE3NzczOTI1MTMsImp0aSI6ImRiNWI3NjI1YzhjZjRhMmM4ZmVjNDk5YjNmYTI4NDU2IiwidXNlcl9pZCI6MTksInJvbGUiOiJzdHJlYW1lciIsInVzZXJuYW1lIjoic3RyZWFtZXJfMSJ9.yxsK6ZoGc6zouQK3ZgwwuoUcGEPF3CH0-2tIOFWvvxw

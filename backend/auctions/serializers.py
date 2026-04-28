@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import CardbidUser, Card, Category, Auction, Bid, Country, State
+from django.contrib.auth.hashers import make_password
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -31,3 +32,38 @@ class AuctionSerializer(serializers.ModelSerializer):
             'buy_now_price', 'start_date', 'end_date', 'status', 'winner'
         ]
         read_only_fields = ['current_price', 'winner', 'status']
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+    password_confirm = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = CardbidUser
+        fields = [
+            'username', 'email', 'password', 'password_confirm', 
+            'role', 'country', 'state', 'shipping_address'
+        ]
+
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError({"password": "Passwords do not match."})
+        
+        country = attrs.get('country')
+        state = attrs.get('state')
+
+        if country and country.name == "USA" and not state:
+            raise serializers.ValidationError({"state": "For USA, selecting a state is required for tax calculation."})
+        
+        if state and state.country != country:
+            raise serializers.ValidationError({"state": f"State {state.name} does not belong to country {country.name}."})
+
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop('password_confirm')
+        validated_data['password'] = make_password(validated_data['password'])
+        
+        if 'role' not in validated_data:
+            validated_data['role'] = 'bidder'
+            
+        return super().create(validated_data)
