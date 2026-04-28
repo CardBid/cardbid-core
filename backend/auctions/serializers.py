@@ -23,13 +23,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class AuctionSerializer(serializers.ModelSerializer):
     card_details = CardSerializer(source='card', read_only=True)
     seller_name = serializers.ReadOnlyField(source='seller.username')
+    winner_name = serializers.ReadOnlyField(source='winner.username')
 
     class Meta:
         model = Auction
         fields = [
             'id', 'seller', 'seller_name', 'card', 'card_details', 
             'auction_type', 'starting_price', 'current_price', 
-            'buy_now_price', 'start_date', 'end_date', 'status', 'winner'
+            'buy_now_price', 'start_date', 'end_date', 'status', 'winner', 'winner_name'
         ]
         read_only_fields = ['current_price', 'winner', 'status']
 

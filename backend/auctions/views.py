@@ -203,3 +203,16 @@ class RegisterView(generics.CreateAPIView):
                 "role": user.role
             }
         }, status=status.HTTP_201_CREATED)
+
+class UserInventoryView(generics.ListAPIView):
+    serializer_class = AuctionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Auction.objects.filter(winner=self.request.user, status='finished')
+
+class UserActiveBidsView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Auction.objects.filter(winner=self.request.user, status='active')

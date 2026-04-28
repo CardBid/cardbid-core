@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     PSAVerifyView, StreamerTestView, TaxCalculatorView, 
     TopUpBalanceView, UserProfileView, CardListCreateView,
-    CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView
+    CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView, UserInventoryView, UserActiveBidsView
 )
 
 urlpatterns = [
@@ -18,6 +18,10 @@ urlpatterns = [
     # --- CARDS ---
     path('cards/', CardListCreateView.as_view(), name='card-list'), 
     path('categories/', CategoryListView.as_view(), name='category-list'),
+
+    # --- USER DASHBOARD ---
+    path('user/inventory/', UserInventoryView.as_view(), name='user_inventory'),
+    path('user/active-bids/', UserActiveBidsView.as_view(), name='user_active_bids'),
 
     # --- AUCTIONS ---
     path('auctions/', AuctionListCreateView.as_view(), name='auction-list'),
