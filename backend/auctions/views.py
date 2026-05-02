@@ -15,6 +15,7 @@ from .serializers import (
     StateSerializer, CountrySerializer
 )
 
+from django.db import transaction
 from .utils import calculate_fees
 from decimal import Decimal
 
@@ -167,35 +168,53 @@ class PlaceBidView(APIView):
 
     def post(self, request, pk):
         try:
-            auction = Auction.objects.get(pk=pk, status='active')
-            bid_amount = Decimal(request.data.get('amount'))
-        except Auction.DoesNotExist:
-            return Response({"error": "Auction does not exist or is closed."}, status=404)
-        except (TypeError, ValueError):
-            return Response({"error": "Invalid bid amount."}, status=400)
+            with transaction.atomic():
+                try:
+                    auction = Auction.objects.select_for_update().get(pk=pk, status='active')
+                except Auction.DoesNotExist:
+                    return Response({"error": "Auction does not exist or is closed."}, status=404)
 
-        if bid_amount <= auction.current_price:
-            return Response({"error": f"You must bid more than {auction.current_price}"}, status=400)
+                try:
+                    amount_raw = request.data.get('amount')
+                    if amount_raw is None:
+                        return Response({"error": "Amount is required."}, status=400)
+                    bid_amount = Decimal(str(amount_raw))
+                except (TypeError, ValueError, Decimal.InvalidOperation):
+                    return Response({"error": "Invalid bid amount format."}, status=400)
 
-        fees = calculate_fees(bid_amount, request.user)
-        total_cost = fees['total_cost']
+                if bid_amount <= auction.current_price:
+                    return Response({
+                        "error": f"You must bid more than {auction.current_price}"
+                    }, status=400)
 
-        if request.user.balance < total_cost:
-            return Response({
-                "error": "Insufficient funds in account (including taxes and duties).",
-                "required_total": total_cost,
-                "current_balance": request.user.balance
-            }, status=400)
+                fees = calculate_fees(bid_amount, request.user)
+                total_cost = fees['total_cost']
 
-        auction.current_price = bid_amount
-        auction.winner = request.user
-        auction.save()
+                if request.user.balance < total_cost:
+                    return Response({
+                        "error": "Insufficient funds in account (including taxes and duties).",
+                        "required_total": total_cost,
+                        "current_balance": request.user.balance
+                    }, status=400)
 
-        return Response({
-            "message": "Bid accepted!",
-            "new_price": auction.current_price,
-            "total_cost_with_tax": total_cost
-        })
+                Bid.objects.create(
+                    auction=auction,
+                    user=request.user,
+                    amount=bid_amount
+                )
+
+                auction.current_price = bid_amount
+                auction.winner = request.user
+                auction.save()
+
+                return Response({
+                    "message": "Bid accepted!",
+                    "new_price": auction.current_price,
+                    "total_cost_with_tax": total_cost
+                }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class RegisterView(generics.CreateAPIView):
     queryset = CardbidUser.objects.all()
