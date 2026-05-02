@@ -118,7 +118,7 @@ Jeśli z jakiegoś powodu musisz odpalić frontend bez kontenera:
 | Metoda | Endpoint | Opis | Uprawnienia |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/countries/` | Lista krajów i stanów | AllowAny |
-| `POST` | `/api/tax-calc/` | Obliczanie VAT i cła przed złożeniem oferty | IsAuthenticated |
+| `GET` | `/api/tax-calc/` | Obliczanie VAT i cła przed złożeniem oferty | IsAuthenticated |
 | `POST` | `/api/v1/psa-verify/` | Symulacja weryfikacji certyfikatu karty w PSA | IsAuthenticated |
 
 ---
