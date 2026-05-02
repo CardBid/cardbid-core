@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     PSAVerifyView, StreamerTestView, TaxCalculatorView, 
     TopUpBalanceView, UserProfileView, CardListCreateView,
-    CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView, UserInventoryView, UserActiveBidsView
+    CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView, UserInventoryView, UserActiveBidsView,
+    AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView
 )
 
 urlpatterns = [
@@ -27,4 +28,12 @@ urlpatterns = [
     path('auctions/', AuctionListCreateView.as_view(), name='auction-list'),
     path('auctions/<int:pk>/', AuctionDetailView.as_view(), name='auction-detail'),
     path('auctions/<int:pk>/bid/', PlaceBidView.as_view(), name='place-bid'),
+    path('auctions/<int:pk>/bids/', AuctionBidHistoryView.as_view(), name='auction-bids'),
+
+    # --- LIVE STREAMING ---
+    path('live-rooms/', LiveRoomsListView.as_view(), name='live-rooms-list'),
+    path('live-rooms/toggle/', StreamRoomToggleView.as_view(), name='live-rooms-toggle'),
+
+    # --- COUNTRIES & STATES ---
+    path('countries/', CountryListView.as_view(), name='country-list'),
 ]

@@ -1,14 +1,19 @@
 import random
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, filters
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .permissions import IsStreamer
-from .models import Card, Category, Auction, CardbidUser
-from .serializers import CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer, RegisterSerializer
+from .models import Card, Category, Auction, CardbidUser, Country, State
+from .serializers import (
+    CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer,
+    RegisterSerializer, BidSerializer, StreamRoomSerializer,
+    StateSerializer, CountrySerializer
+)
 
 from .utils import calculate_fees
 from decimal import Decimal
@@ -143,6 +148,12 @@ class AuctionListCreateView(generics.ListCreateAPIView):
     queryset = Auction.objects.filter(status='active')
     serializer_class = AuctionSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    
+    search_fields = ['card__name', 'card__certificate_number', 'card__category__name']
+    
+    ordering_fields = ['end_date', 'current_price']
 
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
@@ -216,3 +227,54 @@ class UserActiveBidsView(generics.ListAPIView):
 
     def get_queryset(self):
         return Auction.objects.filter(winner=self.request.user, status='active')
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            refresh_token = request.data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response({"message": "Logout successful."}, status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            return Response({"error": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
+
+class AuctionBidHistoryView(generics.ListAPIView):
+    serializer_class = BidSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        return Bid.objects.filter(auction_id=self.kwargs['pk'])
+
+class LiveRoomsListView(generics.ListAPIView):
+    serializer_class = StreamRoomSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        return StreamRoom.objects.filter(is_live=True)
+
+class StreamRoomToggleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        room, created = StreamRoom.objects.get_or_create(
+            streamer=request.user,
+            defaults={'title': f"Room {request.user.username}"}
+        )
+        
+        is_live = request.data.get('is_live', True)
+        room.is_live = is_live
+        
+        if 'title' in request.data:
+            room.title = request.data['title']
+            
+        room.save()
+        
+        status_msg = "Live now!" if is_live else "Live ended."
+        return Response({"message": status_msg, "room": StreamRoomSerializer(room).data})
+
+class CountryListView(generics.ListAPIView):
+    queryset = Country.objects.all()
+    serializer_class = CountrySerializer
+    permission_classes = [AllowAny]

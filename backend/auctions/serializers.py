@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from .models import CardbidUser, Card, Category, Auction, Bid, Country, State
+from .models import CardbidUser, Card, Category, Auction, Bid, Country, State, StreamRoom
 from django.contrib.auth.hashers import make_password
+from datetime import date
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -17,7 +18,7 @@ class CardSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CardbidUser
-        fields = ['id', 'username', 'email', 'role', 'balance', 'country', 'state', 'shipping_address']
+        fields = ['id', 'username', 'email', 'role', 'balance', 'country', 'state', 'shipping_address', 'birth_date']
         read_only_fields = ['balance', 'role']
 
 class AuctionSerializer(serializers.ModelSerializer):
@@ -42,7 +43,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = CardbidUser
         fields = [
             'username', 'email', 'password', 'password_confirm', 
-            'role', 'country', 'state', 'shipping_address'
+            'role', 'country', 'state', 'shipping_address', 'birth_date'
         ]
 
     def validate(self, attrs):
@@ -58,6 +59,16 @@ class RegisterSerializer(serializers.ModelSerializer):
         if state and state.country != country:
             raise serializers.ValidationError({"state": f"State {state.name} does not belong to country {country.name}."})
 
+        birth_date = attrs.get('birth_date')
+        if not birth_date:
+            raise serializers.ValidationError({"birth_date": "Date of birth is required."})
+            
+        today = date.today()
+        age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        
+        if age < 18:
+            raise serializers.ValidationError({"birth_date": "You must be at least 18 years old to create an account and place bids."})
+
         return attrs
 
     def create(self, validated_data):
@@ -65,6 +76,32 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data['password'] = make_password(validated_data['password'])
         
         if 'role' not in validated_data:
-            validated_data['role'] = 'bidder'
+            validated_data['role'] = 'buyer'
             
         return super().create(validated_data)
+
+class BidSerializer(serializers.ModelSerializer):
+    username = serializers.ReadOnlyField(source='user.username')
+
+    class Meta:
+        model = Bid
+        fields = ['id', 'username', 'amount', 'created_at']
+
+class StreamRoomSerializer(serializers.ModelSerializer):
+    streamer_name = serializers.ReadOnlyField(source='streamer.username')
+
+    class Meta:
+        model = StreamRoom
+        fields = ['id', 'streamer_name', 'title', 'is_live', 'stream_key']
+
+class StateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = State
+        fields = ['id', 'name', 'code']
+
+class CountrySerializer(serializers.ModelSerializer):
+    states = StateSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Country
+        fields = ['id', 'name', 'code', 'has_states', 'default_vat', 'states']

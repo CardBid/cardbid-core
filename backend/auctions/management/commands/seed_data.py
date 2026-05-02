@@ -10,6 +10,7 @@ from django.core.files import File
 from django.core.management.base import BaseCommand
 from faker import Faker
 from auctions.models import CardbidUser, Card, Auction, Category, Bid, StreamRoom, AuctionSlot, Country, State
+from datetime import date
 
 import shutil
 
@@ -81,7 +82,8 @@ class Command(BaseCommand):
                     'email': f"{username}@example.com",
                     'role': 'streamer',
                     'first_name': 'Streamer',
-                    'last_name': str(i)
+                    'last_name': str(i),
+                    'birth_date': date(1990, 1, 1)
                 }
             )
             
@@ -120,6 +122,12 @@ class Command(BaseCommand):
             user_country = random.choice([poland, usa])
             user_state = random.choice(all_states) if user_country.has_states else None
 
+            random_age = random.randint(18, 50)
+            birth_year = date.today().year - random_age
+            birth_month = random.randint(1, 12)
+            birth_day = random.randint(1, 28)
+            user_birth_date = date(birth_year, birth_month, birth_day)
+
             user = CardbidUser.objects.create_user(
                 username=username,
                 email=email,
@@ -127,11 +135,11 @@ class Command(BaseCommand):
                 role=role,
                 first_name=first_name,
                 last_name=last_name,
-                # --- NOWE POLA ---
                 country=user_country,
                 state=user_state,
                 balance=Decimal(random.randint(500, 5000)),
-                shipping_address=fake.address()
+                shipping_address=fake.address(),
+                birth_date=user_birth_date
             )
             users.append(user)
 
@@ -163,6 +171,7 @@ class Command(BaseCommand):
                 role="seller",
                 first_name="Jan",
                 last_name="Sprzedawca",
+                birth_date=date(1985, 5, 15),
             )
             sellers.append(fallback)
             users.append(fallback)

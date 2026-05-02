@@ -9,7 +9,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from auctions.views import RegisterView, MyTokenObtainPairView, TokenRefreshView
+from auctions.views import RegisterView, MyTokenObtainPairView, TokenRefreshView, LogoutView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -17,6 +17,7 @@ urlpatterns = [
     path('auth/register/', RegisterView.as_view(), name='auth_register'),
     path('auth/login/', MyTokenObtainPairView.as_view(), name='auth_login'),
     path('auth/refresh/', TokenRefreshView.as_view(), name='auth_refresh'),
+    path('auth/logout/', LogoutView.as_view(), name='auth_logout'),
 
     path("api/", include("auctions.urls")),
 ]
