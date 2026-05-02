@@ -255,7 +255,7 @@ class LiveRoomsListView(generics.ListAPIView):
         return StreamRoom.objects.filter(is_live=True)
 
 class StreamRoomToggleView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStreamer]
 
     def post(self, request):
         room, created = StreamRoom.objects.get_or_create(
