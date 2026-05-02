@@ -66,6 +66,7 @@ class CardbidUser(AbstractUser):
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True, blank=True)
     state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
     shipping_address = models.TextField(blank=True)
+    birth_date = models.DateField(null=True, blank=True)
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
 
     USERNAME_FIELD  = "email"

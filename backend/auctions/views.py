@@ -1,15 +1,21 @@
 import random
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, filters
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .permissions import IsStreamer
-from .models import Card, Category, Auction, CardbidUser
-from .serializers import CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer, RegisterSerializer
+from .models import Card, Category, Auction, CardbidUser, Country, State
+from .serializers import (
+    CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer,
+    RegisterSerializer, BidSerializer, StreamRoomSerializer,
+    StateSerializer, CountrySerializer
+)
 
+from django.db import transaction
 from .utils import calculate_fees
 from decimal import Decimal
 
@@ -143,6 +149,12 @@ class AuctionListCreateView(generics.ListCreateAPIView):
     queryset = Auction.objects.filter(status='active')
     serializer_class = AuctionSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    
+    search_fields = ['card__name', 'card__certificate_number', 'card__category__name']
+    
+    ordering_fields = ['end_date', 'current_price']
 
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
@@ -156,35 +168,53 @@ class PlaceBidView(APIView):
 
     def post(self, request, pk):
         try:
-            auction = Auction.objects.get(pk=pk, status='active')
-            bid_amount = Decimal(request.data.get('amount'))
-        except Auction.DoesNotExist:
-            return Response({"error": "Auction does not exist or is closed."}, status=404)
-        except (TypeError, ValueError):
-            return Response({"error": "Invalid bid amount."}, status=400)
+            with transaction.atomic():
+                try:
+                    auction = Auction.objects.select_for_update().get(pk=pk, status='active')
+                except Auction.DoesNotExist:
+                    return Response({"error": "Auction does not exist or is closed."}, status=404)
 
-        if bid_amount <= auction.current_price:
-            return Response({"error": f"You must bid more than {auction.current_price}"}, status=400)
+                try:
+                    amount_raw = request.data.get('amount')
+                    if amount_raw is None:
+                        return Response({"error": "Amount is required."}, status=400)
+                    bid_amount = Decimal(str(amount_raw))
+                except (TypeError, ValueError, Decimal.InvalidOperation):
+                    return Response({"error": "Invalid bid amount format."}, status=400)
 
-        fees = calculate_fees(bid_amount, request.user)
-        total_cost = fees['total_cost']
+                if bid_amount <= auction.current_price:
+                    return Response({
+                        "error": f"You must bid more than {auction.current_price}"
+                    }, status=400)
 
-        if request.user.balance < total_cost:
-            return Response({
-                "error": "Insufficient funds in account (including taxes and duties).",
-                "required_total": total_cost,
-                "current_balance": request.user.balance
-            }, status=400)
+                fees = calculate_fees(bid_amount, request.user)
+                total_cost = fees['total_cost']
 
-        auction.current_price = bid_amount
-        auction.winner = request.user
-        auction.save()
+                if request.user.balance < total_cost:
+                    return Response({
+                        "error": "Insufficient funds in account (including taxes and duties).",
+                        "required_total": total_cost,
+                        "current_balance": request.user.balance
+                    }, status=400)
 
-        return Response({
-            "message": "Bid accepted!",
-            "new_price": auction.current_price,
-            "total_cost_with_tax": total_cost
-        })
+                Bid.objects.create(
+                    auction=auction,
+                    user=request.user,
+                    amount=bid_amount
+                )
+
+                auction.current_price = bid_amount
+                auction.winner = request.user
+                auction.save()
+
+                return Response({
+                    "message": "Bid accepted!",
+                    "new_price": auction.current_price,
+                    "total_cost_with_tax": total_cost
+                }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class RegisterView(generics.CreateAPIView):
     queryset = CardbidUser.objects.all()
@@ -216,3 +246,54 @@ class UserActiveBidsView(generics.ListAPIView):
 
     def get_queryset(self):
         return Auction.objects.filter(winner=self.request.user, status='active')
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            refresh_token = request.data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response({"message": "Logout successful."}, status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            return Response({"error": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
+
+class AuctionBidHistoryView(generics.ListAPIView):
+    serializer_class = BidSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        return Bid.objects.filter(auction_id=self.kwargs['pk'])
+
+class LiveRoomsListView(generics.ListAPIView):
+    serializer_class = StreamRoomSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        return StreamRoom.objects.filter(is_live=True)
+
+class StreamRoomToggleView(APIView):
+    permission_classes = [IsAuthenticated, IsStreamer]
+
+    def post(self, request):
+        room, created = StreamRoom.objects.get_or_create(
+            streamer=request.user,
+            defaults={'title': f"Room {request.user.username}"}
+        )
+        
+        is_live = request.data.get('is_live', True)
+        room.is_live = is_live
+        
+        if 'title' in request.data:
+            room.title = request.data['title']
+            
+        room.save()
+        
+        status_msg = "Live now!" if is_live else "Live ended."
+        return Response({"message": status_msg, "room": StreamRoomSerializer(room).data})
+
+class CountryListView(generics.ListAPIView):
+    queryset = Country.objects.all()
+    serializer_class = CountrySerializer
+    permission_classes = [AllowAny]
