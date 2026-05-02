@@ -52,24 +52,10 @@ class Command(BaseCommand):
 
         os.makedirs(cards_dir, exist_ok=True)
 
-        self.stdout.write("Tworzę kraje i stany...")
-        poland, _ = Country.objects.get_or_create(
-            code="PL", 
-            defaults={'name': 'Poland', 'default_vat': Decimal('0.23'), 'has_states': False}
-        )
-        usa, _ = Country.objects.get_or_create(
-            code="US", 
-            defaults={'name': 'USA', 'default_vat': Decimal('0.00'), 'has_states': True, 'duty_rate': Decimal('0.05')}
-        )
-        states_data = [
-            {'name': 'California', 'code': 'CA', 'tax_rate': Decimal('0.08')},
-            {'name': 'New York', 'code': 'NY', 'tax_rate': Decimal('0.04')},
-            {'name': 'Texas', 'code': 'TX', 'tax_rate': Decimal('0.06')},
-        ]
-        all_states = []
-        for s in states_data:
-            state_obj, _ = State.objects.get_or_create(country=usa, code=s['code'], defaults={'name': s['name'], 'tax_rate': s['tax_rate']})
-            all_states.append(state_obj)
+        self.stdout.write("Pobieram kraje i stany z bazy danych...")
+        poland = Country.objects.get(code="PL")
+        usa = Country.objects.get(code="US")
+        all_states = list(usa.states.all())
 
         self.stdout.write("Tworzę losowych użytkowników...")
         users = []
