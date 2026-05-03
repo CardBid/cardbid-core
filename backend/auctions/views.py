@@ -5,6 +5,9 @@ from rest_framework import status
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.permissions import AllowAny
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+from .models import Auction, AuctionSlot
 
 from .permissions import IsStreamer
 
@@ -79,3 +82,115 @@ class PSAVerifyView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+class AuctionLiveDataView(APIView):
+    """
+    return date aubout action to fronted
+    Endpoint: GET /api/v1/auctions/{id}/live-data/
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        auction = get_object_or_404(Auction, pk=pk)
+        card = auction.card
+
+        
+        card_data = {
+            "name": card.name,
+            "description": card.description,
+            "certificate_number": card.certificate_number,
+            "grade": card.grade,
+            "image_url": request.build_absolute_uri(card.image.url) if card.image else None,
+        }
+
+       
+        auction_data = {
+            "auction_type": auction.auction_type,
+            "starting_price": auction.starting_price,
+            "current_price": auction.current_price,
+            "buy_now_price": auction.buy_now_price,
+            "status": auction.status,
+            "start_date": auction.start_date,
+            "end_date": auction.end_date,
+        }
+
+     
+        last_bids = auction.bids.select_related("user").order_by("-created_at")[:5]
+        bids_data = [
+            {
+                "username": bid.user.username,
+                "amount": bid.amount,
+                "placed_at": bid.created_at,
+            }
+            for bid in last_bids
+        ]
+
+      
+        try:
+            current_slot = auction.auctionslot
+            next_slots = AuctionSlot.objects.filter(
+                room=current_slot.room,
+                status=AuctionSlot.Status.PENDING,
+                order__gt=current_slot.order,
+            ).select_related("auction__card").order_by("order")[:3]
+
+            slots_data = [
+                {
+                    "order": slot.order,
+                    "card_name": slot.auction.card.name,
+                    "card_grade": slot.auction.card.grade,
+                    "starting_price": slot.auction.starting_price,
+                }
+                for slot in next_slots
+            ]
+        except AuctionSlot.DoesNotExist:
+            slots_data = []
+
+        return Response({
+            "card": card_data,
+            "auction": auction_data,
+            "last_bids": bids_data,
+            "upcoming_slots": slots_data,
+        }, status=status.HTTP_200_OK)
+
+
+class AuctionBuyNowView(APIView):
+    """
+        Handle "Buy Now" action for an auction.
+    Endpoint: POST /api/v1/auctions/{id}/buy-now/
+    """
+    permission_classes = [AllowAny] 
+
+    def post(self, request, pk):
+        with transaction.atomic():
+           
+            auction = get_object_or_404(
+                Auction.objects.select_for_update(),
+                pk=pk
+            )
+
+           
+            allowed_types = [Auction.Type.BUY_NOW, Auction.Type.HYBRID]
+            if auction.auction_type not in allowed_types:
+                return Response(
+                    {"error": "Ta aukcja nie obsługuje opcji Kup Teraz."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+           
+            if auction.status != Auction.Status.ACTIVE:
+                return Response(
+                    {"error": "Ta aukcja nie jest już aktywna."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+           
+            auction.winner = request.user if request.user.is_authenticated else None
+            auction.status = Auction.Status.ENDED
+            auction.save()
+
+        return Response({
+            "message": "Zakup zakończony sukcesem.",
+            "auction_id": auction.pk,
+            "card_name": auction.card.name,
+            "price_paid": auction.buy_now_price,
+        }, status=status.HTTP_200_OK)
