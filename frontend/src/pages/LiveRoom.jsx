@@ -186,7 +186,6 @@ const handlePointerMove = (e) => {
   // --- GŁÓWNY WIDOK ---
 return (
     <div className={`min-h-screen bg-gray-950 text-white p-4 pb-40 lg:pb-4 transition-all duration-500 ${isTheater ? 'flex flex-col' : 'grid grid-cols-1 lg:grid-cols-12 gap-6'}`}>
-      
       {/* LEWA STRONA (Wideo + Harmonogram) */}
       <div className={`${isTheater ? 'w-full mb-8 flex flex-col gap-6' : 'lg:col-span-9 flex flex-col gap-4'}`}>
         
