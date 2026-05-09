@@ -185,6 +185,13 @@ class Auction(models.Model):
     starting_price  = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     current_price   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     buy_now_price   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    
+    min_increment = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=1.00
+    )
+
     start_date      = models.DateTimeField(default=timezone.now)
     end_date        = models.DateTimeField(default=timezone.now)
     status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default=DEFAULT_STATUS)
@@ -260,12 +267,12 @@ class AuctionSlot(models.Model):
         ACTIVE      = "active"
         FINISHED    = "finished"
         PENDING     = "pending"
-    
-    STATUS_CHOICES = [
-        (Status.ACTIVE,     'Teraz'),
-        (Status.FINISHED,   'Zakończone'),
-        (Status.PENDING,    'W kolejce'),
-    ]
+
+    STATUS_CHOICES = (
+        (Status.ACTIVE,     "Aktywna"),
+        (Status.FINISHED,   "Zakończona"),
+        (Status.PENDING,    "Oczekująca"),
+    )
 
     auction = models.OneToOneField('Auction', on_delete=models.CASCADE)
     order   = models.PositiveIntegerField(help_text="Numer slotu (np. 1, 2, 3...)")
@@ -273,7 +280,7 @@ class AuctionSlot(models.Model):
     # So you can access all auction slots in StreamRoom 'SR' like: SR.slots.all()
     room    = models.ForeignKey(StreamRoom, on_delete=models.CASCADE, related_name="slots")
     
-    status  = models.CharField(max_length=10, choices=STATUS_CHOICES, default=Status.PENDING)
+    status  = models.CharField(max_length=10,choices=STATUS_CHOICES,default="pending")
 
     def __str__(self):
         return f"AuctionSlot(auction={self.auction}, order={self.order}, room={self.room}, status={self.status})"

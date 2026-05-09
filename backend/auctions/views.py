@@ -8,7 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .permissions import IsStreamer
-from .models import Card, Category, Auction, CardbidUser, Country, State
+from .models import Card, Category, Auction, CardbidUser, Country, State, Bid
 from .serializers import (
     CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer,
     RegisterSerializer, BidSerializer, StreamRoomSerializer,
@@ -17,7 +17,27 @@ from .serializers import (
 
 from django.db import transaction
 from .utils import calculate_fees
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
+
+def broadcast_auction_interrupted(auction):
+    channel_layer = get_channel_layer()
+
+    async_to_sync(channel_layer.group_send)(
+        f"auction_{auction.id}",
+        {
+            "type": "auction_interrupted",
+            "data": {
+                "type": "auction_interrupted",
+                "reason": "buy_now",
+                "final_price": str(auction.current_price)
+            }
+        }
+    )
+
 
 
 PSA_CARDS = [
@@ -170,7 +190,13 @@ class PlaceBidView(APIView):
         try:
             with transaction.atomic():
                 try:
-                    auction = Auction.objects.select_for_update().get(pk=pk, status='active')
+                    
+                    auction = Auction.objects.select_for_update().get(pk=pk)
+
+                    if auction.status != "active":
+                        return Response({"error": "Auction ended"}, status=400)
+
+
                 except Auction.DoesNotExist:
                     return Response({"error": "Auction does not exist or is closed."}, status=404)
 
@@ -179,12 +205,12 @@ class PlaceBidView(APIView):
                     if amount_raw is None:
                         return Response({"error": "Amount is required."}, status=400)
                     bid_amount = Decimal(str(amount_raw))
-                except (TypeError, ValueError, Decimal.InvalidOperation):
+                except (TypeError, ValueError, InvalidOperation):
                     return Response({"error": "Invalid bid amount format."}, status=400)
 
-                if bid_amount <= auction.current_price:
+                if bid_amount < auction.current_price + auction.min_increment:
                     return Response({
-                        "error": f"You must bid more than {auction.current_price}"
+                        "error": f"You must bid at least {auction.min_increment} higher than current price"
                     }, status=400)
 
                 fees = calculate_fees(bid_amount, request.user)
@@ -206,6 +232,21 @@ class PlaceBidView(APIView):
                 auction.current_price = bid_amount
                 auction.winner = request.user
                 auction.save()
+
+                channel_layer = get_channel_layer()
+
+                async_to_sync(channel_layer.group_send)(
+                    f"auction_{auction.id}",
+                    {
+                        "type": "bid_update",
+                        "data": {
+                            "type": "bid_update",
+                            "current_price": str(auction.current_price),
+                            "bidder": request.user.username,
+                            "auction_id": auction.id
+                        }
+                    }
+                )
 
                 return Response({
                     "message": "Bid accepted!",
@@ -297,3 +338,42 @@ class CountryListView(generics.ListAPIView):
     queryset = Country.objects.all()
     serializer_class = CountrySerializer
     permission_classes = [AllowAny]
+
+
+class BuyNowView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            with transaction.atomic():
+                try:
+                    auction = Auction.objects.select_for_update().get(pk=pk)
+
+                    if auction.status != "active":
+                        return Response({"error": "Auction not active."}, status=404)
+                except Auction.DoesNotExist:
+                    return Response({"error": "Auction not active."}, status=404)
+
+                if not auction.buy_now_price:
+                    return Response({"error": "Buy now not available"}, status=400)
+
+                price = auction.buy_now_price
+
+                if request.user.balance < price:
+                    return Response({"error": "Insufficient funds."}, status=400)
+
+                # update aukcji
+                auction.status = "sold"
+                auction.winner = request.user
+                auction.current_price = price
+                auction.save()
+
+                broadcast_auction_interrupted(auction)
+
+                return Response({
+                    "message": "Item bought instantly",
+                    "price": price
+                }, status=200)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)

@@ -9,7 +9,14 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from auctions.views import RegisterView, MyTokenObtainPairView, TokenRefreshView, LogoutView
+from auctions.views import (
+    RegisterView,
+    MyTokenObtainPairView,
+    TokenRefreshView,
+    LogoutView,
+    BuyNowView,
+    PlaceBidView
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -20,6 +27,10 @@ urlpatterns = [
     path('auth/logout/', LogoutView.as_view(), name='auth_logout'),
 
     path("api/", include("auctions.urls")),
+    
+    path('auctions/<int:pk>/buy-now/', BuyNowView.as_view()),
+    path('auctions/<int:pk>/bid/', PlaceBidView.as_view()),
+
 ]
 
 if settings.DEBUG:
