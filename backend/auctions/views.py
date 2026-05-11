@@ -8,7 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .permissions import IsStreamer
-from .models import Card, Category, Auction, CardbidUser, Country, State
+from .models import Card, Category, Auction, CardbidUser, Country, State, Bid
 from .serializers import (
     CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer,
     RegisterSerializer, BidSerializer, StreamRoomSerializer,
@@ -17,7 +17,29 @@ from .serializers import (
 
 from django.db import transaction
 from .utils import calculate_fees
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+
+from .services import process_bid_logic
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
+
+def broadcast_auction_interrupted(auction):
+    channel_layer = get_channel_layer()
+
+    async_to_sync(channel_layer.group_send)(
+        f"auction_{auction.id}",
+        {
+            "type": "auction_interrupted",
+            "data": {
+                "type": "auction_interrupted",
+                "reason": "buy_now",
+                "final_price": str(auction.current_price)
+            }
+        }
+    )
+
 
 
 PSA_CARDS = [
@@ -167,54 +189,34 @@ class PlaceBidView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        try:
-            with transaction.atomic():
-                try:
-                    auction = Auction.objects.select_for_update().get(pk=pk, status='active')
-                except Auction.DoesNotExist:
-                    return Response({"error": "Auction does not exist or is closed."}, status=404)
+        success, message, auction, total_cost = process_bid_logic(
+            request.user, pk, request.data.get('amount')
+        )
 
-                try:
-                    amount_raw = request.data.get('amount')
-                    if amount_raw is None:
-                        return Response({"error": "Amount is required."}, status=400)
-                    bid_amount = Decimal(str(amount_raw))
-                except (TypeError, ValueError, Decimal.InvalidOperation):
-                    return Response({"error": "Invalid bid amount format."}, status=400)
+        if not success:
+            if isinstance(message, dict):
+                return Response(message, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
 
-                if bid_amount <= auction.current_price:
-                    return Response({
-                        "error": f"You must bid more than {auction.current_price}"
-                    }, status=400)
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"auction_{auction.id}",
+            {
+                "type": "bid_update",
+                "data": {
+                    "type": "bid_update",
+                    "current_price": str(auction.current_price),
+                    "bidder": request.user.username,
+                    "auction_id": auction.id
+                }
+            }
+        )
 
-                fees = calculate_fees(bid_amount, request.user)
-                total_cost = fees['total_cost']
-
-                if request.user.balance < total_cost:
-                    return Response({
-                        "error": "Insufficient funds in account (including taxes and duties).",
-                        "required_total": total_cost,
-                        "current_balance": request.user.balance
-                    }, status=400)
-
-                Bid.objects.create(
-                    auction=auction,
-                    user=request.user,
-                    amount=bid_amount
-                )
-
-                auction.current_price = bid_amount
-                auction.winner = request.user
-                auction.save()
-
-                return Response({
-                    "message": "Bid accepted!",
-                    "new_price": auction.current_price,
-                    "total_cost_with_tax": total_cost
-                }, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "message": message,
+            "new_price": auction.current_price,
+            "total_cost_with_tax": total_cost
+        }, status=status.HTTP_201_CREATED)
 
 class RegisterView(generics.CreateAPIView):
     queryset = CardbidUser.objects.all()
@@ -297,3 +299,42 @@ class CountryListView(generics.ListAPIView):
     queryset = Country.objects.all()
     serializer_class = CountrySerializer
     permission_classes = [AllowAny]
+
+
+class BuyNowView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            with transaction.atomic():
+                try:
+                    auction = Auction.objects.select_for_update().get(pk=pk)
+
+                    if auction.status != "active":
+                        return Response({"error": "Auction not active."}, status=404)
+                except Auction.DoesNotExist:
+                    return Response({"error": "Auction not active."}, status=404)
+
+                if not auction.buy_now_price:
+                    return Response({"error": "Buy now not available"}, status=400)
+
+                price = auction.buy_now_price
+
+                if request.user.balance < price:
+                    return Response({"error": "Insufficient funds."}, status=400)
+
+                # update aukcji
+                auction.status = "sold"
+                auction.winner = request.user
+                auction.current_price = price
+                auction.save()
+
+                broadcast_auction_interrupted(auction)
+
+                return Response({
+                    "message": "Item bought instantly",
+                    "price": price
+                }, status=200)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)

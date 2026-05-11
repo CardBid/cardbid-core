@@ -106,6 +106,7 @@ Jeśli z jakiegoś powodu musisz odpalić frontend bez kontenera:
 | `GET` | `/api/auctions/{id}/` | Szczegóły konkretnej aukcji | AllowAny |
 | `POST` | `/api/auctions/{id}/bid/` | Licytowanie (przebicie oferty) | IsAuthenticated |
 | `GET` | `/api/auctions/{id}/bids/` | Historia licytacji dla aukcji | AllowAny |
+| `POST` | `/api/auctions/{id}/buy-now/` | Kup teraz | IsAuthenticated |
 
 ### 🎥 Live Streaming
 | Metoda | Endpoint | Opis | Uprawnienia |
