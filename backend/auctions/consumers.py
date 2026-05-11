@@ -12,12 +12,18 @@ from channels.db import database_sync_to_async
 from django.db import transaction
 import json
 
+from .services import process_bid_logic
+
 
 class AuctionConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         self.auction_id = self.scope["url_route"]["kwargs"]["auction_id"]
         self.group_name = f"auction_{self.auction_id}"
+
+        if self.scope["user"].is_anonymous:
+            await self.close()
+            return
 
         await self.channel_layer.group_add(
             self.group_name,
@@ -41,18 +47,27 @@ class AuctionConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
 
         if data.get("type") == "place_bid":
-            result = await self.place_bid(data)
+            success, message, auction, _ = await database_sync_to_async(process_bid_logic)(
+                self.scope["user"], self.auction_id, data.get("amount")
+            )
 
-            if result["success"]:
+            if success:
                 await self.channel_layer.group_send(
                     self.group_name,
                     {
                         "type": "bid_update",
-                        "data": result["data"]
+                        "data": {
+                            "type": "bid_update",
+                            "current_price": str(auction.current_price),
+                            "bidder": self.scope["user"].username,
+                            "auction_id": auction.id
+                        }
                     }
                 )
             else:
-                await self.send(text_data=json.dumps(result))
+                error_response = message if isinstance(message, dict) else {"error": message}
+                error_response["success"] = False
+                await self.send(text_data=json.dumps(error_response))
 
 
     async def bid_update(self, event):

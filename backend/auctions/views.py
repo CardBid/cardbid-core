@@ -19,6 +19,8 @@ from django.db import transaction
 from .utils import calculate_fees
 from decimal import Decimal, InvalidOperation
 
+from .services import process_bid_logic
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
@@ -187,75 +189,34 @@ class PlaceBidView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        try:
-            with transaction.atomic():
-                try:
-                    
-                    auction = Auction.objects.select_for_update().get(pk=pk)
+        success, message, auction, total_cost = process_bid_logic(
+            request.user, pk, request.data.get('amount')
+        )
 
-                    if auction.status != "active":
-                        return Response({"error": "Auction ended"}, status=400)
+        if not success:
+            if isinstance(message, dict):
+                return Response(message, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
 
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"auction_{auction.id}",
+            {
+                "type": "bid_update",
+                "data": {
+                    "type": "bid_update",
+                    "current_price": str(auction.current_price),
+                    "bidder": request.user.username,
+                    "auction_id": auction.id
+                }
+            }
+        )
 
-                except Auction.DoesNotExist:
-                    return Response({"error": "Auction does not exist or is closed."}, status=404)
-
-                try:
-                    amount_raw = request.data.get('amount')
-                    if amount_raw is None:
-                        return Response({"error": "Amount is required."}, status=400)
-                    bid_amount = Decimal(str(amount_raw))
-                except (TypeError, ValueError, InvalidOperation):
-                    return Response({"error": "Invalid bid amount format."}, status=400)
-
-                if bid_amount < auction.current_price + auction.min_increment:
-                    return Response({
-                        "error": f"You must bid at least {auction.min_increment} higher than current price"
-                    }, status=400)
-
-                fees = calculate_fees(bid_amount, request.user)
-                total_cost = fees['total_cost']
-
-                if request.user.balance < total_cost:
-                    return Response({
-                        "error": "Insufficient funds in account (including taxes and duties).",
-                        "required_total": total_cost,
-                        "current_balance": request.user.balance
-                    }, status=400)
-
-                Bid.objects.create(
-                    auction=auction,
-                    user=request.user,
-                    amount=bid_amount
-                )
-
-                auction.current_price = bid_amount
-                auction.winner = request.user
-                auction.save()
-
-                channel_layer = get_channel_layer()
-
-                async_to_sync(channel_layer.group_send)(
-                    f"auction_{auction.id}",
-                    {
-                        "type": "bid_update",
-                        "data": {
-                            "type": "bid_update",
-                            "current_price": str(auction.current_price),
-                            "bidder": request.user.username,
-                            "auction_id": auction.id
-                        }
-                    }
-                )
-
-                return Response({
-                    "message": "Bid accepted!",
-                    "new_price": auction.current_price,
-                    "total_cost_with_tax": total_cost
-                }, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "message": message,
+            "new_price": auction.current_price,
+            "total_cost_with_tax": total_cost
+        }, status=status.HTTP_201_CREATED)
 
 class RegisterView(generics.CreateAPIView):
     queryset = CardbidUser.objects.all()

@@ -14,8 +14,6 @@ from auctions.views import (
     MyTokenObtainPairView,
     TokenRefreshView,
     LogoutView,
-    BuyNowView,
-    PlaceBidView
 )
 
 urlpatterns = [
@@ -27,9 +25,6 @@ urlpatterns = [
     path('auth/logout/', LogoutView.as_view(), name='auth_logout'),
 
     path("api/", include("auctions.urls")),
-    
-    path('auctions/<int:pk>/buy-now/', BuyNowView.as_view()),
-    path('auctions/<int:pk>/bid/', PlaceBidView.as_view()),
 
 ]
 
