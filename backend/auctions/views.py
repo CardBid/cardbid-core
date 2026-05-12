@@ -16,6 +16,7 @@ from .serializers import (
 )
 
 from django.db import transaction
+from django.utils import timezone
 from .utils import calculate_fees
 from decimal import Decimal, InvalidOperation
 
@@ -35,7 +36,8 @@ def broadcast_auction_interrupted(auction):
             "data": {
                 "type": "auction_interrupted",
                 "reason": "buy_now",
-                "final_price": str(auction.current_price)
+                "final_price": str(auction.current_price),
+                "winner": auction.winner.username if auction.winner else None
             }
         }
     )
@@ -168,7 +170,7 @@ class CategoryListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
 class AuctionListCreateView(generics.ListCreateAPIView):
-    queryset = Auction.objects.filter(status='active')
+    queryset = Auction.objects.filter(status=Auction.Status.ACTIVE)
     serializer_class = AuctionSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     
@@ -241,13 +243,13 @@ class UserInventoryView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Auction.objects.filter(winner=self.request.user, status='finished')
+        return Auction.objects.filter(winner=self.request.user, status=Auction.Status.ENDED)
 
 class UserActiveBidsView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Auction.objects.filter(winner=self.request.user, status='active')
+        return Auction.objects.filter(winner=self.request.user, status=Auction.Status.ACTIVE)
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
@@ -306,6 +308,8 @@ class BuyNowView(APIView):
 
     def post(self, request, pk):
         try:
+            auction_to_broadcast = None
+
             with transaction.atomic():
                 try:
                     auction = Auction.objects.select_for_update().get(pk=pk)
@@ -318,23 +322,37 @@ class BuyNowView(APIView):
                 if not auction.buy_now_price:
                     return Response({"error": "Buy now not available"}, status=400)
 
-                price = auction.buy_now_price
+                fees = calculate_fees(auction.buy_now_price, request.user)
+                total_cost = fees['total_cost']
 
-                if request.user.balance < price:
-                    return Response({"error": "Insufficient funds."}, status=400)
+                user_locked = CardbidUser.objects.select_for_update().get(id=request.user.id)
 
-                # update aukcji
-                auction.status = "sold"
-                auction.winner = request.user
-                auction.current_price = price
+                if user_locked.balance < total_cost:
+                    return Response({
+                        "error": "Insufficient funds.",
+                        "required_total": float(total_cost),
+                        "current_balance": float(user_locked.balance)
+                    }, status=400)
+
+                user_locked.balance -= total_cost
+                user_locked.save()
+
+                auction.status = Auction.Status.ENDED
+                auction.end_date = timezone.now()
+                auction.winner = user_locked
+                auction.current_price = auction.buy_now_price
                 auction.save()
 
-                broadcast_auction_interrupted(auction)
+                auction_to_broadcast = auction
 
-                return Response({
-                    "message": "Item bought instantly",
-                    "price": price
-                }, status=200)
+            if auction_to_broadcast:
+                    broadcast_auction_interrupted(auction_to_broadcast)
+
+            return Response({
+                "message": "Item bought instantly!",
+                "price": auction.buy_now_price,
+                "total_cost_with_tax": total_cost
+            }, status=200)
 
         except Exception as e:
             return Response({"error": str(e)}, status=400)

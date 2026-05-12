@@ -19,7 +19,7 @@ def close_expired_auctions():
     channel_layer = get_channel_layer()
 
     for auction in expired_auctions:
-        auction.status = 'finished'
+        auction.status = Auction.Status.ENDED
         auction.save()
         closed_count += 1
 
