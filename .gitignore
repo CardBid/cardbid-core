@@ -246,3 +246,8 @@ media/cards/
 backend/media/
 postgres_data/
 backend/staticfiles/
+
+# Celery
+celerybeat-schedule*
+celerybeat.pid
+*.pid
