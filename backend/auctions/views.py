@@ -1,3 +1,4 @@
+from decimal import Decimal
 import random
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -104,14 +105,15 @@ class AuctionLiveDataView(APIView):
 
        
         auction_data = {
-            "auction_type": auction.auction_type,
-            "starting_price": auction.starting_price,
-            "current_price": auction.current_price,
-            "buy_now_price": auction.buy_now_price,
-            "status": auction.status,
-            "start_date": auction.start_date,
-            "end_date": auction.end_date,
-        }
+    "auction_type": auction.auction_type,
+    "starting_price": auction.starting_price,
+    "current_price": auction.current_price,
+    "min_bid_increment": round(auction.current_price * Decimal("0.05"), 2) if auction.current_price else None,
+    "buy_now_price": auction.buy_now_price,
+    "status": auction.status,
+    "start_date": auction.start_date,
+    "end_date": auction.end_date,
+}
 
      
         last_bids = auction.bids.select_related("user").order_by("-created_at")[:5]
