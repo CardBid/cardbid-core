@@ -21,11 +21,12 @@ services:
     container_name: cardbid_redis
     ports:
       - "6379:6379"
+    restart: always
 
   backend:
     build: ./backend
     container_name: cardbid_backend
-    
+
     command: >
       sh -c "
         sleep 5 &&
@@ -75,6 +76,44 @@ services:
     volumes:
       - ./mediamtx.yml:/mediamtx.yml
     restart: unless-stopped
+
+  celery_worker:
+    build: ./backend
+    container_name: cardbid_celery_worker
+    command: celery -A core worker -l info
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - redis
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=cardbid_db
+      - DB_USER=admin
+      - DB_PASSWORD=adminpassword
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TZ=Europe/Warsaw
+
+  celery_beat:
+    build: ./backend
+    container_name: cardbid_celery_beat
+    command: celery -A core beat -l info
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - redis
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=cardbid_db
+      - DB_USER=admin
+      - DB_PASSWORD=adminpassword
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TZ=Europe/Warsaw
 
 volumes:
   postgres_data:
