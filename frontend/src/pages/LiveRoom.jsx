@@ -135,10 +135,19 @@ const handlePointerMove = (e) => {
   // NOWE STANY:
   const token = localStorage.getItem('access_token'); // Do wysyłania licytacji
   const { id } = useParams();
-  const [currentAuctionId, setCurrentAuctionId] = useState(id || 1); // MUSI być useState, żeby kliknięcie karty zaktualizowało auctionData
+  // URL /live/:id  →  id to ROOM_ID (tak go ustawia <Link to={`/live/${room.id}`}>)
+  const roomId = id || 1;
+  // currentAuctionId ustawiamy z timeline (slot 'current'), z fallbackiem na 1
+  const [currentAuctionId, setCurrentAuctionId] = useState(null);
   const [auctionData, setAuctionData] = useState(null); // Szczegóły karty z REST API
   const [errorMsg, setErrorMsg] = useState(null); // Błędy np. "Zbyt niska kwota"
-  const wsRef = useRef(null); // Referencja dla WebSocketu
+  const wsRef = useRef(null);     // WebSocket aukcji (cena)
+  const chatWsRef = useRef(null); // WebSocket pokoju (czat + globalne bid_update)
+
+  // Timeline pokoju: {opened, waiting_to_open, current, queue}
+  const [timelineData, setTimelineData] = useState({
+    opened: [], waiting_to_open: [], current: null, queue: []
+  });
   
   const [messages, setMessages] = useState([
     { id: 1, user: 'KarcianyŚwir', text: 'Kiedy zaczynamy?!' },
@@ -268,42 +277,183 @@ const handlePointerMove = (e) => {
   };
 
   const handleSendMessage = (e) => {
-    if (e && e.key !== 'Enter') return; 
-    if (newMessage.trim() !== '') {
-      setMessages(prev => [...prev, { id: Date.now(), user: 'Ty', text: newMessage }].slice(-50));
-      setNewMessage('');
+    if (e && e.key !== 'Enter') return;
+    const text = newMessage.trim();
+    if (text === '') return;
+
+    const socket = chatWsRef.current;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      // Prawdziwy czat - broadcast pójdzie przez serwer i wróci do nas jako 'chat_message'
+      try {
+        socket.send(JSON.stringify({ type: 'chat_message', message: text.slice(0, 200) }));
+      } catch {
+        // jeśli wysyłka padnie, pokaż lokalnie żeby user widział że "wpisał"
+        setMessages(prev => [...prev, { id: Date.now(), user: 'Ty', text }].slice(-50));
+      }
+    } else {
+      // Brak połączenia (np. niezalogowany) - wyświetlamy lokalnie, jako placeholder
+      setMessages(prev => [...prev, { id: Date.now(), user: 'Ty', text }].slice(-50));
     }
+    setNewMessage('');
   };
 
-  // ZWRÓCONE ORYGINALNE DANE DO CZATU
+  // === CZAT NA ŻYWO — WebSocket do StreamRoomConsumer ===
+  // Backend wymaga JWT (anon = close). Bez tokenu pomijamy podłączenie.
+  // Reconnect z exponential backoff, pełen cleanup na unmount.
   useEffect(() => {
-    const fakeUsers = ['PikaPika', 'CardMaster', 'Zbiórka', 'FanatykKart'];
-    const fakeMessages = ['Lecimy z tym!', 'Ale emocje 🔥','🔥🔥🔥', 'Ile jeszcze zostało?'];
-    
-    const interval = setInterval(() => {
-      setMessages(prev => [...prev, { 
-        id: Date.now(), 
-        user: fakeUsers[Math.floor(Math.random() * fakeUsers.length)], 
-        text: fakeMessages[Math.floor(Math.random() * fakeMessages.length)] 
-      }].slice(-50));
-    }, Math.random() * 5000 + 5000);
-    
-    return () => clearInterval(interval);
-  }, []);
+    if (!token) {
+      // Niezalogowany - nie łączymy czatu, ale UI dalej działa (read-only fake nie odpalamy)
+      return;
+    }
+
+    let cancelled = false;
+    let retryAttempt = 0;
+    let retryTimer = null;
+
+    const connect = () => {
+      if (cancelled) return;
+      let socket;
+      try {
+        // Backend StreamRoomConsumer odczytuje JWT ze scope - jeśli middleware obsługuje
+        // token w query stringu, dorzucamy. Inaczej będzie polegać na ciasteczku/sessji.
+        const url = `ws://localhost:8000/ws/rooms/${roomId}/?token=${encodeURIComponent(token)}`;
+        socket = new WebSocket(url);
+      } catch {
+        scheduleReconnect();
+        return;
+      }
+      chatWsRef.current = socket;
+
+      socket.onopen = () => { retryAttempt = 0; };
+
+      socket.onmessage = (event) => {
+        if (cancelled) return;
+        try {
+          const data = JSON.parse(event.data);
+
+          if (data.type === 'chat_message') {
+            setMessages(prev => [
+              ...prev,
+              {
+                id: Date.now() + Math.random(),
+                user: data.username || 'Anon',
+                text: data.message
+              }
+            ].slice(-50));
+          } else if (data.type === 'chat_error') {
+            setErrorMsg(data.message || 'Czat: błąd');
+            setTimeout(() => setErrorMsg(null), 3000);
+          } else if (data.type === 'bid_update') {
+            // Globalne bid_update z pokoju - aktualizujemy cenę gdy dotyczy aktualnej aukcji
+            if (String(data.auction_id) === String(currentAuctionId)) {
+              setCurrentPrice(Number(data.current_price));
+            }
+          }
+        } catch {
+          // ignoruj niepoprawny JSON
+        }
+      };
+
+      socket.onerror = () => { /* onclose poleci zaraz po */ };
+
+      socket.onclose = (event) => {
+        if (cancelled) return;
+        if (event.code === 1000) return;
+        scheduleReconnect();
+      };
+    };
+
+    const scheduleReconnect = () => {
+      if (cancelled) return;
+      const delay = Math.min(30000, 1000 * Math.pow(2, retryAttempt));
+      retryAttempt += 1;
+      retryTimer = setTimeout(connect, delay);
+    };
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      const s = chatWsRef.current;
+      if (s && (s.readyState === WebSocket.OPEN || s.readyState === WebSocket.CONNECTING)) {
+        try { s.close(1000, 'unmount'); } catch { /* noop */ }
+      }
+      chatWsRef.current = null;
+    };
+  }, [roomId, token, currentAuctionId]);
 
   useEffect(() => {
     if (chatContainerRef.current) chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     if (overlayChatRef.current) overlayChatRef.current.scrollTop = overlayChatRef.current.scrollHeight;
   }, [messages]);
 
-  // ZWRÓCONE WSZYSTKIE SLOTY HARMONOGRAMU
+  // === HARMONOGRAM POKOJU — REST /api/rooms/<roomId>/timeline/ ===
+  // Refresh co 10s żeby łapać zmiany (otwarcie slota przez streamera itp.)
+  useEffect(() => {
+    let cancelled = false;
+    let intervalId = null;
+
+    const fetchTimeline = async () => {
+      const data = await safeFetchJson(`http://localhost:8000/api/rooms/${roomId}/timeline/`);
+      if (cancelled || !data) return;
+      setTimelineData({
+        opened: data.opened || [],
+        waiting_to_open: data.waiting_to_open || [],
+        current: data.current || null,
+        queue: data.queue || []
+      });
+      // Ustaw aktualną aukcję na slot 'current' jeśli jeszcze nie wybrano ręcznie
+      if (data.current && !currentAuctionId) {
+        setCurrentAuctionId(data.current.auction_id);
+      }
+    };
+
+    fetchTimeline();
+    intervalId = setInterval(fetchTimeline, 10000);
+
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [roomId, safeFetchJson, currentAuctionId]);
+
+  // Spłaszczona lista do renderowania (replacement dla starego hardcoded array)
+  // Status mapping zgodny z badge'ami w JSX:
+  //   'opened'   = już otwarte (zakończone + paczka rozerwana)
+  //   'queued'   = zakończone, czekają na otwarcie
+  //   'active'   = aktualna licytacja
+  //   'upcoming' = w kolejce
   const timelineSlots = [
-    { id: 1, time: '20:00', title: 'Chicago Bulls', status: 'opened', info: 'Otwarto', winner: 'Janek' },
-    { id: 2, time: '20:15', title: 'Boston Celtics', status: 'queued', info: 'Otwarcie ok. 20:45', winner: 'KarcianyŚwir' },
-    { id: 3, time: '20:30', title: 'Los Angeles Lakers', status: 'active', info: 'Licytacja trwa!', winner: null },
-    { id: 4, time: '20:45', title: 'Golden State', status: 'upcoming', info: 'Licytacja za 15 min', winner: null },
-    { id: 5, time: '21:00', title: 'Miami Heat', status: 'upcoming', info: 'Licytacja za 30 min', winner: null },
-  ];
+    ...timelineData.opened.map(s => ({
+      id: s.slot_id, slot_id: s.slot_id, auction_id: s.auction_id,
+      time: `#${s.order}`, title: s.card_name, status: 'opened',
+      info: 'Otwarto', winner: s.winner
+    })),
+    ...timelineData.waiting_to_open.map(s => ({
+      id: s.slot_id, slot_id: s.slot_id, auction_id: s.auction_id,
+      time: `#${s.order}`, title: s.card_name, status: 'queued',
+      info: 'Czeka na otwarcie', winner: s.winner
+    })),
+    ...(timelineData.current ? [{
+      id: timelineData.current.slot_id,
+      slot_id: timelineData.current.slot_id,
+      auction_id: timelineData.current.auction_id,
+      time: `#${timelineData.current.order}`,
+      title: timelineData.current.card_name,
+      status: 'active', info: 'Licytacja trwa!',
+      winner: null
+    }] : []),
+    ...timelineData.queue.map(s => ({
+      id: s.slot_id, slot_id: s.slot_id, auction_id: s.auction_id,
+      time: `#${s.order}`, title: s.card_name, status: 'upcoming',
+      info: 'Wkrótce', winner: null
+    }))
+  ].sort((a, b) => {
+    // Order: opened/queued (zakończone) → active → upcoming
+    const rank = { opened: 0, queued: 1, active: 2, upcoming: 3 };
+    return rank[a.status] - rank[b.status];
+  });
 
   // 1. POBRANIE SZCZEGÓŁÓW AUKCJI (REST)
   // Endpoint wymaga IsAuthenticated -> wysyłamy token gdy jest.
@@ -328,6 +478,9 @@ const handlePointerMove = (e) => {
   // 2. PODPIĘCIE WEBSOCKET (CENA NA ŻYWO BEZ ODŚWIEŻANIA)
   // Z reconnect (exponential backoff), porządnym cleanup i ochroną przed setState po unmount.
   useEffect(() => {
+    // Czekamy aż timeline ustawi currentAuctionId - bez tego ws/auction/null/ to bzdura
+    if (!currentAuctionId) return;
+
     let cancelled = false;
     let retryAttempt = 0;
     let retryTimer = null;
@@ -338,7 +491,7 @@ const handlePointerMove = (e) => {
       let socket;
       try {
         socket = new WebSocket(`ws://localhost:8000/ws/auction/${currentAuctionId}/`);
-      } catch (err) {
+      } catch {
         scheduleReconnect();
         return;
       }
