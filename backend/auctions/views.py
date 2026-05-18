@@ -1,3 +1,4 @@
+from decimal import Decimal
 import random
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -7,8 +8,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
 from .permissions import IsStreamer
-from .models import Card, Category, Auction, CardbidUser, Country, State, Bid
+from .models import Card, Category, Auction, CardbidUser, Country, State, Bid, AuctionSlot
 from .serializers import (
     CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer,
     RegisterSerializer, BidSerializer, StreamRoomSerializer,
@@ -16,7 +21,6 @@ from .serializers import (
 )
 
 from django.db import transaction
-from django.utils import timezone
 from .utils import calculate_fees
 from decimal import Decimal, InvalidOperation
 
@@ -73,7 +77,7 @@ class StreamerTestView(APIView):
     permission_classes = [IsStreamer]
 
     def get(self, request):
-        return Response({"message": f"Witaj {request.user.username}! Masz uprawnienia streamera."})
+        return Response({"message": f"Hello {request.user.username}! You have streamer privileges."})
 
 
 class PSAVerifyView(APIView):
@@ -115,6 +119,76 @@ class PSAVerifyView(APIView):
             status=status.HTTP_200_OK,
         )
 
+class AuctionLiveDataView(APIView):
+    """
+    return data about auction to frontend
+    Endpoint: GET /api/v1/auctions/{id}/live-data/
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        auction = get_object_or_404(Auction, pk=pk)
+        card = auction.card
+
+        
+        card_data = {
+            "name": card.name,
+            "description": card.description,
+            "certificate_number": card.certificate_number,
+            "grade": card.grade,
+            "image_url": request.build_absolute_uri(card.image.url) if card.image else None,
+        }
+
+       
+        auction_data = {
+            "auction_type": auction.auction_type,
+            "starting_price": auction.starting_price,
+            "current_price": auction.current_price,
+            "min_bid_increment": round(auction.current_price * Decimal("0.05"), 2) if auction.current_price else None,
+            "buy_now_price": auction.buy_now_price,
+            "status": auction.status,
+            "start_date": auction.start_date,
+            "end_date": auction.end_date,
+        }
+
+     
+        last_bids = auction.bids.select_related("user").order_by("-created_at")[:5]
+        bids_data = [
+            {
+                "username": bid.user.username,
+                "amount": bid.amount,
+                "placed_at": bid.created_at,
+            }
+            for bid in last_bids
+        ]
+
+      
+        try:
+            current_slot = auction.auctionslot
+            next_slots = AuctionSlot.objects.filter(
+                room=current_slot.room,
+                status=AuctionSlot.Status.PENDING,
+                order__gt=current_slot.order,
+            ).select_related("auction__card").order_by("order")[:3]
+
+            slots_data = [
+                {
+                    "order": slot.order,
+                    "card_name": slot.auction.card.name,
+                    "card_grade": slot.auction.card.grade,
+                    "starting_price": slot.auction.starting_price,
+                }
+                for slot in next_slots
+            ]
+        except AuctionSlot.DoesNotExist:
+            slots_data = []
+
+        return Response({
+            "card": card_data,
+            "auction": auction_data,
+            "last_bids": bids_data,
+            "upcoming_slots": slots_data,
+        }, status=status.HTTP_200_OK)
 
 class TaxCalculatorView(APIView):
     permission_classes = [IsAuthenticated]
@@ -356,3 +430,82 @@ class BuyNowView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=400)
+
+
+class RoomTimelineView(APIView):
+    """
+    Endpoint: GET /api/v1/rooms/<int:room_id>/timeline/
+    Zwraca harmonogram licytacji dla konkretnego pokoju, podzielony na 4 sekcje.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, room_id):
+        slots = AuctionSlot.objects.filter(room_id=room_id).select_related(
+            'auction', 'auction__card', 'auction__winner'
+        ).order_by('order')
+
+        timeline = {
+            "opened": [],
+            "waiting_to_open": [],
+            "current": None,
+            "queue": []
+        }
+
+        for slot in slots:
+            auction = slot.auction
+            
+            slot_data = {
+                "slot_id": slot.id,
+                "order": slot.order,
+                "auction_id": auction.id,
+                "card_name": auction.card.name,
+                "price": float(auction.current_price),
+                "winner": auction.winner.username if auction.winner else None,
+                # "image_url": request.build_absolute_uri(auction.card.image.url) if auction.card.image else None,
+            }
+
+            
+            if auction.status == Auction.Status.ENDED:
+                if getattr(slot, 'is_opened', False): 
+                    timeline["opened"].append(slot_data)
+                else:
+                    timeline["waiting_to_open"].append(slot_data)
+                    
+            elif auction.status == Auction.Status.ACTIVE and slot.status == getattr(AuctionSlot.Status, 'ACTIVE', 'active'):
+                timeline["current"] = slot_data
+                
+            else:
+                timeline["queue"].append(slot_data)
+
+        return Response(timeline, status=status.HTTP_200_OK)
+
+class SlotOpenView(APIView):
+    """
+    Endpoint: POST /api/v1/slots/<int:slot_id>/open/
+    Streamer klika to, gdy fizycznie rozerwie paczkę na wizji.
+    """
+    permission_classes = [permissions.AllowAny] 
+
+    def post(self, request, slot_id):
+        slot = get_object_or_404(AuctionSlot, id=slot_id)
+
+        if slot.auction.status != Auction.Status.ENDED:
+            return Response(
+                {"error": "You cannot open a card that has not been sold yet (status must be ENDED)."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if slot.is_opened:
+            return Response(
+                {"error": "This package has already been opened!"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        slot.is_opened = True
+        slot.save()
+
+        return Response({
+            "message": "Package opened successfully!", 
+            "slot_id": slot.id,
+            "card_name": slot.auction.card.name
+        }, status=status.HTTP_200_OK)
