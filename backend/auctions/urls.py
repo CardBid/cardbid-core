@@ -3,7 +3,7 @@ from .views import (
     PSAVerifyView, StreamerTestView, TaxCalculatorView, 
     TopUpBalanceView, UserProfileView, CardListCreateView,
     CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView, UserInventoryView, UserActiveBidsView,
-    AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView, BuyNowView
+    AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView, BuyNowView, AuctionLiveDataView
 )
 
 urlpatterns = [
@@ -32,6 +32,7 @@ urlpatterns = [
     path('auctions/<int:pk>/buy-now/', BuyNowView.as_view(), name='buy-now'),
 
     # --- LIVE STREAMING ---
+    path('auctions/<int:pk>/live-data/', AuctionLiveDataView.as_view(), name='auction-live-data'),
     path('live-rooms/', LiveRoomsListView.as_view(), name='live-rooms-list'),
     path('live-rooms/toggle/', StreamRoomToggleView.as_view(), name='live-rooms-toggle'),
 

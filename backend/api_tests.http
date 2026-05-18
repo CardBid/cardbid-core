@@ -9,8 +9,6 @@ Content-Type: application/json
 }
 
 ###
-### 2. TEST UPRAWNIEŃ (Jako Streamer)
-# SKOPIUJ 'access' z odpowiedzi powyżej i WKLEJ go zamiast <TWOJ_TOKEN>
 POST http://localhost:8000/auth/register/
 Content-Type: application/json
 

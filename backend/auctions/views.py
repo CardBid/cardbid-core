@@ -1,3 +1,4 @@
+from decimal import Decimal
 import random
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -7,8 +8,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
 from .permissions import IsStreamer
-from .models import Card, Category, Auction, CardbidUser, Country, State, Bid
+from .models import Card, Category, Auction, CardbidUser, Country, State, Bid, AuctionSlot
 from .serializers import (
     CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer,
     RegisterSerializer, BidSerializer, StreamRoomSerializer,
@@ -16,7 +21,6 @@ from .serializers import (
 )
 
 from django.db import transaction
-from django.utils import timezone
 from .utils import calculate_fees
 from decimal import Decimal, InvalidOperation
 
@@ -115,6 +119,76 @@ class PSAVerifyView(APIView):
             status=status.HTTP_200_OK,
         )
 
+class AuctionLiveDataView(APIView):
+    """
+    return data about auction to frontend
+    Endpoint: GET /api/v1/auctions/{id}/live-data/
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        auction = get_object_or_404(Auction, pk=pk)
+        card = auction.card
+
+        
+        card_data = {
+            "name": card.name,
+            "description": card.description,
+            "certificate_number": card.certificate_number,
+            "grade": card.grade,
+            "image_url": request.build_absolute_uri(card.image.url) if card.image else None,
+        }
+
+       
+        auction_data = {
+            "auction_type": auction.auction_type,
+            "starting_price": auction.starting_price,
+            "current_price": auction.current_price,
+            "min_bid_increment": round(auction.current_price * Decimal("0.05"), 2) if auction.current_price else None,
+            "buy_now_price": auction.buy_now_price,
+            "status": auction.status,
+            "start_date": auction.start_date,
+            "end_date": auction.end_date,
+        }
+
+     
+        last_bids = auction.bids.select_related("user").order_by("-created_at")[:5]
+        bids_data = [
+            {
+                "username": bid.user.username,
+                "amount": bid.amount,
+                "placed_at": bid.created_at,
+            }
+            for bid in last_bids
+        ]
+
+      
+        try:
+            current_slot = auction.auctionslot
+            next_slots = AuctionSlot.objects.filter(
+                room=current_slot.room,
+                status=AuctionSlot.Status.PENDING,
+                order__gt=current_slot.order,
+            ).select_related("auction__card").order_by("order")[:3]
+
+            slots_data = [
+                {
+                    "order": slot.order,
+                    "card_name": slot.auction.card.name,
+                    "card_grade": slot.auction.card.grade,
+                    "starting_price": slot.auction.starting_price,
+                }
+                for slot in next_slots
+            ]
+        except AuctionSlot.DoesNotExist:
+            slots_data = []
+
+        return Response({
+            "card": card_data,
+            "auction": auction_data,
+            "last_bids": bids_data,
+            "upcoming_slots": slots_data,
+        }, status=status.HTTP_200_OK)
 
 class TaxCalculatorView(APIView):
     permission_classes = [IsAuthenticated]

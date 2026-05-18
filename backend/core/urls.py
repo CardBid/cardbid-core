@@ -25,7 +25,6 @@ urlpatterns = [
     path('auth/logout/', LogoutView.as_view(), name='auth_logout'),
 
     path("api/", include("auctions.urls")),
-
 ]
 
 if settings.DEBUG:
