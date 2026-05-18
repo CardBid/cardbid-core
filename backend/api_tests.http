@@ -1,25 +1,26 @@
 ### 1. LOGOWANIE (Pobieranie tokena) ABY TO WSZYSTKO DZIAŁAŁO TRZEBA MIEĆ WTYCZKĘ REST CLIENT
 # Kliknij "Send Request" poniżej, żeby dostać token.
-POST http://localhost:8000/api/token/
+POST http://localhost:8000/auth/login/
 Content-Type: application/json
 
 {
-    "email": "streamer_1@example.com",
+    "email": "streamer_2@example.com",
     "password": "Test1234!"
 }
 
 ###
-
-### 2. TEST UPRAWNIEŃ (Jako Streamer)
-# SKOPIUJ 'access' z odpowiedzi powyżej i WKLEJ go zamiast <TWOJ_TOKEN>
-GET http://localhost:8000/api/test-streamer/
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc2Nzc0ODM0LCJpYXQiOjE3NzY3NzM5MzQsImp0aSI6IjZjMTQ2NWQ0OTUwODRhOGFiYTI0MWY1ZWRhYzFjMzdlIiwidXNlcl9pZCI6MTksInJvbGUiOiJzdHJlYW1lciIsInVzZXJuYW1lIjoic3RyZWFtZXJfMSJ9.kBw992Lwbu6TovEutpupNAohHieLkqOuxhGbz_z_C9Q
-
-### 3. TEST - Live data aukcji (podmień ID na istniejące)
-GET http://localhost:8000/api/v1/auctions/1/live-data/
-
-###
-
-### 4. TEST - Buy Now (podmień ID na aukcję typu buy_now lub hybrid)
-POST http://localhost:8000/api/v1/auctions/1/buy-now/
+POST http://localhost:8000/auth/register/
 Content-Type: application/json
+
+{
+    "username": "tester_nowy_1",
+    "email": "test@test.pl",
+    "password": "Haslo12345!",
+    "password_confirm": "Haslo12345!",
+    "country": 1,
+    "role": "buyer"
+}
+
+### 3. Test
+GET http://localhost:8000/api/auctions/
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc3MzkzNDEzLCJpYXQiOjE3NzczOTI1MTMsImp0aSI6ImRiNWI3NjI1YzhjZjRhMmM4ZmVjNDk5YjNmYTI4NDU2IiwidXNlcl9pZCI6MTksInJvbGUiOiJzdHJlYW1lciIsInVzZXJuYW1lIjoic3RyZWFtZXJfMSJ9.yxsK6ZoGc6zouQK3ZgwwuoUcGEPF3CH0-2tIOFWvvxw

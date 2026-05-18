@@ -20,6 +20,26 @@ from django.utils               import timezone
 from auctions.managers      import CardbidUserManager
 from auctions.permissions   import Roles
 
+# Country and State models for tax calculations
+class Country(models.Model):
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=2, unique=True) # PL, US, GB
+    default_vat = models.DecimalField(max_digits=4, decimal_places=2, default=0.00)
+    duty_rate = models.DecimalField(max_digits=4, decimal_places=2, default=0.00)
+    has_states = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.name
+
+# States for United States (or other countries with states and different tax rates)
+class State(models.Model):
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='states')
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=5) # CA, NY, TX
+    tax_rate = models.DecimalField(max_digits=4, decimal_places=2, default=0.00)
+
+    def __str__(self):
+        return f"{self.country.code} - {self.name}"
 
 class CardbidUser(AbstractUser):
     
@@ -42,8 +62,37 @@ class CardbidUser(AbstractUser):
     # Make django consider our email field as its username field, which is used as
     # login during authentication.
     username        = models.CharField(max_length=150, unique=True)
+
+    country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True, blank=True)
+    state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
+    shipping_address = models.TextField(blank=True)
+    birth_date = models.DateField(null=True, blank=True)
+    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+
     USERNAME_FIELD  = "email"
     REQUIRED_FIELDS = ["username"]
+
+    def clean(self):
+        super().clean()
+        if self.country and self.country.has_states and not self.state:
+            raise ValidationError({
+                'state': 'You must to choose a state if your country has states.'
+            })
+
+        if self.state: 
+            if self.country and self.state.country != self.country:
+                state_name = self.state.name 
+                country_name = self.country.name
+                raise ValidationError({
+                    'state': f'Region ({state_name}) does not belong to {country_name}!'
+                })
+            
+        if self.country and not self.country.has_states:
+            self.state = None
+            
+    def save(self, *args, **kwargs):
+        self.full_clean(exclude=['password'])
+        super().save(*args, **kwargs)
 
     def __str__(self):
         # Do not include password, because it is a hash anyways ...
@@ -136,6 +185,13 @@ class Auction(models.Model):
     starting_price  = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     current_price   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     buy_now_price   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    
+    min_increment = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=1.00
+    )
+
     start_date      = models.DateTimeField(default=timezone.now)
     end_date        = models.DateTimeField(default=timezone.now)
     status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default=DEFAULT_STATUS)
@@ -211,12 +267,12 @@ class AuctionSlot(models.Model):
         ACTIVE      = "active"
         FINISHED    = "finished"
         PENDING     = "pending"
-    
-    STATUS_CHOICES = [
-        (Status.ACTIVE,     'Teraz'),
-        (Status.FINISHED,   'Zakończone'),
-        (Status.PENDING,    'W kolejce'),
-    ]
+
+    STATUS_CHOICES = (
+        (Status.ACTIVE,     "Aktywna"),
+        (Status.FINISHED,   "Zakończona"),
+        (Status.PENDING,    "Oczekująca"),
+    )
 
     auction = models.OneToOneField('Auction', on_delete=models.CASCADE)
     order   = models.PositiveIntegerField(help_text="Numer slotu (np. 1, 2, 3...)")
@@ -224,8 +280,7 @@ class AuctionSlot(models.Model):
     # So you can access all auction slots in StreamRoom 'SR' like: SR.slots.all()
     room    = models.ForeignKey(StreamRoom, on_delete=models.CASCADE, related_name="slots")
     
-    status  = models.CharField(max_length=10, choices=STATUS_CHOICES, default=Status.PENDING)
+    status  = models.CharField(max_length=10,choices=STATUS_CHOICES,default="pending")
 
     def __str__(self):
         return f"AuctionSlot(auction={self.auction}, order={self.order}, room={self.room}, status={self.status})"
-

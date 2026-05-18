@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Countdown from 'react-countdown';
+import BuyNowPanel from '../components/marketplace/BuyNowPanel';
 
 // --- BAZA DANYCH (Mock Data) ---
 const mockProducts = [
@@ -22,11 +23,38 @@ const mockProducts = [
     title: "Panini Prizm NBA 2023-24 Hobby Pack",
     type: "FIXED",
     price: 350,
+    stock: 4,
     details: { 
       category: "Modern Hobby Pack", 
       condition: "Nowa", 
       origin: "Autoryzowany Dystrybutor",
       description: "Paczka pochodząca bezpośrednio z nowo otwartego Hobby Boxa. W tej serii gwarantowana jest wysoka szansa na trafienie ekskluzywnych kart Prizm, autografów oraz limitowanych wariantów debiutantów z aktualnego rocznika."
+    }
+  },
+  {
+    id: "3",
+    title: "Soccer Icons Mystery Pack",
+    type: "FIXED",
+    price: 219,
+    stock: 7,
+    details: {
+      category: "Soccer",
+      condition: "Sealed",
+      origin: "Zweryfikowany Sprzedawca",
+      description: "Zamknięta paczka piłkarska z kartą premium w każdym slocie. Produkt przeznaczony do szybkiego zakupu w module Marketplace."
+    }
+  },
+  {
+    id: "4",
+    title: "Graded Rookie Card Box",
+    type: "FIXED",
+    price: 680,
+    stock: 2,
+    details: {
+      category: "Modern Hobby Box",
+      condition: "Mint Box",
+      origin: "Magazyn CardBid",
+      description: "Box z kartą graded rookie, przygotowany jako oferta katalogowa 24/7 z obsługą przepływu Kup Teraz."
     }
   }
 ];
@@ -42,7 +70,6 @@ export default function ProductDetail() {
   const [currentPrice, setCurrentPrice] = useState(0);       // Aktualna cena na ekranie
   const [isWinning, setIsWinning] = useState(false);         // Czy użytkownik aktualnie wygrywa aukcję?
   const [bidIncrement, setBidIncrement] = useState(5);       // Wybrana kwota szybkiego przebicia (np. +5$, +10$)
-  const [isSold, setIsSold] = useState(false);               // Czy przedmiot w opcji "Kup Teraz" został sprzedany?
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(false); // Czy długi opis jest rozwinięty?
 
   // --- EFEKTY (Side Effects) ---
@@ -51,7 +78,6 @@ export default function ProductDetail() {
     if (product) {
       setCurrentPrice(product.currentBid || product.price || 0);
       setIsWinning(false);
-      setIsSold(false);
       setIsDetailsExpanded(false); // Domyślnie zwijamy opis przy nowym produkcie
     }
   }, [product]);
@@ -69,11 +95,6 @@ export default function ProductDetail() {
       setIsWinning(false);
       setCurrentPrice(prev => prev + 5); 
     }, 4000);
-  };
-
-  // Logika zakupu natychmiastowego
-  const handleBuyNow = () => {
-    setIsSold(true); // Wyłącza przycisk i zmienia jego status na "SPRZEDANO"
   };
 
   // --- WIDOK BŁĘDU (404) ---
@@ -202,24 +223,7 @@ export default function ProductDetail() {
             ) : (
               
               // --- WARIANT B: KUP TERAZ ---
-              <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 shadow-xl">
-                <div className="mb-6">
-                  <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-2 block">Cena Kup Teraz</span>
-                  <span className="text-5xl font-black text-white">${product.price}</span>
-                </div>
-                {/* Przycisk zakupu natychmiastowego */}
-                <button 
-                  onClick={handleBuyNow}
-                  disabled={isSold}
-                  className={`w-full py-5 rounded-2xl font-black text-xl transition-all uppercase tracking-tighter ${
-                    isSold 
-                      ? 'bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed' 
-                      : 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_10px_20px_rgba(37,99,235,0.2)] hover:-translate-y-1'
-                  }`}
-                >
-                  {isSold ? '🔒 SPRZEDANO' : 'Kup natychmiast'}
-                </button>
-              </div>
+              <BuyNowPanel product={product} />
             )}
           </div>
 

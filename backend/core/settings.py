@@ -7,6 +7,7 @@ Provided by Whisper.
 
 from datetime   import timedelta
 from pathlib    import Path
+from celery.schedules import crontab
 import os
 
 
@@ -160,5 +161,31 @@ CHANNEL_LAYERS = {
                 )
             ],
         },
+    },
+}
+
+# CELERY CONFIGURATION
+TIME_ZONE = 'Europe/Warsaw'
+USE_TZ = True
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = False
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("redis", 6379)],
+        },
+    },
+}
+
+CELERY_BEAT_SCHEDULE = {
+    'close-expired-auctions-every-minute': {
+        'task': 'auctions.tasks.close_expired_auctions',
+        'schedule': crontab(minute='*'), # Uruchamia się co 1 minutę
     },
 }
