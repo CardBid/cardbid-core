@@ -140,7 +140,8 @@ const handlePointerMove = (e) => {
   // currentAuctionId ustawiamy z timeline (slot 'current'), z fallbackiem na 1
   const [currentAuctionId, setCurrentAuctionId] = useState(null);
   const [auctionData, setAuctionData] = useState(null); // Szczegóły karty z REST API
-  const [errorMsg, setErrorMsg] = useState(null); // Błędy np. "Zbyt niska kwota"
+  const [errorMsg, setErrorMsg] = useState(null); // Błędy panelu licytacji (np. "Zbyt niska kwota")
+  const [chatError, setChatError] = useState(null); // Błędy czatu (np. rate-limit 2s)
   const wsRef = useRef(null);     // WebSocket aukcji (cena)
   const chatWsRef = useRef(null); // WebSocket pokoju (czat + globalne bid_update)
 
@@ -341,8 +342,8 @@ const handlePointerMove = (e) => {
               }
             ].slice(-50));
           } else if (data.type === 'chat_error') {
-            setErrorMsg(data.message || 'Czat: błąd');
-            setTimeout(() => setErrorMsg(null), 3000);
+            setChatError(data.message || 'Czat: błąd');
+            setTimeout(() => setChatError(null), 3000);
           } else if (data.type === 'bid_update') {
             // Globalne bid_update z pokoju - aktualizujemy cenę gdy dotyczy aktualnej aukcji
             if (String(data.auction_id) === String(currentAuctionId)) {
@@ -459,6 +460,7 @@ const handlePointerMove = (e) => {
   // Endpoint wymaga IsAuthenticated -> wysyłamy token gdy jest.
   // Fallback: jeśli brak danych, bierzemy je z allAuctions (lista jest publiczna).
   useEffect(() => {
+    if (!currentAuctionId) return; // czekamy aż timeline ustawi id - bez tego URL .../auctions/null/
     let cancelled = false;
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     safeFetchJson(`http://localhost:8000/api/auctions/${currentAuctionId}/`, { headers })
@@ -661,6 +663,12 @@ return (
                 </div>
               ))}
             </div>
+
+            {chatError && (
+              <div className="bg-red-500/30 border-t border-red-500/40 text-red-300 text-[10px] font-bold px-3 py-1 text-center">
+                {chatError}
+              </div>
+            )}
 
             {/* INPUT DO PISANIA W TRYBIE KINOWYM */}
             <div className="p-2 bg-black/40 border-t border-gray-700/50 flex gap-2">
@@ -1001,6 +1009,11 @@ return (
           {/* Klasyczny Czat */}
           <div className="bg-gray-900 rounded-2xl p-5 flex flex-col border border-gray-800 shadow-xl flex-1 overflow-hidden">
             <h2 className="text-xs font-bold mb-4 text-blue-400 uppercase tracking-widest">💬 Czat</h2>
+            {chatError && (
+              <div className="bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-bold px-3 py-2 mb-3 rounded-lg text-center">
+                {chatError}
+              </div>
+            )}
             <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2 custom-scrollbar">
               {messages.map(m => (
                 <div key={m.id} className="text-sm leading-relaxed break-words">
@@ -1047,6 +1060,11 @@ return (
             </button>
           </div>
 
+          {chatError && (
+            <div className="bg-red-500/20 border border-red-500/40 text-red-300 text-[10px] font-bold px-2 py-1 mt-1 rounded text-center">
+              {chatError}
+            </div>
+          )}
           <div className="flex gap-2 mt-1">
             <input type="text" placeholder="Napisz na czacie..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className="flex-1 bg-black/50 text-xs rounded-lg px-3 py-2 border border-gray-700 outline-none focus:border-blue-500 text-white" />
             <button onClick={() => handleSendMessage()} className="bg-blue-600 text-white px-4 rounded-lg">                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg></button>
