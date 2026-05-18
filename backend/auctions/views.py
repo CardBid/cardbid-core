@@ -121,7 +121,7 @@ class PSAVerifyView(APIView):
 
 class AuctionLiveDataView(APIView):
     """
-    return date aubout action to fronted
+    return data about auction to frontend
     Endpoint: GET /api/v1/auctions/{id}/live-data/
     """
     permission_classes = [AllowAny]
