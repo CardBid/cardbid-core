@@ -45,8 +45,9 @@ class AuctionConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
+        action_type = data.get('type')
 
-        if data.get("type") == "place_bid":
+        if action_type == "place_bid":
             success, message, auction, _ = await database_sync_to_async(process_bid_logic)(
                 self.scope["user"], self.auction_id, data.get("amount")
             )
@@ -69,12 +70,31 @@ class AuctionConsumer(AsyncWebsocketConsumer):
                 error_response["success"] = False
                 await self.send(text_data=json.dumps(error_response))
 
+        elif action_type == "chat_message":
+            message_text = data.get('message')
+            username = self.scope["user"].username if self.scope["user"].is_authenticated else "Anonymous"
+
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    "type": "chat_message_broadcast",
+                    "data": {
+                        "type": "chat_message",
+                        "username": username,
+                        "message": message_text
+                    }
+                }
+            )
+
 
     async def bid_update(self, event):
         await self.send(text_data=json.dumps(event["data"]))
 
 
     async def auction_interrupted(self, event):
+        await self.send(text_data=json.dumps(event["data"]))
+
+    async def chat_message_broadcast(self, event):
         await self.send(text_data=json.dumps(event["data"]))
 
 
