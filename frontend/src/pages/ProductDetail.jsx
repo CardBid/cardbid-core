@@ -1,277 +1,245 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import Countdown from 'react-countdown';
-import BuyNowPanel from '../components/marketplace/BuyNowPanel';
-
-// --- BAZA DANYCH (Mock Data) ---
-const mockProducts = [
-  {
-    id: "1",
-    title: "Pokemon Base Set Booster Pack (Unlimited)",
-    type: "AUCTION",
-    endTime: Date.now() + 86400000, // Ustawia koniec licytacji na 24h od teraz
-    currentBid: 1250,
-    details: { 
-      category: "Vintage Booster", 
-      condition: "Factory Sealed (Sealed)", 
-      origin: "Prywatna Kolekcja",
-      description: "Oryginalna, zafoliowana paczka kart z wczesnych lat wydawniczych Pokemon TCG. Gwarancja autentyczności i nienaruszonego stanu folii (brak pęknięć i przetarć). Idealna okazja dla kolekcjonerów szukających klasycznych kart holograficznych w nieskazitelnym stanie."
-    }
-  },
-  {
-    id: "2",
-    title: "Panini Prizm NBA 2023-24 Hobby Pack",
-    type: "FIXED",
-    price: 350,
-    stock: 4,
-    details: { 
-      category: "Modern Hobby Pack", 
-      condition: "Nowa", 
-      origin: "Autoryzowany Dystrybutor",
-      description: "Paczka pochodząca bezpośrednio z nowo otwartego Hobby Boxa. W tej serii gwarantowana jest wysoka szansa na trafienie ekskluzywnych kart Prizm, autografów oraz limitowanych wariantów debiutantów z aktualnego rocznika."
-    }
-  },
-  {
-    id: "3",
-    title: "Soccer Icons Mystery Pack",
-    type: "FIXED",
-    price: 219,
-    stock: 7,
-    details: {
-      category: "Soccer",
-      condition: "Sealed",
-      origin: "Zweryfikowany Sprzedawca",
-      description: "Zamknięta paczka piłkarska z kartą premium w każdym slocie. Produkt przeznaczony do szybkiego zakupu w module Marketplace."
-    }
-  },
-  {
-    id: "4",
-    title: "Graded Rookie Card Box",
-    type: "FIXED",
-    price: 680,
-    stock: 2,
-    details: {
-      category: "Modern Hobby Box",
-      condition: "Mint Box",
-      origin: "Magazyn CardBid",
-      description: "Box z kartą graded rookie, przygotowany jako oferta katalogowa 24/7 z obsługą przepływu Kup Teraz."
-    }
-  }
-];
+import { useParams } from 'react-router-dom';
 
 export default function ProductDetail() {
-  // Pobieramy parametr 'id' z paska adresu
   const { id } = useParams();
   
-  // Szukamy odpowiedniego produktu w naszej testowej tablicy
-  const product = mockProducts.find(p => p.id === id);
-
-  // --- ZARZĄDZANIE STANEM (State) ---
-  const [currentPrice, setCurrentPrice] = useState(0);       // Aktualna cena na ekranie
-  const [isWinning, setIsWinning] = useState(false);         // Czy użytkownik aktualnie wygrywa aukcję?
-  const [bidIncrement, setBidIncrement] = useState(5);       // Wybrana kwota szybkiego przebicia (np. +5$, +10$)
-  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false); // Czy długi opis jest rozwinięty?
-
-  // --- EFEKTY (Side Effects) ---
-  // Ten kod uruchamia się za każdym razem, gdy użytkownik wejdzie na nowy produkt.
-  useEffect(() => {
-    if (product) {
-      setCurrentPrice(product.currentBid || product.price || 0);
-      setIsWinning(false);
-      setIsDetailsExpanded(false); // Domyślnie zwijamy opis przy nowym produkcie
-    }
-  }, [product]);
-
-  // --- FUNKCJE OBSŁUGUJĄCE AKCJE (Handlers) ---
+  const [auction, setAuction] = useState(null);
+  const [currentPrice, setCurrentPrice] = useState(0);
+  const [error, setError] = useState(null);
   
-  // Logika podbicia stawki w aukcji
-  const handleBid = () => {
-    // 1. Użytkownik podbija o wybraną przez siebie kwotę
-    setCurrentPrice(prev => prev + bidIncrement);
-    setIsWinning(true);
+  const [bidAmount, setBidAmount] = useState('');
+  const [bidStatus, setBidStatus] = useState(null);
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
 
-    // 2. Symulacja bota: po 4 sekundach ktoś inny nas przebija o 5$
-    setTimeout(() => {
-      setIsWinning(false);
-      setCurrentPrice(prev => prev + 5); 
-    }, 4000);
+  useEffect(() => {
+    const fetchAuction = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`http://localhost:8000/api/auctions/${id}/`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        if (!response.ok) {
+          throw new Error('Aukcja nie istnieje lub backend odmówił współpracy.');
+        }
+
+        const data = await response.json();
+        setAuction(data);
+        setCurrentPrice(parseFloat(data.current_price));
+      } catch (err) {
+        setError(err.message);
+      }
+    };
+
+    fetchAuction();
+  }, [id]);
+
+  const handleBid = async (e) => {
+    e.preventDefault();
+    setBidStatus({ type: 'loading', msg: 'Wysyłanie oferty...' });
+
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      setBidStatus({ type: 'error', msg: 'Zaloguj się najpierw, bez konta nic tu nie kupisz.' });
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/auctions/${id}/bid/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ amount: bidAmount })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Serwer odrzucił ofertę bez słowa wyjaśnienia.');
+      }
+
+      setBidStatus({ type: 'success', msg: 'Oferta przyjęta!' });
+      setCurrentPrice(parseFloat(data.new_price));
+      setBidAmount('');
+    } catch (err) {
+      setBidStatus({ type: 'error', msg: err.message });
+    }
   };
 
-  // --- WIDOK BŁĘDU (404) ---
-  // Zabezpieczenie przed wpisaniem zmyślonego ID w pasku adresu (np. /product/999)
-  if (!product) {
-    return (
-      <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center">
-        <h1 className="text-3xl font-bold mb-4">Nie znaleziono produktu</h1>
-        <Link to="/" className="text-blue-500 hover:underline">Wróć na stronę główną</Link>
-      </div>
-    );
-  }
+  const handleBuyNow = async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      setBidStatus({ type: 'error', msg: 'Zaloguj się najpierw!' });
+      return;
+    }
 
-  // --- GŁÓWNY WIDOK KOMPONENTU (UI) ---
+    setBidStatus({ type: 'loading', msg: 'Przetwarzanie zakupu...' });
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/auctions/${id}/buy-now/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Błąd zakupu.');
+      }
+
+      setBidStatus({ type: 'success', msg: 'Zakup zakończony sukcesem! 🎉' });
+    } catch (err) {
+      setBidStatus({ type: 'error', msg: err.message });
+    }
+  };
+
+  if (error) return <div className="p-10 font-bold text-red-500">Wystąpił błąd: {error}</div>;
+  if (!auction) return <div className="p-10 text-gray-400">Pobieranie danych z API...</div>;
+
+  // Rozpoznanie typu — identyczna logika jak w LiveRoom
+  const isBuyNow = auction.auction_type === 'buy_now' || auction.auction_type === 'Tylko Kup Teraz';
+  const isHybrid = auction.auction_type === 'hybrid' || auction.auction_type === 'Licytacja + Kup Teraz';
+
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4 md:p-8 font-sans">
+    <div className="container mx-auto p-4 text-white">
+      <h1 className="mb-4 text-3xl font-bold">{auction.card_details?.name || 'Brak nazwy'}</h1>
       
-      {/* Przycisk powrotu */}
-      <Link to="/" className="text-gray-400 hover:text-white mb-8 inline-block transition">
-        &larr; Wróć
-      </Link>
-
-      {/* Główny kontener siatki - dzieli ekran na dwie równe kolumny na dużych ekranach (lg:grid-cols-2) */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
-        
-        {/* --- LEWA KOLUMNA: WIZUALIZACJA --- */}
-        {/* h-fit i lg:sticky lg:top-8 sprawiają, że obrazek przewija się razem z ekranem, 
-            gdy prawa kolumna ze szczegółami jest bardzo długa. */}
-        <div className="bg-gray-900 rounded-3xl border border-gray-800 p-12 flex items-center justify-center aspect-[3/4] shadow-2xl relative overflow-hidden group h-fit lg:sticky lg:top-8">
-          <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/10 to-purple-900/10 z-0"></div>
-          <span className="text-gray-600 font-bold text-xl uppercase tracking-widest group-hover:scale-110 transition-transform duration-500 text-center">
-            Wizualizacja <br/> Paczki
-          </span>
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+        {/* Zdjęcie */}
+        <div>
+          <img 
+            src={auction.card_details?.image ? `http://localhost:8000${auction.card_details.image}` : '/placeholder.png'} 
+            alt={auction.card_details?.name} 
+            className="w-full rounded-lg border border-gray-700"
+          />
         </div>
 
-        {/* --- PRAWA KOLUMNA: AKCJE I SZCZEGÓŁY --- */}
-        <div className="flex flex-col">
-          
-          {/* 1. Tytuł Produktu */}
-          <div className="mb-6">
-            <h1 className="text-4xl md:text-5xl font-black text-white leading-tight uppercase tracking-tighter">
-              {product.title}
-            </h1>
-          </div>
+        {/* Panel boczny */}
+        <div className="space-y-6">
 
-          {/* 2. PANEL ZAKUPOWY (Logika warunkowa: licytacja albo zakup bezpośredni) */}
-          <div className="mb-8">
-            {product.type === 'AUCTION' ? (
-              
-              // --- WARIANT A: LICYTACJA ---
-              <div className="bg-gradient-to-b from-gray-800 to-gray-900 rounded-2xl p-6 border border-yellow-500/30 shadow-[0_0_30px_rgba(234,179,8,0.1)]">
-                
-                {/* Nagłówek aukcji: pulsująca dioda i licznik czasu */}
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-sm font-bold text-yellow-500 uppercase tracking-widest flex items-center gap-2">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
-                    </span>
-                    Licytacja Trwa
-                  </h2>
-                  <div className="text-right">
-                    <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Koniec za:</span>
-                    <div className="text-lg font-mono font-bold text-yellow-500 tracking-tighter">
-                      <Countdown date={product.endTime} />
-                    </div>
-                  </div>
-                </div>
+          {/* ===== PANEL: KUP TERAZ ===== */}
+          {isBuyNow && (
+            <div className="rounded-2xl border-2 border-blue-500/50 bg-blue-900/20 p-6 shadow-[0_0_20px_rgba(37,99,235,0.15)] relative overflow-hidden">
+              <div className="absolute top-0 right-0">
+                <span className="text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-bl-xl rounded-tr-xl block shadow-sm">
+                  🛒 KUP TERAZ
+                </span>
+              </div>
 
-                {/* Pole z aktualną ceną (zmienia kolor na zielony, gdy wygrywamy) */}
-                <div className={`rounded-xl p-5 mb-6 flex justify-between items-center border transition-all duration-500 ${
-                  isWinning 
-                    ? 'bg-green-900/20 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.15)]' 
-                    : 'bg-gray-900/50 border-gray-700'
+              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400/70 mb-1 mt-4">Cena zakupu</p>
+              <p className="text-4xl font-black text-blue-300">
+                {auction.buy_now_price ?? currentPrice} PLN
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                Sprzedawca: {auction.seller_name} | Grade: {auction.card_details?.grade}
+              </p>
+
+              {bidStatus && (
+                <div className={`mt-4 p-3 rounded-xl font-bold text-sm ${
+                  bidStatus.type === 'error' ? 'bg-red-900/30 border border-red-500 text-red-300' :
+                  bidStatus.type === 'success' ? 'bg-green-900/30 border border-green-500 text-green-300' :
+                  'bg-gray-800 text-gray-300'
                 }`}>
-                  <div className="flex flex-col">
-                    <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isWinning ? 'text-green-400' : 'text-gray-500'}`}>
-                      Aktualna cena
-                    </span>
-                    {isWinning && (
-                      <span className="text-xs font-bold text-green-500 animate-pulse mt-1">
-                        👑 WYGRYWASZ!
-                      </span>
-                    )}
-                  </div>
-                  <span className={`text-4xl font-black transition-colors ${isWinning ? 'text-green-400' : 'text-white'}`}>
-                    ${currentPrice}
+                  {bidStatus.msg}
+                </div>
+              )}
+
+              <button
+                onClick={handleBuyNow}
+                disabled={bidStatus?.type === 'success'}
+                className="mt-6 w-full rounded-xl bg-blue-600 px-5 py-4 text-sm font-black uppercase tracking-tighter text-white transition hover:bg-blue-500 hover:-translate-y-0.5 shadow-[0_10px_20px_rgba(37,99,235,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {bidStatus?.type === 'success' ? 'Zakupiono ✓' : 'Kup Teraz'}
+              </button>
+            </div>
+          )}
+
+          {/* ===== PANEL: LICYTACJA ===== */}
+          {!isBuyNow && (
+            <>
+              <div className="rounded-2xl border-2 border-yellow-500 bg-yellow-900/20 p-6 shadow-[0_0_20px_rgba(234,179,8,0.15)] relative overflow-hidden">
+                <div className="absolute top-0 right-0">
+                  <span className="text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-bl-xl rounded-tr-xl block animate-pulse shadow-sm">
+                    🔥 LICYTACJA
                   </span>
                 </div>
 
-                {/* Sekcja szybkiego wyboru kwoty przebicia */}
-                <div className="mb-6">
-                  <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-3 block">Wybierz przebicie</span>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[5, 10, 25].map((val) => (
-                      <button
-                        key={val}
-                        onClick={() => setBidIncrement(val)}
-                        // Aktywny przycisk jest żółty, nieaktywne są szare
-                        className={`py-3 rounded-xl font-bold text-sm transition-all border ${
-                          bidIncrement === val 
-                            ? 'bg-yellow-500 border-yellow-400 text-black shadow-[0_0_15px_rgba(234,179,8,0.3)]' 
-                            : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700'
-                        }`}
-                      >
-                        +${val}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Główny przycisk licytacji (wyłączany, gdy użytkownik prowadzi w licytacji) */}
-                <button 
-                  onClick={handleBid}
-                  disabled={isWinning}
-                  className={`w-full py-5 rounded-2xl font-black text-xl transition-all uppercase tracking-tighter ${
-                    isWinning 
-                      ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600' 
-                      : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_10px_20px_rgba(22,163,74,0.2)] hover:-translate-y-1'
-                  }`}
-                >
-                  {isWinning ? 'Jesteś na prowadzeniu' : `Podbij o $${bidIncrement}`}
-                </button>
-              </div>
-
-            ) : (
-              
-              // --- WARIANT B: KUP TERAZ ---
-              <BuyNowPanel product={product} />
-            )}
-          </div>
-
-          {/* 3. PANEL SZCZEGÓŁÓW (Z dynamiczną wysokością) */}
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 shadow-xl">
-            <h3 className="text-gray-500 text-xs uppercase tracking-[0.2em] font-black mb-4 pb-4 border-b border-gray-800">
-              📋 Szczegóły Paczki
-            </h3>
-            
-            {/* Kontener ograniczający wysokość opisu. Zdejmuje limit (max-h-48), gdy isDetailsExpanded to true */}
-            <div className={`relative transition-all duration-500 ${isDetailsExpanded ? '' : 'max-h-48 overflow-hidden'}`}>
-              
-              {/* Tabela z parametrami paczki */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                  <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">Kategoria</p>
-                  <p className="font-bold text-gray-200">{product.details.category}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">Stan</p>
-                  <p className="font-bold text-gray-200">{product.details.condition}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">Pochodzenie / Źródło</p>
-                  <p className="font-bold text-gray-200">{product.details.origin}</p>
-                </div>
-              </div>
-
-              {/* Pełny opis tekstowy */}
-              <div>
-                <p className="text-gray-500 text-[10px] uppercase font-bold mb-2">Opis</p>
-                <p className="text-gray-400 text-sm leading-relaxed pb-4">
-                  {product.details.description}
+                <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-500/70 mb-1 mt-4">Aktualna cena</p>
+                <p className="text-4xl font-black text-yellow-400">{currentPrice} PLN</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Sprzedawca: {auction.seller_name} | Grade: {auction.card_details?.grade}
                 </p>
+
+                {/* Przycisk Kup Teraz dla trybu hybrid */}
+                {isHybrid && auction.buy_now_price && (
+                  <button
+                    onClick={handleBuyNow}
+                    className="mt-4 w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-black uppercase tracking-tighter text-white transition hover:bg-blue-500"
+                  >
+                    Kup Teraz od razu za {auction.buy_now_price} PLN
+                  </button>
+                )}
               </div>
 
-              {/* Dolny gradient zanikający (Fade out). Wyświetla się tylko wtedy, gdy opis jest zwinięty */}
+              <form onSubmit={handleBid} className="space-y-4">
+                <label className="block">
+                  <span className="text-sm font-bold text-gray-300">Przebij ofertę</span>
+                  <input
+                    type="number"
+                    min={currentPrice + 1}
+                    step="0.01"
+                    value={bidAmount}
+                    onChange={(e) => setBidAmount(e.target.value)}
+                    required
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-white outline-none focus:border-yellow-400"
+                    placeholder={`Musi być więcej niż ${currentPrice} PLN`}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="w-full rounded-xl bg-yellow-500 px-5 py-4 text-sm font-black uppercase tracking-tighter text-black transition hover:bg-yellow-400 hover:-translate-y-0.5"
+                >
+                  Licytuj
+                </button>
+              </form>
+
+              {bidStatus && (
+                <div className={`p-4 rounded-xl font-bold ${
+                  bidStatus.type === 'error' ? 'bg-red-900/30 border border-red-500 text-red-300' :
+                  bidStatus.type === 'success' ? 'bg-green-900/30 border border-green-500 text-green-300' :
+                  'bg-gray-800 text-gray-300'
+                }`}>
+                  {bidStatus.msg}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Opis karty (wspólny) */}
+          <div className="relative rounded-lg border border-gray-800 bg-gray-900 p-6">
+            <div className={`overflow-hidden transition-all ${isDetailsExpanded ? 'max-h-[1000px]' : 'max-h-32'}`}>
+              <p className="mb-2 text-[10px] font-bold uppercase text-gray-500">Opis karty</p>
+              <p className="pb-4 text-sm leading-relaxed text-gray-400">
+                {auction.card_details?.description || 'Brak opisu dostarczonego przez wystawiającego.'}
+              </p>
+              
               {!isDetailsExpanded && (
-                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-gray-900 to-transparent pointer-events-none"></div>
+                <div className="pointer-events-none absolute bottom-10 left-0 right-0 h-16 bg-gradient-to-t from-gray-900 to-transparent"></div>
               )}
             </div>
-
-            {/* Przycisk aktywujący rozwinięcie/zwinięcie szczegółów */}
+            
             <button 
+              type="button"
               onClick={() => setIsDetailsExpanded(!isDetailsExpanded)}
-              className="mt-2 w-full pt-4 border-t border-gray-800 text-blue-400 hover:text-blue-300 font-bold text-sm tracking-widest uppercase transition-colors"
+              className="mt-2 w-full border-t border-gray-800 pt-4 text-sm font-bold uppercase tracking-widest text-blue-400 hover:text-blue-300"
             >
-              {isDetailsExpanded ? '↑ Zwiń szczegóły' : 'Czytaj dalej ↓'}
+              {isDetailsExpanded ? 'Zwiń' : 'Czytaj więcej'}
             </button>
           </div>
 

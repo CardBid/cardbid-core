@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import VideoPlayer from '../components/VideoPlayer';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 
 // --- KONFIGURACJA WIDEO ---
 const videoJsOptions = {
@@ -15,6 +16,7 @@ const videoJsOptions = {
 };
 
 export default function LiveRoom() {
+  const navigate = useNavigate();
   // --- STANY ODTWARZACZA I WIDOKU ---
   const [playerInstance, setPlayerInstance] = useState(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -125,10 +127,18 @@ const handlePointerMove = (e) => {
     else videoContainerRef.current.requestFullscreen();
   };
 
-  // --- STANY LICYTACJI I CZATU ---
-  const [currentPrice, setCurrentPrice] = useState(50);
+// --- STANY LICYTACJI I CZATU (ZINTEGROWANE Z BACKENDEM) ---
+  const [currentPrice, setCurrentPrice] = useState(0); 
   const [bidIncrement, setBidIncrement] = useState(5);
   const [isWinning, setIsWinning] = useState(false);
+  
+  // NOWE STANY:
+  const token = localStorage.getItem('access_token'); // Do wysyłania licytacji
+  const { id } = useParams();
+  const [currentAuctionId, setCurrentAuctionId] = useState(id || 1); // MUSI być useState, żeby kliknięcie karty zaktualizowało auctionData
+  const [auctionData, setAuctionData] = useState(null); // Szczegóły karty z REST API
+  const [errorMsg, setErrorMsg] = useState(null); // Błędy np. "Zbyt niska kwota"
+  const wsRef = useRef(null); // Referencja dla WebSocketu
   
   const [messages, setMessages] = useState([
     { id: 1, user: 'KarcianyŚwir', text: 'Kiedy zaczynamy?!' },
@@ -139,10 +149,122 @@ const handlePointerMove = (e) => {
   const chatContainerRef = useRef(null);
   const overlayChatRef = useRef(null); 
 
-  const handleBid = () => {
-    setCurrentPrice(prev => prev + bidIncrement);
-    setIsWinning(true);
-    setTimeout(() => setIsWinning(false), 4000);
+  const [liveRooms, setLiveRooms] = useState([]); // Lista streamów z API
+  const [allAuctions, setAllAuctions] = useState([]); //Lista wszystkich aktywnych aukcji
+  const [successMsg, setSuccessMsg] = useState(null);
+
+// --- Helper: bezpieczny fetch JSON ---
+  // Zwraca null gdy: !ok, nie-JSON, błąd sieci. Nie wybucha na "<!DOCTYPE..."
+  const safeFetchJson = useCallback(async (url, opts = {}) => {
+    try {
+      const res = await fetch(url, opts);
+      if (!res.ok) {
+        // 401/403/404/500 - logujemy raz jako warning, bez wybuchu
+        if (res.status !== 401) {
+          console.warn(`[API] ${url} → ${res.status}`);
+        }
+        return null;
+      }
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) {
+        console.warn(`[API] ${url} zwrócił ${ct || 'brak content-type'} (oczekiwano JSON)`);
+        return null;
+      }
+      return await res.json();
+    } catch (err) {
+      // Tylko prawdziwe błędy sieci (CORS, brak serwera) - jeden warning
+      if (err.name !== 'AbortError') {
+        console.warn(`[API] ${url}: ${err.message}`);
+      }
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    safeFetchJson('http://localhost:8000/api/live-rooms/').then(data => {
+      if (cancelled) return;
+      if (Array.isArray(data)) setLiveRooms(data);
+      else if (data && Array.isArray(data.results)) setLiveRooms(data.results);
+      else setLiveRooms([]);
+    });
+    return () => { cancelled = true; };
+  }, [safeFetchJson]);
+
+  useEffect(() => {
+    let cancelled = false;
+    safeFetchJson('http://localhost:8000/api/auctions/').then(data => {
+      if (cancelled || data == null) return;
+      setAllAuctions(data.results || data);
+    });
+    return () => { cancelled = true; };
+  }, [safeFetchJson]);
+
+  // Funkcja KUP TERAZ
+  const handleBuyNow = async () => {
+    if (!token) {
+      setErrorMsg("Musisz być zalogowany, aby dokonać zakupu!");
+      return;
+    }
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/auctions/${currentAuctionId}/buy-now/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMsg(data.error || "Błąd zakupu");
+      } else {
+        setSuccessMsg("Przedmiot został zakupiony!");
+        // WebSocket wyśle sygnał 'auction_interrupted' i sam zakończy aukcję
+      }
+    } catch (err) {
+      setErrorMsg("Błąd połączenia z serwerem");
+    }
+  };
+
+  const handleBid = async () => {
+    if (!token) {
+      setErrorMsg("Musisz być zalogowany!");
+      return;
+    }
+    setErrorMsg(null);
+    
+    // Obliczamy nową kwotę: aktualna cena + kwota wybrana przez usera (+5, +10, +25)
+    const proposedAmount = currentPrice + bidIncrement;
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/auctions/${currentAuctionId}/bid/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ amount: proposedAmount })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Backend odrzucił (np. brak kasy, za mała kwota)
+        setErrorMsg(data.error || "Błąd licytacji");
+      } else {
+        // Licytacja się udała!
+        setIsWinning(true);
+        setTimeout(() => setIsWinning(false), 4000);
+      
+      }
+    } catch (err) {
+      setErrorMsg("Błąd połączenia z serwerem");
+    }
   };
 
   const handleSendMessage = (e) => {
@@ -182,6 +304,95 @@ const handlePointerMove = (e) => {
     { id: 4, time: '20:45', title: 'Golden State', status: 'upcoming', info: 'Licytacja za 15 min', winner: null },
     { id: 5, time: '21:00', title: 'Miami Heat', status: 'upcoming', info: 'Licytacja za 30 min', winner: null },
   ];
+
+  // 1. POBRANIE SZCZEGÓŁÓW AUKCJI (REST)
+  // Endpoint wymaga IsAuthenticated -> wysyłamy token gdy jest.
+  // Fallback: jeśli brak danych, bierzemy je z allAuctions (lista jest publiczna).
+  useEffect(() => {
+    let cancelled = false;
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    safeFetchJson(`http://localhost:8000/api/auctions/${currentAuctionId}/`, { headers })
+      .then(data => {
+        if (cancelled) return;
+        if (data) {
+          setAuctionData(data);
+        } else {
+          // Fallback z listy publicznej
+          const fromList = allAuctions.find(a => String(a.id) === String(currentAuctionId));
+          if (fromList) setAuctionData(fromList);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [currentAuctionId, token, safeFetchJson, allAuctions]);
+
+  // 2. PODPIĘCIE WEBSOCKET (CENA NA ŻYWO BEZ ODŚWIEŻANIA)
+  // Z reconnect (exponential backoff), porządnym cleanup i ochroną przed setState po unmount.
+  useEffect(() => {
+    let cancelled = false;
+    let retryAttempt = 0;
+    let retryTimer = null;
+
+    const connect = () => {
+      if (cancelled) return;
+
+      let socket;
+      try {
+        socket = new WebSocket(`ws://localhost:8000/ws/auction/${currentAuctionId}/`);
+      } catch (err) {
+        scheduleReconnect();
+        return;
+      }
+      wsRef.current = socket;
+
+      socket.onopen = () => {
+        retryAttempt = 0; // reset backoff po udanym połączeniu
+      };
+
+      socket.onmessage = (event) => {
+        if (cancelled) return;
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'initial_state' || data.type === 'bid_update') {
+            setCurrentPrice(data.current_price);
+            setErrorMsg(null);
+          }
+        } catch {
+          // niepoprawny JSON - ignorujemy
+        }
+      };
+
+      socket.onerror = () => {
+        // Nie spamujemy konsoli - onclose i tak poleci zaraz po
+      };
+
+      socket.onclose = (event) => {
+        if (cancelled) return;
+        // 1000 = normalne zamknięcie (np. po cleanup), nie reconnectujemy
+        if (event.code === 1000) return;
+        scheduleReconnect();
+      };
+    };
+
+    const scheduleReconnect = () => {
+      if (cancelled) return;
+      // 1s, 2s, 4s, 8s, max 30s
+      const delay = Math.min(30000, 1000 * Math.pow(2, retryAttempt));
+      retryAttempt += 1;
+      retryTimer = setTimeout(connect, delay);
+    };
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      const socket = wsRef.current;
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        try { socket.close(1000, 'unmount'); } catch { /* noop */ }
+      }
+      wsRef.current = null;
+    };
+  }, [currentAuctionId]);
 
   // --- GŁÓWNY WIDOK ---
 return (
@@ -248,7 +459,8 @@ return (
             
             <div className="p-3">
               <div className="flex justify-between items-center mb-1">
-                <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest">Los Angeles Lakers</p>
+                <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest truncate">{auctionData?.card_name || 'Ładowanie...'}</p>
+                {errorMsg && <p className="text-[8px] text-red-400 font-bold mt-1 text-center bg-red-900/30 p-1 rounded">{errorMsg}</p>}
                 {isWinning && <span className="text-[8px] bg-green-500/20 text-green-400 font-bold px-1.5 py-0.5 rounded animate-pulse border border-green-500/30">👑 PROWADZISZ</span>}
               </div>
               
@@ -374,43 +586,264 @@ return (
             })}
           </div>
         </div>
+        {/* WSZYSTKIE AKTYWNE LICYTACJE (Z /api/auctions/) */}
+        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 flex flex-col mb-4">
+          <div className="flex justify-between items-end mb-4">
+            <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs flex items-center gap-2">
+              🃏 Wszystkie Aktywne Licytacje
+            </h3>
+            <Link to="/marketplace" className="text-[10px] font-bold text-blue-500 hover:text-blue-400 transition uppercase tracking-wider">
+              Zobacz rynek &rarr;
+            </Link>
+          </div>
+          
+          <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+            {allAuctions.length > 0 ? allAuctions.map((auction) => {
+              // KULOODPORNE ROZPOZNANIE TYPU (Niezależnie co zwróci DRF)
+              const isBuyNow = auction.auction_type === 'buy_now' || auction.auction_type === 'Tylko Kup Teraz';
+              const isHybrid = auction.auction_type === 'hybrid' || auction.auction_type === 'Licytacja + Kup Teraz';
+              
+              // Odznaki w stylu Harmonogramu
+              let badge = <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg">🔥 LICYTACJA</span>;
+              if (isBuyNow) badge = <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">🛒 KUP TERAZ</span>;
+              if (isHybrid) badge = <span className="text-[10px] font-bold bg-purple-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">⚔️ LIC. + KUP</span>;
+
+              // Aktywna = pełny kolor + glow; nieaktywna = przyciemniony kolor tego samego odcienia
+              const isActive = String(currentAuctionId) === String(auction.id);
+
+              let borderStyle, bgStyle, titleColor, priceColor;
+              if (isBuyNow || isHybrid) {
+                // Niebieska rodzina
+                borderStyle = isActive
+                  ? "border-blue-400 shadow-[0_0_14px_rgba(59,130,246,0.4)]"
+                  : "border-blue-500/40 hover:border-blue-400/70";
+                bgStyle    = isActive ? "bg-blue-900/30" : "bg-blue-900/10";
+                titleColor = isActive ? "text-blue-200" : "text-blue-300/70";
+                priceColor = isActive ? "text-blue-300" : "text-blue-400/60";
+              } else {
+                // Żółta rodzina (licytacja)
+                borderStyle = isActive
+                  ? "border-yellow-500 shadow-[0_0_14px_rgba(234,179,8,0.35)]"
+                  : "border-yellow-500/30 hover:border-yellow-400/60";
+                bgStyle    = isActive ? "bg-yellow-900/20" : "bg-yellow-900/5";
+                titleColor = isActive ? "text-yellow-400" : "text-yellow-400/60";
+                priceColor = isActive ? "text-yellow-500" : "text-yellow-500/50";
+              }
+
+              const btnClass = isBuyNow ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-yellow-500 hover:bg-yellow-400 text-black';
+
+              return (
+                <div 
+                  key={auction.id} 
+                  onClick={() => setCurrentAuctionId(auction.id)}
+                  className={`min-w-[220px] p-4 rounded-xl border-2 transition-all cursor-pointer group flex flex-col justify-between shrink-0 overflow-hidden relative ${borderStyle} ${bgStyle}`}
+                >
+                  {/* ODZNAKA W PRAWYM GÓRNYM ROGU */}
+                  <div className="absolute top-0 right-0 z-10">{badge}</div>
+                  
+                  <div className="mt-2">
+                    <span className={`font-black italic text-lg block uppercase tracking-tight pr-16 ${titleColor}`}>
+                      {auction.card_name || 'Karta'}
+                    </span>
+                    {auction.grade && (
+                      <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mt-1">Ocena: {auction.grade}</p>
+                    )}
+                  </div>
+                  
+                  <div className="mt-3 pt-3 border-t border-gray-700/50 flex flex-col gap-3">
+                    <div className="flex justify-between items-end">
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Cena:</span>
+                      <span className={`text-xl font-black ${priceColor}`}>
+                        ${auction.current_price}
+                      </span>
+                    </div>
+                    
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation(); 
+                        navigate(`/product/${auction.id}`);
+                      }}
+                      className={`w-full text-center py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-colors shadow-md ${btnClass}`}
+                    >
+                      {isBuyNow ? 'Kup Teraz' : 'Licytuj'}
+                    </button>
+                  </div>
+                </div>
+              );
+            }) : (
+              <p className="text-sm text-gray-500">Brak aktywnych licytacji w bazie.</p>
+            )}
+          </div>
+        </div>
+        {/* LISTA INNYCH STREAMÓW (Z /api/live-rooms/) */}
+        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 flex flex-col">
+          <div className="flex justify-between items-end mb-4">
+            <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs flex items-center gap-2">
+              🔴 Inne Transmisje Live
+            </h3>
+          </div>
+          <div className="flex gap-4 overflow-x-auto custom-scrollbar">
+            {liveRooms.length > 0 ? liveRooms.map((room) => (
+              <Link 
+                key={room.id} 
+                to={`/live/${room.id}`}
+                className="min-w-[200px] p-3 rounded-xl border border-gray-700 bg-gray-800 hover:border-red-500 transition-all cursor-pointer group"
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-[10px] font-bold bg-red-600/20 text-red-500 px-2 py-0.5 rounded uppercase">LIVE</span>
+                  <span className="text-[10px] text-gray-500">Pokój #{room.id}</span>
+                </div>
+                <h4 className="font-bold text-gray-200 group-hover:text-white truncate">{room.title}</h4>
+                <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-wider">
+                  Streamer: {room.streamer_name || room.streamer || '—'}
+                </p>
+              </Link>
+            )) : (
+              <p className="text-sm text-gray-500">Brak innych aktywnych transmisji w tym momencie.</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ========================================================= */}
       {/* PRAWA STRONA: STANDARDOWE AKCJE (Ukrywana w trybie kinowym) */}
       {!isTheater && (
         <div className="hidden lg:flex lg:col-span-3 flex-col gap-4 h-[calc(100vh-2rem)]">
-          {/* Klasyczna Licytacja */}
-          <div className="bg-gradient-to-b from-gray-800 to-gray-900 rounded-2xl p-6 border border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.1)] shrink-0">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xs font-bold text-yellow-500 uppercase tracking-widest">🔥 Licytacja Trwa</h2>
-              <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span></span>
-            </div>
-            
-            <span className="block text-2xl font-black italic uppercase tracking-tighter mb-1">Los Angeles Lakers</span>
-            <span className="block text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-6">Paczka: Panini Prizm 2023</span>
-            
-            <div className={`rounded-xl p-4 mb-6 flex justify-between items-center border transition-all duration-300 ${isWinning ? 'bg-green-900/20 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.15)]' : 'bg-gray-800/50 border-gray-700'}`}>
-              <div className="flex flex-col">
-                <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isWinning ? 'text-green-400' : 'text-gray-500'}`}>Aktualna cena:</span>
-                {isWinning && <span className="text-xs font-bold text-green-500 animate-pulse mt-1">👑 WYGRYWASZ!</span>}
+
+          {/* ========================================================= */}
+          {/* PANEL AKCJI — dynamicznie zmienia wygląd wg auction_type   */}
+          {/* ========================================================= */}
+          {(() => {
+            const isBuyNow = auctionData?.auction_type === 'buy_now' || auctionData?.auction_type === 'Tylko Kup Teraz';
+
+            /* ---------- PANEL: KUP TERAZ (styl W KOLEJCE → niebieski) ---------- */
+            if (isBuyNow) {
+              return (
+                <div className="bg-blue-900/20 rounded-2xl p-6 border-2 border-blue-500/50 shadow-[0_0_20px_rgba(37,99,235,0.15)] shrink-0 relative overflow-hidden">
+                  {/* Badge */}
+                  <div className="absolute top-0 right-0">
+                    <span className="text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-bl-xl rounded-tr-xl block shadow-sm">
+                      📦 W KOLEJCE
+                    </span>
+                  </div>
+
+                  <div className="mt-4 mb-5">
+                    <span className="block text-[10px] text-blue-400/70 font-bold uppercase tracking-widest mb-1">
+                      Kup Teraz
+                    </span>
+                    <span className="block text-2xl font-black italic uppercase tracking-tighter text-gray-100">
+                      {auctionData ? auctionData.card_name || 'Karta' : 'Ładowanie...'}
+                    </span>
+                    <span className="block text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">
+                      Ocena: {auctionData?.grade || 'Brak danych'}
+                    </span>
+                  </div>
+
+                  {errorMsg && (
+                    <div className="bg-red-500/20 border border-red-500 text-red-400 text-xs font-bold p-2 mb-4 rounded-xl text-center">
+                      {errorMsg}
+                    </div>
+                  )}
+                  {successMsg && (
+                    <div className="bg-green-500/20 border border-green-500 text-green-400 text-xs font-bold p-2 mb-4 rounded-xl text-center">
+                      {successMsg}
+                    </div>
+                  )}
+
+                  {/* Cena */}
+                  <div className="rounded-xl p-4 mb-6 flex justify-between items-center border bg-blue-950/40 border-blue-500/30">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-300/70">
+                      Cena:
+                    </span>
+                    <span className="text-4xl font-black italic text-blue-300">
+                      ${auctionData?.buy_now_price ?? currentPrice}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={handleBuyNow}
+                    className="w-full py-4 rounded-xl font-black text-lg transition-all uppercase tracking-tighter bg-blue-600 hover:bg-blue-500 text-white shadow-[0_10px_20px_rgba(37,99,235,0.25)] hover:-translate-y-1"
+                  >
+                    Kup Teraz
+                  </button>
+                </div>
+              );
+            }
+
+            /* ---------- PANEL: LICYTACJA (styl TERAZ → żółty) ---------- */
+            return (
+              <div className="bg-yellow-900/20 rounded-2xl p-6 border-2 border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.15)] shrink-0 relative overflow-hidden">
+                {/* Badge z pulsującą kropką */}
+                <div className="absolute top-0 right-0">
+                  <span className="text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-bl-xl rounded-tr-xl block animate-pulse shadow-sm">
+                    🔥 TERAZ
+                  </span>
+                </div>
+
+                <div className="mt-4 mb-5">
+                  <span className="block text-[10px] text-yellow-500/70 font-bold uppercase tracking-widest mb-1">
+                    Licytacja trwa!
+                  </span>
+                  <span className="block text-2xl font-black italic uppercase tracking-tighter text-yellow-400">
+                    {auctionData ? auctionData.card_name || 'Karta' : 'Ładowanie...'}
+                  </span>
+                  <span className="block text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">
+                    Ocena: {auctionData?.grade || 'Brak danych'}
+                  </span>
+                </div>
+
+                {errorMsg && (
+                  <div className="bg-red-500/20 border border-red-500 text-red-400 text-xs font-bold p-2 mb-4 rounded-xl text-center">
+                    {errorMsg}
+                  </div>
+                )}
+                {successMsg && (
+                  <div className="bg-green-500/20 border border-green-500 text-green-400 text-xs font-bold p-2 mb-4 rounded-xl text-center">
+                    {successMsg}
+                  </div>
+                )}
+
+                {/* Cena */}
+                <div className={`rounded-xl p-4 mb-6 flex justify-between items-center border transition-all duration-300 ${isWinning ? 'bg-green-900/20 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.15)]' : 'bg-yellow-950/40 border-yellow-500/30'}`}>
+                  <div className="flex flex-col">
+                    <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isWinning ? 'text-green-400' : 'text-yellow-500/70'}`}>
+                      Aktualna cena:
+                    </span>
+                    {isWinning && <span className="text-xs font-bold text-green-500 animate-pulse mt-1">👑 WYGRYWASZ!</span>}
+                  </div>
+                  <span className={`text-4xl font-black italic transition-colors ${isWinning ? 'text-green-400' : 'text-yellow-400'}`}>
+                    ${currentPrice}
+                  </span>
+                </div>
+
+                {/* Wybór przebicia */}
+                <div className="mb-6">
+                  <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-3 block">
+                    Wybierz przebicie:
+                  </span>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[5, 10, 25].map(val => (
+                      <button
+                        key={val}
+                        onClick={() => setBidIncrement(val)}
+                        className={`py-2 rounded-xl font-bold text-sm transition-all border ${bidIncrement === val ? 'bg-yellow-500 text-black border-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'}`}
+                      >
+                        +${val}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleBid}
+                  disabled={isWinning}
+                  className={`w-full py-4 rounded-xl font-black text-lg transition-all uppercase tracking-tighter ${isWinning ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_10px_20px_rgba(22,163,7,0.2)] hover:-translate-y-1'}`}
+                >
+                  {isWinning ? 'Jesteś na prowadzeniu' : `Podbij o $${bidIncrement}`}
+                </button>
               </div>
-              <span className={`text-4xl font-black italic transition-colors ${isWinning ? 'text-green-400' : 'text-white'}`}>${currentPrice}</span>
-            </div>
-            
-            <div className="mb-6">
-              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-3 block">Wybierz przebicie:</span>
-              <div className="grid grid-cols-3 gap-3">
-                {[5, 10, 25].map(val => (
-                  <button key={val} onClick={() => setBidIncrement(val)} className={`py-2 rounded-xl font-bold text-sm transition-all border ${bidIncrement === val ? 'bg-yellow-500 text-black border-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'}`}>+${val}</button>
-                ))}
-              </div>
-            </div>
-            
-            <button onClick={handleBid} disabled={isWinning} className={`w-full py-4 rounded-xl font-black text-lg transition-all uppercase tracking-tighter ${isWinning ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_10px_20px_rgba(22,163,7,0.2)] hover:-translate-y-1'}`}>
-              {isWinning ? 'Jesteś na prowadzeniu' : `Podbij o $${bidIncrement}`}
-            </button>
-          </div>
+            );
+          })()}
 
           {/* Klasyczny Czat */}
           <div className="bg-gray-900 rounded-2xl p-5 flex flex-col border border-gray-800 shadow-xl flex-1 overflow-hidden">
