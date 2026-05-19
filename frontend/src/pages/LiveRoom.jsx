@@ -1131,7 +1131,7 @@ return (
       {/* ========================================================= */}
       {/* PRAWA STRONA: STANDARDOWE AKCJE (Ukrywana w trybie kinowym) */}
       {!isTheater && (
-        <div className="hidden lg:flex lg:col-span-3 flex-col gap-4 h-[calc(100vh-2rem)]">
+        <div className="hidden lg:flex lg:col-span-3 flex-col gap-4 max-h-[calc(100vh-2rem)] overflow-y-auto pr-1 custom-scrollbar">
 
           {/* ========================================================= */}
           {/* PANEL AKCJI — dynamicznie zmienia wygląd wg auction_type   */}
@@ -1305,9 +1305,9 @@ return (
             );
           })()}
 
-          {/* Klasyczny Czat */}
-          <div className="bg-gray-900 rounded-2xl p-5 flex flex-col border border-gray-800 shadow-xl flex-1 overflow-hidden">
-            <h2 className="text-xs font-bold mb-4 text-blue-400 uppercase tracking-widest">💬 Czat</h2>
+          {/* Klasyczny Czat - stała wysokość, nie zmienia się gdy panel licytacji rośnie */}
+          <div className="bg-gray-900 rounded-2xl p-5 flex flex-col border border-gray-800 shadow-xl h-[520px] shrink-0 overflow-hidden">
+            <h2 className="text-xs font-bold mb-4 text-blue-400 uppercase tracking-widest shrink-0">💬 Czat</h2>
             {chatError && (
               <div className="bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-bold px-3 py-2 mb-3 rounded-lg text-center">
                 {chatError}
