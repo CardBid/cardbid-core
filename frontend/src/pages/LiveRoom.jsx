@@ -238,7 +238,11 @@ const handlePointerMove = (e) => {
   // Funkcja KUP TERAZ
   const handleBuyNow = async () => {
     if (!token) {
-      setErrorMsg("Musisz być zalogowany, aby dokonać zakupu!");
+      setErrorMsg("Musisz być zalogowany aby kupić.");
+      return;
+    }
+    if (isFinished) {
+      setErrorMsg("Ta aukcja jest już zakończona.");
       return;
     }
     setErrorMsg(null);
@@ -262,11 +266,11 @@ const handlePointerMove = (e) => {
           setErrorMsg(data.error || data.detail || "Błąd zakupu");
         }
       } else {
-        setSuccessMsg("Przedmiot został zakupiony!");
+        setSuccessMsg("Zakup zakończony pomyślnie.");
         // WebSocket wyśle sygnał 'auction_interrupted' i sam zakończy aukcję
       }
     } catch (err) {
-      setErrorMsg("Błąd połączenia z serwerem");
+      setErrorMsg("Błąd połączenia z serwerem.");
     }
   };
 
@@ -279,7 +283,15 @@ const handlePointerMove = (e) => {
 
   const handleBid = async () => {
     if (!token) {
-      setErrorMsg("Musisz być zalogowany!");
+      setErrorMsg("Musisz być zalogowany aby licytować.");
+      return;
+    }
+    if (isFinished) {
+      setErrorMsg("Ta aukcja jest już zakończona.");
+      return;
+    }
+    if (slotStatusForCurrent === 'upcoming') {
+      setErrorMsg("Licytacja jeszcze się nie zaczęła.");
       return;
     }
     setErrorMsg(null);
@@ -323,7 +335,7 @@ const handlePointerMove = (e) => {
         setCustomBidAmount('');
       }
     } catch (err) {
-      setErrorMsg("Błąd połączenia z serwerem");
+      setErrorMsg("Błąd połączenia z serwerem.");
     }
   };
 
@@ -393,7 +405,15 @@ const handlePointerMove = (e) => {
               }
             ].slice(-50));
           } else if (data.type === 'chat_error') {
-            setChatError(data.message || 'Czat: błąd');
+            // Tłumaczymy lokalnie znane komunikaty z backendu (są po angielsku w consumers.py)
+            const rawMsg = data.message || '';
+            let displayMsg = 'Błąd czatu.';
+            if (/too quickly/i.test(rawMsg)) {
+              displayMsg = 'Wysyłasz wiadomości zbyt szybko. Odczekaj chwilę.';
+            } else if (rawMsg) {
+              displayMsg = rawMsg;
+            }
+            setChatError(displayMsg);
             setTimeout(() => setChatError(null), 3000);
           } else if (data.type === 'bid_update') {
             // Globalne bid_update z pokoju - aktualizujemy cenę i status "prowadzenia"
@@ -670,6 +690,27 @@ const handlePointerMove = (e) => {
     }
   }, [defaultAuctionId, currentAuctionId]);
 
+  // --- DERIVED: status slotu dla aktualnie wybranej aukcji (jeśli jest w timeline) ---
+  // Wartości: 'active' | 'upcoming' | 'opened' | 'queued' | null (poza pokojem)
+  const slotStatusForCurrent = (() => {
+    if (!currentAuctionId) return null;
+    const id = Number(currentAuctionId);
+    if (timelineData.current?.auction_id === id) return 'active';
+    if (timelineData.queue.some(s => s.auction_id === id)) return 'upcoming';
+    if (timelineData.opened.some(s => s.auction_id === id)) return 'opened';
+    if (timelineData.waiting_to_open.some(s => s.auction_id === id)) return 'queued';
+    return null; // aukcja spoza tego pokoju (np. z "Pozostałe Licytacje")
+  })();
+
+  // Czy w aktualnym kontekście dopuszczamy licytację / kup teraz
+  // - 'active' (licytacja trwa): bid OK, buy_now OK (jeśli hybrid)
+  // - 'upcoming' (wkrótce): tylko buy_now (jeśli aukcja ma buy_now_price)
+  // - 'opened'/'queued' (zakończone): nic
+  // - null (spoza pokoju): zachowanie wg auction_type (jak dotychczas)
+  const allowBid = slotStatusForCurrent === 'active' || slotStatusForCurrent === null;
+  const allowBuyNow = (slotStatusForCurrent === 'active' || slotStatusForCurrent === 'upcoming' || slotStatusForCurrent === null);
+  const isFinished = slotStatusForCurrent === 'opened' || slotStatusForCurrent === 'queued';
+
   // --- GUARD POKOJU ---
   // Walidacja czy pokój jest sensowny zanim pokażemy player/czat/licytację.
   // Stany: 'loading' (jeszcze ładujemy listę), 'pick' (brak id w URL, masz wybór),
@@ -843,8 +884,15 @@ return (
                 <span className={`text-2xl font-black tracking-tight transition-colors ${isWinning ? 'text-green-400' : 'text-white'}`}>${Number(currentPrice || 0).toFixed(2)}</span>
               </div>
 
-              {/* Panel licytacji - tylko dla bid/hybrid */}
-              {(auctionData?.auction_type !== 'buy_now' && auctionData?.auction_type !== 'Tylko Kup Teraz') && (
+              {/* Zakończona aukcja - tylko info */}
+              {isFinished && (
+                <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-2 text-[10px] text-gray-400 text-center mb-2">
+                  Aukcja zakończona{auctionData?.winner_name ? `. Wygrał: ${auctionData.winner_name}` : ''}.
+                </div>
+              )}
+
+              {/* Panel licytacji - widoczny gdy bid jest dozwolony i typ pozwala na licytację */}
+              {!isFinished && allowBid && (auctionData?.auction_type !== 'buy_now' && auctionData?.auction_type !== 'Tylko Kup Teraz') && (
                 <>
                   <div className="flex gap-1 mb-2">
                     {[5, 10, 25].map(v => (
@@ -879,15 +927,24 @@ return (
                 </>
               )}
 
-              {/* Buy Now - dla buy_now/hybrid, szybki zakup */}
-              {(auctionData?.auction_type === 'buy_now' || auctionData?.auction_type === 'Tylko Kup Teraz' ||
-                auctionData?.auction_type === 'hybrid' || auctionData?.auction_type === 'Licytacja + Kup Teraz') && (
+              {/* Wkrótce bez buy_now - info zamiast akcji */}
+              {slotStatusForCurrent === 'upcoming' && !auctionData?.buy_now_price && (
+                <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-2 text-[10px] text-gray-400 text-center mb-2">
+                  Wkrótce się zacznie. Poczekaj na otwarcie slotu.
+                </div>
+              )}
+
+              {/* Buy Now - widoczny gdy buyNow jest dozwolony i aukcja ma buy_now_price */}
+              {!isFinished && allowBuyNow && auctionData?.buy_now_price && (
+                (auctionData?.auction_type === 'buy_now' || auctionData?.auction_type === 'Tylko Kup Teraz' ||
+                 auctionData?.auction_type === 'hybrid' || auctionData?.auction_type === 'Licytacja + Kup Teraz') && (
                 <button onClick={handleBuyNow} disabled={!token} className={`w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition mb-2 ${token ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}>
                   {!token
                     ? 'Zaloguj się aby kupić'
-                    : `Kup teraz ${auctionData?.buy_now_price ? `$${Number(auctionData.buy_now_price).toFixed(2)}` : ''}`
+                    : `Kup teraz $${Number(auctionData.buy_now_price).toFixed(2)}`
                   }
                 </button>
+                )
               )}
 
               {/* Link do szczegółów */}
@@ -1002,19 +1059,57 @@ return (
               else { badge = <span className="text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg">⏳ WKRÓTCE</span>; }
 
               const isSelected = slot.auction_id && Number(slot.auction_id) === Number(currentAuctionId);
-              const isClickable = !!slot.auction_id;
+              // Tylko aktywna licytacja i wkrótce są interaktywne - zakończone już nie da się tknąć
+              const isClickable = !!slot.auction_id && (slot.status === 'active' || slot.status === 'upcoming');
               const selectedRing = isSelected ? 'ring-2 ring-inset ring-emerald-400' : '';
+              const hoverRing = isClickable && !isSelected ? 'hover:ring-1 hover:ring-inset hover:ring-emerald-400/50' : '';
+              const finishedDim = (slot.status === 'opened' || slot.status === 'queued') ? 'opacity-80' : '';
+
+              // Akcja sugerowana w panelu po wybraniu
+              const actionHint = slot.status === 'active'
+                ? '💸 Licytuj w panelu'
+                : slot.status === 'upcoming'
+                  ? '🛒 Kup teraz w panelu'
+                  : null;
 
               return (
                 <div
                   key={slot.id}
                   onClick={() => { if (isClickable) setCurrentAuctionId(slot.auction_id); }}
-                  className={`min-w-[220px] p-4 rounded-xl border-2 transition-all ${borderStyle} ${bgStyle} relative flex flex-col justify-between shrink-0 overflow-hidden ${selectedRing} ${isClickable ? 'cursor-pointer hover:border-emerald-400/70' : ''}`}
-                  title={isClickable ? 'Kliknij aby wybrać tę aukcję' : ''}
+                  className={`group min-w-[220px] p-4 rounded-xl border-2 transition-colors ${borderStyle} ${bgStyle} ${finishedDim} relative flex flex-col justify-between shrink-0 overflow-hidden ${selectedRing} ${hoverRing} ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
+                  title={isClickable ? 'Kliknij aby załadować w panelu szybkich akcji →' : 'Ta aukcja jest zakończona'}
                 >
                   <div className="absolute top-0 right-0 z-10">{badge}</div>
-                  <div className="mt-2"><span className="block text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Slot #{slot.id}</span><span className={`font-black italic text-lg block uppercase tracking-tight ${textStyle} pr-16`}>{slot.title}</span></div>
-                  <div className="mt-3 pt-3 border-t border-gray-700/50"><span className={`block text-xs font-bold uppercase tracking-wider ${slot.status === 'active' ? 'text-yellow-500' : 'text-gray-500'}`}>{slot.info}</span>{slot.winner && <span className="block text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Wygrał: <span className="text-gray-300 font-bold">{slot.winner}</span></span>}</div>
+
+                  {/* "Wybrane" znacznik dla aktualnie wybranego slota */}
+                  {isSelected && (
+                    <div className="absolute top-2 left-2 z-10 bg-emerald-500 text-gray-950 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-md">
+                      ✓ Wybrane
+                    </div>
+                  )}
+
+                  <div className={`${isSelected ? 'mt-6' : 'mt-2'}`}>
+                    <span className="block text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Slot #{slot.id}</span>
+                    <span className={`font-black italic text-lg block uppercase tracking-tight ${textStyle} pr-16`}>{slot.title}</span>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-gray-700/50">
+                    <span className={`block text-xs font-bold uppercase tracking-wider ${slot.status === 'active' ? 'text-yellow-500' : 'text-gray-500'}`}>
+                      {slot.info}
+                    </span>
+                    {slot.winner && (
+                      <span className="block text-[10px] text-gray-500 mt-1 uppercase tracking-wider">
+                        Wygrał: <span className="text-gray-300 font-bold">{slot.winner}</span>
+                      </span>
+                    )}
+
+                    {/* Hint do kliknięcia - widoczny przy hoverze klikalnych slotów */}
+                    {isClickable && !isSelected && (
+                      <span className="block text-[10px] font-bold uppercase tracking-wider mt-2 text-emerald-400/0 group-hover:text-emerald-400 transition-colors">
+                        {actionHint} →
+                      </span>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1058,9 +1153,11 @@ return (
                 priceColor = "text-yellow-500";
               }
 
-              const selectedRing = isActive
-                ? 'ring-2 ring-inset ring-emerald-400'
-                : '';
+              const selectedRing = isActive ? 'ring-2 ring-inset ring-emerald-400' : '';
+              const hoverRing = !isActive ? 'hover:ring-1 hover:ring-inset hover:ring-emerald-400/50' : '';
+
+              // Akcja sugerowana w panelu po wybraniu - zależy od typu aukcji
+              const actionHint = isBuyNow ? '🛒 Kup teraz w panelu' : '💸 Licytuj w panelu';
 
               const btnClass = isBuyNow ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-yellow-500 hover:bg-yellow-400 text-black';
 
@@ -1068,12 +1165,20 @@ return (
                 <div
                   key={auction.id}
                   onClick={() => setCurrentAuctionId(auction.id)}
-                  className={`min-w-[220px] p-4 rounded-xl border-2 transition-all cursor-pointer group flex flex-col justify-between shrink-0 overflow-hidden relative ${borderStyle} ${bgStyle} ${selectedRing}`}
+                  className={`min-w-[220px] p-4 rounded-xl border-2 transition-colors cursor-pointer group flex flex-col justify-between shrink-0 overflow-hidden relative ${borderStyle} ${bgStyle} ${selectedRing} ${hoverRing}`}
+                  title="Kliknij aby załadować w panelu szybkich akcji →"
                 >
                   {/* ODZNAKA W PRAWYM GÓRNYM ROGU */}
                   <div className="absolute top-0 right-0 z-10">{badge}</div>
-                  
-                  <div className="mt-2">
+
+                  {/* "Wybrane" znacznik dla aktualnie wybranej aukcji */}
+                  {isActive && (
+                    <div className="absolute top-2 left-2 z-10 bg-emerald-500 text-gray-950 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-md">
+                      ✓ Wybrane
+                    </div>
+                  )}
+
+                  <div className={`${isActive ? 'mt-6' : 'mt-2'}`}>
                     <span className={`font-black italic text-lg block uppercase tracking-tight pr-16 ${titleColor}`}>
                       {auction.card_details?.name || auction.card_name || 'Karta'}
                     </span>
@@ -1081,18 +1186,25 @@ return (
                       <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mt-1">Ocena: {auction.card_details?.grade || auction.grade}</p>
                     )}
                   </div>
-                  
-                  <div className="mt-3 pt-3 border-t border-gray-700/50 flex flex-col gap-3">
+
+                  <div className="mt-3 pt-3 border-t border-gray-700/50 flex flex-col gap-2">
                     <div className="flex justify-between items-end">
                       <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Cena:</span>
                       <span className={`text-xl font-black ${priceColor}`}>
                         ${auction.current_price}
                       </span>
                     </div>
-                    
-                    <button 
+
+                    {/* Hint do kliknięcia - widoczny przy hoverze gdy nie wybrane */}
+                    {!isActive && (
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-400/0 group-hover:text-emerald-400 transition-colors">
+                        {actionHint} →
+                      </span>
+                    )}
+
+                    <button
                       onClick={(e) => {
-                        e.stopPropagation(); 
+                        e.stopPropagation();
                         navigate(`/product/${auction.id}`);
                       }}
                       className={`w-full text-center py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-colors shadow-md ${btnClass}`}
@@ -1161,10 +1273,105 @@ return (
           ) : (
           <div className="shrink-0">
           {(() => {
-            const isBuyNow = auctionData?.auction_type === 'buy_now' || auctionData?.auction_type === 'Tylko Kup Teraz';
+            // Wariant panelu zależy od statusu slotu w harmonogramie, a nie tylko auction_type:
+            // - 'opened' / 'queued' (zakończone) → panel info "zakończona"
+            // - 'upcoming' (wkrótce) → panel buy_now (jeśli ma buy_now_price) lub info "czekaj na licytację"
+            // - 'active' → panel bidding (+ hybrid buy_now jeśli aukcja ma buy_now_price)
+            // - null (poza pokojem) → wg auction_type (jak wcześniej)
+            const auctionIsBuyNowType = auctionData?.auction_type === 'buy_now' || auctionData?.auction_type === 'Tylko Kup Teraz';
+            const auctionIsHybridType = auctionData?.auction_type === 'hybrid' || auctionData?.auction_type === 'Licytacja + Kup Teraz';
+            const hasBuyNowPrice = !!auctionData?.buy_now_price;
+
+            // Status-based decision
+            if (isFinished) {
+              return (
+                <div className="bg-gray-800/40 rounded-2xl p-6 border-2 border-gray-700 shrink-0 relative overflow-hidden">
+                  <div className="absolute top-0 left-0">
+                    <span className="text-[10px] font-bold bg-gray-700 text-gray-300 px-3 py-1.5 rounded-br-xl rounded-tl-xl block shadow-sm">
+                      ✅ ZAKOŃCZONE
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setIsBidMinimized(true)}
+                    title="Zwiń panel"
+                    className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
+                  >
+                    −
+                  </button>
+                  <div className="mt-8 mb-5">
+                    <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Aukcja zakończona</span>
+                    <span className="block text-2xl font-black italic uppercase tracking-tighter text-gray-200">
+                      {auctionData?.card_details?.name || auctionData?.card_name || 'Karta'}
+                    </span>
+                    {auctionData?.winner_name && (
+                      <span className="block text-gray-400 text-xs mt-2">
+                        Wygrał: <span className="font-bold text-emerald-300">{auctionData.winner_name}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="rounded-xl p-4 mb-4 flex justify-between items-center border bg-gray-900/50 border-gray-700">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Cena końcowa:</span>
+                    <span className="text-3xl font-black text-gray-200">${Number(currentPrice || 0).toFixed(2)}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 text-center mb-3">
+                    {slotStatusForCurrent === 'opened' ? 'Paczka została otwarta na wizji.' : 'Paczka czeka na otwarcie przez streamera.'}
+                  </p>
+                  {currentAuctionId && (
+                    <button
+                      onClick={() => navigate(`/product/${currentAuctionId}`)}
+                      className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition border border-white/15 text-gray-300 hover:bg-white/10"
+                    >
+                      Szczegóły aukcji →
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
+            // Panel "Kup teraz" - albo dla buy_now/upcoming/hybrid bez aktywnej licytacji
+            const showBuyNowPanel =
+              slotStatusForCurrent === 'upcoming' && hasBuyNowPrice
+              || (slotStatusForCurrent === null && auctionIsBuyNowType);
+
+            /* ---------- PANEL: WKRÓTCE - tylko buy now ---------- */
+            if (slotStatusForCurrent === 'upcoming' && !hasBuyNowPrice) {
+              return (
+                <div className="bg-gray-800/40 rounded-2xl p-6 border-2 border-gray-700 shrink-0 relative overflow-hidden">
+                  <div className="absolute top-0 left-0">
+                    <span className="text-[10px] font-bold bg-gray-700 text-gray-300 px-3 py-1.5 rounded-br-xl rounded-tl-xl block shadow-sm">
+                      ⏳ WKRÓTCE
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setIsBidMinimized(true)}
+                    title="Zwiń panel"
+                    className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
+                  >
+                    −
+                  </button>
+                  <div className="mt-8 mb-5">
+                    <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Wkrótce</span>
+                    <span className="block text-2xl font-black italic uppercase tracking-tighter text-gray-200">
+                      {auctionData?.card_details?.name || auctionData?.card_name || 'Karta'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-3 text-center">
+                    Ta aukcja zacznie się wkrótce. Poczekaj aż streamer otworzy slot.
+                  </p>
+                  {currentAuctionId && (
+                    <button
+                      onClick={() => navigate(`/product/${currentAuctionId}`)}
+                      className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition border border-white/15 text-gray-300 hover:bg-white/10"
+                    >
+                      Szczegóły aukcji →
+                    </button>
+                  )}
+                </div>
+              );
+            }
 
             /* ---------- PANEL: KUP TERAZ (styl W KOLEJCE → niebieski) ---------- */
-            if (isBuyNow) {
+            if (showBuyNowPanel) {
               return (
                 <div className="bg-blue-900/20 rounded-2xl p-6 border-2 border-blue-500/50 shadow-[0_0_20px_rgba(37,99,235,0.15)] shrink-0 relative overflow-hidden">
                   {/* Badge - lewa strona */}
@@ -1336,6 +1543,18 @@ return (
                         : `Podbij o $${bidIncrement}`
                   }
                 </button>
+
+                {/* Hybrid - dodatkowy guzik szybkiego zakupu */}
+                {auctionIsHybridType && hasBuyNowPrice && (
+                  <button
+                    onClick={handleBuyNow}
+                    disabled={!token}
+                    className={`mt-3 w-full py-3 rounded-xl font-black text-sm transition-all uppercase tracking-tighter ${token ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_5px_15px_rgba(37,99,235,0.2)]' : 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600'}`}
+                  >
+                    {!token ? 'Zaloguj się aby kupić' : `Kup teraz za $${Number(auctionData.buy_now_price).toFixed(2)}`}
+                  </button>
+                )}
+
                 {currentAuctionId && (
                   <button
                     onClick={() => navigate(`/product/${currentAuctionId}`)}

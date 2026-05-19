@@ -23,7 +23,7 @@ export default function ProductCard({ product }) {
               {product.category}
             </span>
             <span className={isFixed ? 'text-emerald-300' : 'text-amber-300'}>
-              {isFixed ? 'Buy Now' : 'Aukcja'}
+              {isFixed ? 'Kup Teraz' : 'Aukcja'}
             </span>
           </div>
           <Link to={`/product/${product.id}`} className="block text-lg font-black leading-tight hover:text-amber-300">

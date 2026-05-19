@@ -20,12 +20,12 @@ export default function ProductDetail() {
       try {
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-        // Próba 1: endpoint szczegółowy (wymaga IsAuthenticated domyślnie)
+        // Próba 1: endpoint szczegółowy (wymaga IsAuthenticated domyślnie).
+        // Niezalogowani dostają 403 (brak credentiali) lub 401 (wygasły token) –
+        // obsługujemy oba przypadki fallbackiem na publiczną listę.
         let response = await fetch(`http://localhost:8000/api/auctions/${id}/`, { headers });
 
-        // Jeśli 401 (np. niezalogowany lub wygasły token) - fallback na publiczną listę,
-        // która ma IsAuthenticatedOrReadOnly. Filtrujemy po id.
-        if (response.status === 401) {
+        if (response.status === 401 || response.status === 403) {
           const listRes = await fetch('http://localhost:8000/api/auctions/');
           if (listRes.ok) {
             const list = await listRes.json();
@@ -37,11 +37,12 @@ export default function ProductDetail() {
               return;
             }
           }
-          throw new Error('Aby zobaczyć szczegóły tej aukcji musisz się zalogować.');
+          // Aukcja nie znaleziona na publicznej liście (np. nieaktywna lub brak dostępu)
+          throw new Error('Nie znaleziono aukcji. Mogła zostać zakończona lub wymaga zalogowania.');
         }
 
         if (!response.ok) {
-          throw new Error('Nie udało się pobrać aukcji.');
+          throw new Error('Nie udało się pobrać danych aukcji. Spróbuj ponownie później.');
         }
 
         const data = await response.json();

@@ -12,7 +12,7 @@ export default function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
-    setMessage('Wysyłanie zapytań do serwera...');
+    setMessage('Logowanie...');
 
     try {
       const response = await fetch('http://localhost:8000/auth/login/', {
@@ -22,16 +22,15 @@ export default function Login() {
       });
 
       if (!response.ok) {
-        throw new Error('Niepoprawne dane logowania lub backend znowu leży');
+        throw new Error('Niepoprawne dane logowania. Sprawdź adres e-mail i hasło.');
       }
 
       const data = await response.json();
-      
-      // Magia prawdziwej autoryzacji
+
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
       
-      setMessage('Sukces! Przekierowuję...');
+      setMessage('Zalogowano. Przekierowuję...');
       navigate('/');
     } catch (err) {
       setError(err.message);
