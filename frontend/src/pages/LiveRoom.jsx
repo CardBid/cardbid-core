@@ -134,6 +134,20 @@ const handlePointerMove = (e) => {
   
   // NOWE STANY:
   const token = localStorage.getItem('access_token'); // Do wysyłania licytacji
+
+  // Username z JWT - do porównania kto aktualnie prowadzi
+  const currentUsername = (() => {
+    if (!token) return null;
+    try {
+      const payload = token.split('.')[1];
+      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+      const data = JSON.parse(atob(padded));
+      return data.username || null;
+    } catch {
+      return null;
+    }
+  })();
   const { id } = useParams();
   // URL /live/:id  →  id to ROOM_ID (tak go ustawia <Link to={`/live/${room.id}`}>)
   // Jeśli ktoś wszedł na /live bez id, roomId zostaje null - guard niżej wybierze co pokazać.
@@ -238,7 +252,11 @@ const handlePointerMove = (e) => {
       const data = await response.json();
 
       if (!response.ok) {
-        setErrorMsg(data.error || "Błąd zakupu");
+        if (response.status === 401) {
+          setErrorMsg("Sesja wygasła. Zaloguj się ponownie.");
+        } else {
+          setErrorMsg(data.error || data.detail || "Błąd zakupu");
+        }
       } else {
         setSuccessMsg("Przedmiot został zakupiony!");
         // WebSocket wyśle sygnał 'auction_interrupted' i sam zakończy aukcję
@@ -248,15 +266,32 @@ const handlePointerMove = (e) => {
     }
   };
 
+  // Stan dla ręcznie wpisywanej kwoty licytacji
+  const [customBidAmount, setCustomBidAmount] = useState('');
+
+  // Heurystyka minimalnego przebicia (zgodna z AuctionLiveDataView: 5% obecnej ceny, min $1)
+  const minBidStep = Math.max(1, Math.round(Number(currentPrice || 0) * 0.05 * 100) / 100);
+  const minNextBid = Number(currentPrice || 0) + minBidStep;
+
   const handleBid = async () => {
     if (!token) {
       setErrorMsg("Musisz być zalogowany!");
       return;
     }
     setErrorMsg(null);
-    
-    // Obliczamy nową kwotę: aktualna cena + kwota wybrana przez usera (+5, +10, +25)
-    const proposedAmount = currentPrice + bidIncrement;
+
+    // Priorytet: kwota wpisana ręcznie > kwota z przycisku +5/+10/+25
+    // KLUCZOWY FIX: currentPrice z WS przychodzi jako string ("12.00"), więc bez Number()
+    //   wychodziła konkatenacja "12.005" zamiast dodawania.
+    const fromCustom = parseFloat(customBidAmount);
+    const proposedAmount = Number.isFinite(fromCustom) && fromCustom > 0
+      ? fromCustom
+      : Number(currentPrice || 0) + Number(bidIncrement);
+
+    if (proposedAmount < minNextBid) {
+      setErrorMsg(`Minimum: $${minNextBid.toFixed(2)}`);
+      return;
+    }
 
     try {
       const response = await fetch(`http://localhost:8000/api/auctions/${currentAuctionId}/bid/`, {
@@ -271,13 +306,17 @@ const handlePointerMove = (e) => {
       const data = await response.json();
 
       if (!response.ok) {
-        // Backend odrzucił (np. brak kasy, za mała kwota)
-        setErrorMsg(data.error || "Błąd licytacji");
+        if (response.status === 401) {
+          setErrorMsg("Sesja wygasła. Zaloguj się ponownie.");
+        } else {
+          // Backend odrzucił (np. brak kasy, za mała kwota)
+          setErrorMsg(data.error || data.detail || "Błąd licytacji");
+        }
       } else {
-        // Licytacja się udała!
+        // Licytacja się udała! isWinning ustawi się autorytetnie z WS bid_update.
+        // Optymistyczny update na wypadek gdyby WS chwilowo nie działało:
         setIsWinning(true);
-        setTimeout(() => setIsWinning(false), 4000);
-      
+        setCustomBidAmount('');
       }
     } catch (err) {
       setErrorMsg("Błąd połączenia z serwerem");
@@ -353,9 +392,12 @@ const handlePointerMove = (e) => {
             setChatError(data.message || 'Czat: błąd');
             setTimeout(() => setChatError(null), 3000);
           } else if (data.type === 'bid_update') {
-            // Globalne bid_update z pokoju - aktualizujemy cenę gdy dotyczy aktualnej aukcji
+            // Globalne bid_update z pokoju - aktualizujemy cenę i status "prowadzenia"
             if (String(data.auction_id) === String(currentAuctionId)) {
               setCurrentPrice(Number(data.current_price));
+              if (data.bidder !== undefined && currentUsername) {
+                setIsWinning(data.bidder === currentUsername);
+              }
             }
           }
         } catch {
@@ -475,12 +517,20 @@ const handlePointerMove = (e) => {
     safeFetchJson(`http://localhost:8000/api/auctions/${currentAuctionId}/`, { headers })
       .then(data => {
         if (cancelled) return;
-        if (data) {
-          setAuctionData(data);
-        } else {
-          // Fallback z listy publicznej
-          const fromList = allAuctions.find(a => String(a.id) === String(currentAuctionId));
-          if (fromList) setAuctionData(fromList);
+        const finalData = data || allAuctions.find(a => String(a.id) === String(currentAuctionId));
+        if (finalData) {
+          setAuctionData(finalData);
+          // Fallback ceny - gdy WS nie połączy, korzystamy z REST
+          if (finalData.current_price !== undefined && finalData.current_price !== null) {
+            setCurrentPrice(Number(finalData.current_price));
+          }
+          // Synchronizacja "prowadzisz" przy wejściu/odświeżeniu strony
+          // winner_name to username aktualnego lidera (od AuctionSerializer)
+          if (currentUsername && finalData.winner_name) {
+            setIsWinning(finalData.winner_name === currentUsername);
+          } else {
+            setIsWinning(false);
+          }
         }
       });
     return () => { cancelled = true; };
@@ -501,7 +551,9 @@ const handlePointerMove = (e) => {
 
       let socket;
       try {
-        socket = new WebSocket(`ws://localhost:8000/ws/auction/${currentAuctionId}/`);
+        // JWT token w query - backend ma JWTAuthMiddleware który go odczyta
+        const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+        socket = new WebSocket(`ws://localhost:8000/ws/auction/${currentAuctionId}/${tokenParam}`);
       } catch {
         scheduleReconnect();
         return;
@@ -517,8 +569,12 @@ const handlePointerMove = (e) => {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'initial_state' || data.type === 'bid_update') {
-            setCurrentPrice(data.current_price);
+            setCurrentPrice(Number(data.current_price));
             setErrorMsg(null);
+            // Update "prowadzenia" - bid_update niesie bidder, initial_state niekoniecznie
+            if (data.bidder !== undefined && currentUsername) {
+              setIsWinning(data.bidder === currentUsername);
+            }
           }
         } catch {
           // niepoprawny JSON - ignorujemy
@@ -556,7 +612,59 @@ const handlePointerMove = (e) => {
       }
       wsRef.current = null;
     };
-  }, [currentAuctionId]);
+  }, [currentAuctionId, token]);
+
+  // --- DERIVED: lista ID aukcji w tym pokoju (z timeline'a) ---
+  const roomAuctionIds = (() => {
+    const ids = new Set();
+    timelineData.opened.forEach(s => ids.add(s.auction_id));
+    timelineData.waiting_to_open.forEach(s => ids.add(s.auction_id));
+    if (timelineData.current) ids.add(timelineData.current.auction_id);
+    timelineData.queue.forEach(s => ids.add(s.auction_id));
+    return ids;
+  })();
+
+  // --- DERIVED: "Pozostałe Licytacje" - poza pokojem, posortowane bid → buy_now ---
+  const isBuyNowType = (a) =>
+    a.auction_type === 'buy_now' || a.auction_type === 'Tylko Kup Teraz';
+  const otherAuctions = allAuctions
+    .filter(a => !roomAuctionIds.has(a.id))
+    .slice()
+    .sort((a, b) => {
+      // Bid/hybrid (0) przed buy_now (1)
+      const ra = isBuyNowType(a) ? 1 : 0;
+      const rb = isBuyNowType(b) ? 1 : 0;
+      if (ra !== rb) return ra - rb;
+      return 0;
+    });
+
+  // --- DERIVED: "Inne transmisje live" - bez aktualnego pokoju ---
+  const otherLiveRooms = liveRooms.filter(r => Number(r.id) !== roomId);
+
+  // --- DERIVED: domyślna aukcja dla quick-panelu ---
+  // Priorytet: aktywna licytacja (timeline.current) → pierwsza w queue (bid/hybrid) → pierwsza buy_now w queue
+  // (Slot.is_opened === true znaczy zakończone i otwarte; pomijamy.)
+  const queueBid = timelineData.queue.find(s => {
+    // Bez auction_type w timeline nie wiemy - bierzemy auctionData fetch'a lub allAuctions
+    const aData = allAuctions.find(a => a.id === s.auction_id);
+    return aData && !isBuyNowType(aData);
+  });
+  const queueBuyNow = timelineData.queue.find(s => {
+    const aData = allAuctions.find(a => a.id === s.auction_id);
+    return aData && isBuyNowType(aData);
+  });
+  const defaultAuctionId =
+    timelineData.current?.auction_id ||
+    queueBid?.auction_id ||
+    queueBuyNow?.auction_id ||
+    null;
+
+  // Po załadowaniu timeline ustaw default jeśli user jeszcze nic nie wybrał
+  useEffect(() => {
+    if (!currentAuctionId && defaultAuctionId) {
+      setCurrentAuctionId(defaultAuctionId);
+    }
+  }, [defaultAuctionId, currentAuctionId]);
 
   // --- GUARD POKOJU ---
   // Walidacja czy pokój jest sensowny zanim pokażemy player/czat/licytację.
@@ -717,28 +825,71 @@ return (
             </div>
             
             <div className="p-3">
-              <div className="flex justify-between items-center mb-1">
-                <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest truncate">{auctionData?.card_name || 'Ładowanie...'}</p>
-                {errorMsg && <p className="text-[8px] text-red-400 font-bold mt-1 text-center bg-red-900/30 p-1 rounded">{errorMsg}</p>}
-                {isWinning && <span className="text-[8px] bg-green-500/20 text-green-400 font-bold px-1.5 py-0.5 rounded animate-pulse border border-green-500/30">👑 PROWADZISZ</span>}
+              <div className="flex justify-between items-center mb-1 gap-2">
+                <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest truncate flex-1">{auctionData?.card_name || auctionData?.card_details?.name || 'Ładowanie...'}</p>
+                {isWinning && <span className="text-[8px] bg-green-500/20 text-green-400 font-bold px-1.5 py-0.5 rounded animate-pulse border border-green-500/30 whitespace-nowrap">👑 PROWADZISZ</span>}
               </div>
-              
+              {errorMsg && <p className="text-[9px] text-red-400 font-bold mb-1 text-center bg-red-900/30 p-1 rounded">{errorMsg}</p>}
+              {successMsg && <p className="text-[9px] text-green-400 font-bold mb-1 text-center bg-green-900/30 p-1 rounded">{successMsg}</p>}
+
               <div className="flex justify-between items-end mb-2 mt-1">
-                <span className="text-[9px] text-gray-400 uppercase font-bold tracking-widest pb-1">Aktualna cena:</span>
-                <span className={`text-2xl font-black tracking-tight transition-colors ${isWinning ? 'text-green-400' : 'text-white'}`}>${currentPrice}</span>
+                <span className="text-[9px] text-gray-400 uppercase font-bold tracking-widest pb-1">
+                  {(auctionData?.auction_type === 'buy_now' || auctionData?.auction_type === 'Tylko Kup Teraz') ? 'Cena (Kup teraz):' : 'Aktualna cena:'}
+                </span>
+                <span className={`text-2xl font-black tracking-tight transition-colors ${isWinning ? 'text-green-400' : 'text-white'}`}>${Number(currentPrice || 0).toFixed(2)}</span>
               </div>
-              
-              <div className="flex gap-1 mb-2">
-                {[5, 10, 25].map(v => (
-                  <button key={v} onClick={() => setBidIncrement(v)} className={`flex-1 text-[10px] py-1 rounded-md border font-bold transition ${bidIncrement === v ? 'bg-yellow-500 text-black border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-black/50 text-gray-400 border-gray-600 hover:bg-gray-700'}`}>
-                    +${v}
+
+              {/* Panel licytacji - tylko dla bid/hybrid */}
+              {(auctionData?.auction_type !== 'buy_now' && auctionData?.auction_type !== 'Tylko Kup Teraz') && (
+                <>
+                  <div className="flex gap-1 mb-2">
+                    {[5, 10, 25].map(v => (
+                      <button key={v} onClick={() => { setBidIncrement(v); setCustomBidAmount(''); }} className={`flex-1 text-[10px] py-1 rounded-md border font-bold transition ${bidIncrement === v && !customBidAmount ? 'bg-yellow-500 text-black border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-black/50 text-gray-400 border-gray-600 hover:bg-gray-700'}`}>
+                        +${v}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mb-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={minNextBid}
+                      placeholder={`Min: $${minNextBid.toFixed(2)}`}
+                      value={customBidAmount}
+                      onChange={(e) => setCustomBidAmount(e.target.value)}
+                      className="w-full text-[11px] bg-black/50 border border-gray-600 rounded-md px-2 py-1 text-white outline-none focus:border-yellow-500"
+                    />
+                  </div>
+
+                  <button onClick={handleBid} disabled={isWinning} className={`w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition mb-2 ${isWinning ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_10px_rgba(22,163,7,0.4)]'}`}>
+                    {isWinning
+                      ? 'Oczekiwanie...'
+                      : customBidAmount
+                        ? `Licytuj $${(parseFloat(customBidAmount) || 0).toFixed(2)}`
+                        : `Podbij o $${bidIncrement}`
+                    }
                   </button>
-                ))}
-              </div>
-              
-              <button onClick={handleBid} disabled={isWinning} className={`w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition ${isWinning ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_10px_rgba(22,163,7,0.4)]'}`}>
-                {isWinning ? 'Oczekiwanie...' : `Podbij o $${bidIncrement}`}
-              </button>
+                </>
+              )}
+
+              {/* Buy Now - dla buy_now/hybrid, szybki zakup */}
+              {(auctionData?.auction_type === 'buy_now' || auctionData?.auction_type === 'Tylko Kup Teraz' ||
+                auctionData?.auction_type === 'hybrid' || auctionData?.auction_type === 'Licytacja + Kup Teraz') && (
+                <button onClick={handleBuyNow} className="w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)] mb-2">
+                  Kup teraz {auctionData?.buy_now_price ? `$${Number(auctionData.buy_now_price).toFixed(2)}` : ''}
+                </button>
+              )}
+
+              {/* Link do szczegółów */}
+              {currentAuctionId && (
+                <button
+                  onClick={() => navigate(`/product/${currentAuctionId}`)}
+                  className="w-full py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition border border-gray-600 text-gray-300 hover:bg-white/10"
+                >
+                  Szczegóły →
+                </button>
+              )}
             </div>
           </div>
 
@@ -835,14 +986,23 @@ return (
           <div className="flex gap-4 overflow-x-auto pb-3 custom-scrollbar">
             {timelineSlots.map((slot) => {
               let borderStyle = "border-gray-700"; let bgStyle = "bg-gray-800"; let textStyle = "text-gray-400"; let badge = null;
-              
-              if (slot.status === 'opened') { bgStyle = "bg-gray-800/50"; borderStyle = "border-gray-800"; textStyle = "text-gray-600 line-through"; badge = <span className="text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg">✅ ZAKOŃCZONE</span>; } 
-              else if (slot.status === 'queued') { borderStyle = "border-blue-500/50"; bgStyle = "bg-blue-900/20"; textStyle = "text-gray-200"; badge = <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">📦 W KOLEJCE</span>; } 
-              else if (slot.status === 'active') { borderStyle = "border-yellow-500"; bgStyle = "bg-yellow-900/20"; textStyle = "text-yellow-400"; badge = <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg animate-pulse">🔥 TERAZ</span>; } 
+
+              if (slot.status === 'opened') { bgStyle = "bg-gray-800/50"; borderStyle = "border-gray-800"; textStyle = "text-gray-600 line-through"; badge = <span className="text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg">✅ ZAKOŃCZONE</span>; }
+              else if (slot.status === 'queued') { borderStyle = "border-blue-500/50"; bgStyle = "bg-blue-900/20"; textStyle = "text-gray-200"; badge = <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">📦 W KOLEJCE</span>; }
+              else if (slot.status === 'active') { borderStyle = "border-yellow-500"; bgStyle = "bg-yellow-900/20"; textStyle = "text-yellow-400"; badge = <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg animate-pulse">🔥 TERAZ</span>; }
               else { badge = <span className="text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg">⏳ WKRÓTCE</span>; }
-              
+
+              const isSelected = slot.auction_id && Number(slot.auction_id) === Number(currentAuctionId);
+              const isClickable = !!slot.auction_id;
+              const selectedRing = isSelected ? 'ring-2 ring-inset ring-emerald-400' : '';
+
               return (
-                <div key={slot.id} className={`min-w-[220px] p-4 rounded-xl border-2 transition-all ${borderStyle} ${bgStyle} relative flex flex-col justify-between shrink-0 overflow-hidden`}>
+                <div
+                  key={slot.id}
+                  onClick={() => { if (isClickable) setCurrentAuctionId(slot.auction_id); }}
+                  className={`min-w-[220px] p-4 rounded-xl border-2 transition-all ${borderStyle} ${bgStyle} relative flex flex-col justify-between shrink-0 overflow-hidden ${selectedRing} ${isClickable ? 'cursor-pointer hover:border-emerald-400/70' : ''}`}
+                  title={isClickable ? 'Kliknij aby wybrać tę aukcję' : ''}
+                >
                   <div className="absolute top-0 right-0 z-10">{badge}</div>
                   <div className="mt-2"><span className="block text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Slot #{slot.id}</span><span className={`font-black italic text-lg block uppercase tracking-tight ${textStyle} pr-16`}>{slot.title}</span></div>
                   <div className="mt-3 pt-3 border-t border-gray-700/50"><span className={`block text-xs font-bold uppercase tracking-wider ${slot.status === 'active' ? 'text-yellow-500' : 'text-gray-500'}`}>{slot.info}</span>{slot.winner && <span className="block text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Wygrał: <span className="text-gray-300 font-bold">{slot.winner}</span></span>}</div>
@@ -851,19 +1011,19 @@ return (
             })}
           </div>
         </div>
-        {/* WSZYSTKIE AKTYWNE LICYTACJE (Z /api/auctions/) */}
+        {/* POZOSTAŁE LICYTACJE (poza tym pokojem) - sortowane: bid → buy_now */}
         <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 flex flex-col mb-4">
           <div className="flex justify-between items-end mb-4">
             <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-              🃏 Wszystkie Aktywne Licytacje
+              🃏 Pozostałe Licytacje
             </h3>
             <Link to="/marketplace" className="text-[10px] font-bold text-blue-500 hover:text-blue-400 transition uppercase tracking-wider">
               Zobacz rynek &rarr;
             </Link>
           </div>
-          
+
           <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
-            {allAuctions.length > 0 ? allAuctions.map((auction) => {
+            {otherAuctions.length > 0 ? otherAuctions.map((auction) => {
               // KULOODPORNE ROZPOZNANIE TYPU (Niezależnie co zwróci DRF)
               const isBuyNow = auction.auction_type === 'buy_now' || auction.auction_type === 'Tylko Kup Teraz';
               const isHybrid = auction.auction_type === 'hybrid' || auction.auction_type === 'Licytacja + Kup Teraz';
@@ -873,45 +1033,43 @@ return (
               if (isBuyNow) badge = <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">🛒 KUP TERAZ</span>;
               if (isHybrid) badge = <span className="text-[10px] font-bold bg-purple-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">⚔️ LIC. + KUP</span>;
 
-              // Aktywna = pełny kolor + glow; nieaktywna = przyciemniony kolor tego samego odcienia
+              // Wszystkie karty pełne kolory; aktywna dostaje zielony ring
               const isActive = String(currentAuctionId) === String(auction.id);
 
               let borderStyle, bgStyle, titleColor, priceColor;
               if (isBuyNow || isHybrid) {
-                // Niebieska rodzina
-                borderStyle = isActive
-                  ? "border-blue-400 shadow-[0_0_14px_rgba(59,130,246,0.4)]"
-                  : "border-blue-500/40 hover:border-blue-400/70";
-                bgStyle    = isActive ? "bg-blue-900/30" : "bg-blue-900/10";
-                titleColor = isActive ? "text-blue-200" : "text-blue-300/70";
-                priceColor = isActive ? "text-blue-300" : "text-blue-400/60";
+                borderStyle = "border-blue-500 hover:border-blue-400";
+                bgStyle    = "bg-blue-900/30";
+                titleColor = "text-blue-200";
+                priceColor = "text-blue-300";
               } else {
-                // Żółta rodzina (licytacja)
-                borderStyle = isActive
-                  ? "border-yellow-500 shadow-[0_0_14px_rgba(234,179,8,0.35)]"
-                  : "border-yellow-500/30 hover:border-yellow-400/60";
-                bgStyle    = isActive ? "bg-yellow-900/20" : "bg-yellow-900/5";
-                titleColor = isActive ? "text-yellow-400" : "text-yellow-400/60";
-                priceColor = isActive ? "text-yellow-500" : "text-yellow-500/50";
+                borderStyle = "border-yellow-500 hover:border-yellow-400";
+                bgStyle    = "bg-yellow-900/20";
+                titleColor = "text-yellow-400";
+                priceColor = "text-yellow-500";
               }
+
+              const selectedRing = isActive
+                ? 'ring-2 ring-inset ring-emerald-400'
+                : '';
 
               const btnClass = isBuyNow ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-yellow-500 hover:bg-yellow-400 text-black';
 
               return (
-                <div 
-                  key={auction.id} 
+                <div
+                  key={auction.id}
                   onClick={() => setCurrentAuctionId(auction.id)}
-                  className={`min-w-[220px] p-4 rounded-xl border-2 transition-all cursor-pointer group flex flex-col justify-between shrink-0 overflow-hidden relative ${borderStyle} ${bgStyle}`}
+                  className={`min-w-[220px] p-4 rounded-xl border-2 transition-all cursor-pointer group flex flex-col justify-between shrink-0 overflow-hidden relative ${borderStyle} ${bgStyle} ${selectedRing}`}
                 >
                   {/* ODZNAKA W PRAWYM GÓRNYM ROGU */}
                   <div className="absolute top-0 right-0 z-10">{badge}</div>
                   
                   <div className="mt-2">
                     <span className={`font-black italic text-lg block uppercase tracking-tight pr-16 ${titleColor}`}>
-                      {auction.card_name || 'Karta'}
+                      {auction.card_details?.name || auction.card_name || 'Karta'}
                     </span>
-                    {auction.grade && (
-                      <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mt-1">Ocena: {auction.grade}</p>
+                    {(auction.card_details?.grade || auction.grade) && (
+                      <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mt-1">Ocena: {auction.card_details?.grade || auction.grade}</p>
                     )}
                   </div>
                   
@@ -936,7 +1094,7 @@ return (
                 </div>
               );
             }) : (
-              <p className="text-sm text-gray-500">Brak aktywnych licytacji w bazie.</p>
+              <p className="text-sm text-gray-500">Wszystkie licytacje są już w tym pokoju.</p>
             )}
           </div>
         </div>
@@ -948,7 +1106,7 @@ return (
             </h3>
           </div>
           <div className="flex gap-4 overflow-x-auto custom-scrollbar">
-            {liveRooms.length > 0 ? liveRooms.map((room) => (
+            {otherLiveRooms.length > 0 ? otherLiveRooms.map((room) => (
               <Link 
                 key={room.id} 
                 to={`/live/${room.id}`}
@@ -997,10 +1155,10 @@ return (
                       Kup Teraz
                     </span>
                     <span className="block text-2xl font-black italic uppercase tracking-tighter text-gray-100">
-                      {auctionData ? auctionData.card_name || 'Karta' : 'Ładowanie...'}
+                      {auctionData ? (auctionData.card_details?.name || auctionData.card_name || 'Karta') : 'Ładowanie...'}
                     </span>
                     <span className="block text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">
-                      Ocena: {auctionData?.grade || 'Brak danych'}
+                      Ocena: {auctionData?.card_details?.grade || auctionData?.grade || 'Brak danych'}
                     </span>
                   </div>
 
@@ -1031,6 +1189,14 @@ return (
                   >
                     Kup Teraz
                   </button>
+                  {currentAuctionId && (
+                    <button
+                      onClick={() => navigate(`/product/${currentAuctionId}`)}
+                      className="w-full mt-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition border border-white/15 text-gray-300 hover:bg-white/10"
+                    >
+                      Szczegóły aukcji →
+                    </button>
+                  )}
                 </div>
               );
             }
@@ -1050,10 +1216,10 @@ return (
                     Licytacja trwa!
                   </span>
                   <span className="block text-2xl font-black italic uppercase tracking-tighter text-yellow-400">
-                    {auctionData ? auctionData.card_name || 'Karta' : 'Ładowanie...'}
+                    {auctionData ? (auctionData.card_details?.name || auctionData.card_name || 'Karta') : 'Ładowanie...'}
                   </span>
                   <span className="block text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">
-                    Ocena: {auctionData?.grade || 'Brak danych'}
+                    Ocena: {auctionData?.card_details?.grade || auctionData?.grade || 'Brak danych'}
                   </span>
                 </div>
 
@@ -1082,16 +1248,16 @@ return (
                 </div>
 
                 {/* Wybór przebicia */}
-                <div className="mb-6">
-                  <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-3 block">
+                <div className="mb-3">
+                  <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-2 block">
                     Wybierz przebicie:
                   </span>
                   <div className="grid grid-cols-3 gap-3">
                     {[5, 10, 25].map(val => (
                       <button
                         key={val}
-                        onClick={() => setBidIncrement(val)}
-                        className={`py-2 rounded-xl font-bold text-sm transition-all border ${bidIncrement === val ? 'bg-yellow-500 text-black border-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'}`}
+                        onClick={() => { setBidIncrement(val); setCustomBidAmount(''); }}
+                        className={`py-2 rounded-xl font-bold text-sm transition-all border ${bidIncrement === val && !customBidAmount ? 'bg-yellow-500 text-black border-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'}`}
                       >
                         +${val}
                       </button>
@@ -1099,13 +1265,42 @@ return (
                   </div>
                 </div>
 
+                {/* Ręczna kwota */}
+                <div className="mb-4">
+                  <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-2 block">
+                    Lub wpisz kwotę (min ${minNextBid.toFixed(2)}):
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={minNextBid}
+                    placeholder={`np. ${minNextBid.toFixed(2)}`}
+                    value={customBidAmount}
+                    onChange={(e) => setCustomBidAmount(e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-yellow-500"
+                  />
+                </div>
+
                 <button
                   onClick={handleBid}
                   disabled={isWinning}
                   className={`w-full py-4 rounded-xl font-black text-lg transition-all uppercase tracking-tighter ${isWinning ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_10px_20px_rgba(22,163,7,0.2)] hover:-translate-y-1'}`}
                 >
-                  {isWinning ? 'Jesteś na prowadzeniu' : `Podbij o $${bidIncrement}`}
+                  {isWinning
+                    ? 'Jesteś na prowadzeniu'
+                    : customBidAmount
+                      ? `Licytuj $${(parseFloat(customBidAmount) || 0).toFixed(2)}`
+                      : `Podbij o $${bidIncrement}`
+                  }
                 </button>
+                {currentAuctionId && (
+                  <button
+                    onClick={() => navigate(`/product/${currentAuctionId}`)}
+                    className="w-full mt-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition border border-white/15 text-gray-300 hover:bg-white/10"
+                  >
+                    Szczegóły aukcji →
+                  </button>
+                )}
               </div>
             );
           })()}
