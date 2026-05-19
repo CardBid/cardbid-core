@@ -10,6 +10,10 @@ Database definition. The following tables (models) are defined:
 - AuctionSlot   - Binding of an auction to some stream room
 
 Provided by Whisper.
+
+UWAGA!  jak nie widać tabelek w panelu admina do edycji (np. nie można widzieć zawartości
+        tabeli Transaction) to nie znaczy że nie działa, tylko w admin.py trzeba zrobić
+        pozycje dla tej klasy.
 """
 
 from django.contrib.auth.models import AbstractUser
@@ -68,6 +72,8 @@ class CardbidUser(AbstractUser):
     shipping_address = models.TextField(blank=True)
     birth_date = models.DateField(null=True, blank=True)
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    
+    frozen_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
 
     USERNAME_FIELD  = "email"
     REQUIRED_FIELDS = ["username"]
@@ -97,6 +103,47 @@ class CardbidUser(AbstractUser):
     def __str__(self):
         # Do not include password, because it is a hash anyways ...
         return f"{self.username} ({self.email}) - role: {self.role}"
+
+
+class Transaction(models.Model):
+    
+    class Status:
+        PENDING     = "pending"
+        COMPLETED   = "completed"
+        FAILED      = "failed"
+    
+    class Type:
+        PAYMENT_IN  = "payment in"
+        PAYMENT_OUT = "payment out"
+        FREEZE      = "freeze"
+        UNFREEZE    = "unfreeze"
+    
+    DEFAULT_STATUS = Status.FAILED
+    
+    STATUS_CHOICES = (
+        ( Status.PENDING,   "trwająca" ),
+        ( Status.COMPLETED, "zakończona" ),
+        ( Status.FAILED,    "nieudana" )
+    )
+    
+    DEFAULT_TYPE = Type.PAYMENT_IN
+    
+    TYPE_CHOICES = (
+        ( Type.PAYMENT_IN,  "płatność wchodząca" ),
+        ( Type.PAYMENT_OUT, "płatność wychodząca" ),
+        ( Type.FREEZE,      "wstrzymana" ),
+        ( Type.UNFREEZE,    "wznowiona" )
+    )
+    
+    user                = models.ForeignKey(CardbidUser, on_delete=models.CASCADE, related_name="transactions")
+    amount              = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    trans_type          = models.CharField(max_length=18, choices=TYPE_CHOICES, default=DEFAULT_TYPE)
+    trans_status        = models.CharField(max_length=10, choices=STATUS_CHOICES, default=DEFAULT_STATUS)
+    stripe_intent_id    = models.CharField(max_length=255, unique=True)
+    timestamp           = models.DateTimeField(auto_now_add=True)  # Automatically set on a record creation
+    
+    def __str__(self):
+        return f"Transaction(user={self.user}, amount={self.amount}, trans_type={self.trans_type}, trans_status={self.trans_status}, stripe_intent_id={self.stripe_intent_id}, timestamp={self.timestamp})"
 
 
 class StreamRoom(models.Model):
