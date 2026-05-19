@@ -1,52 +1,66 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AuthFormLayout from '../components/auth/AuthFormLayout';
 
 export default function Login() {
-  const [form, setForm] = useState({ email: '', password: '' });
-  const [message, setMessage] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
+  const navigate = useNavigate();
 
-  const handleChange = (event) => {
-    setForm((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }));
-  };
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setMessage('Logowanie...');
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    setMessage('Mock logowania zapisany po stronie UI. Backend auth mozna podpiac w tym handlerze.');
+    try {
+      const response = await fetch('http://localhost:8000/auth/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!response.ok) {
+        throw new Error('Niepoprawne dane logowania. Sprawdź adres e-mail i hasło.');
+      }
+
+      const data = await response.json();
+
+      localStorage.setItem('access_token', data.access);
+      localStorage.setItem('refresh_token', data.refresh);
+      
+      setMessage('Zalogowano. Przekierowuję...');
+      navigate('/');
+    } catch (err) {
+      setError(err.message);
+      setMessage(null);
+    }
   };
 
   return (
-    <AuthFormLayout
-      title="Logowanie"
-      subtitle="Wejdz do konta, zeby korzystac z portfela, historii zakupow i szybkiego zakupu Buy Now."
-      footerText="Nie masz konta?"
-      footerHref="/register"
-      footerLink="Zarejestruj sie"
-    >
-      <form className="space-y-5" onSubmit={handleSubmit}>
+    <AuthFormLayout title="Logowanie" subtitle="Zaloguj się, aby mieć dostęp do licytacji">
+      <form className="space-y-5" onSubmit={handleLogin}>
         <label className="block">
           <span className="text-sm font-bold text-gray-300">Email</span>
           <input
             name="email"
             type="email"
-            value={form.email}
-            onChange={handleChange}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
             className="mt-2 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
           />
         </label>
 
         <label className="block">
-          <span className="text-sm font-bold text-gray-300">Haslo</span>
+          <span className="text-sm font-bold text-gray-300">Hasło</span>
           <input
             name="password"
             type="password"
-            value={form.password}
-            onChange={handleChange}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={6}
             className="mt-2 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
           />
         </label>
@@ -58,11 +72,8 @@ export default function Login() {
           Zaloguj
         </button>
 
-        {message && (
-          <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-300">
-            {message}
-          </p>
-        )}
+        {message && <p className="mt-4 font-bold text-emerald-400">{message}</p>}
+        {error && <p className="mt-4 font-bold text-red-500">{error}</p>}
       </form>
     </AuthFormLayout>
   );

@@ -45,7 +45,7 @@ export default function BuyNowPanel({ product, compact = false }) {
 
       {isSuccess && (
         <p className="text-sm font-semibold text-emerald-300">
-          Mock zakupu zakonczony. Ten stan jest gotowy do podpiecia pod API portfela.
+          Zakup został zarezerwowany. Wkrótce otrzymasz potwierdzenie.
         </p>
       )}
     </div>

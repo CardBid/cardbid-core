@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from .permissions import IsStreamer
-from .models import Card, Category, Auction, CardbidUser, Country, State, Bid, AuctionSlot
+from .models import Card, Category, Auction, CardbidUser, Country, State, Bid, AuctionSlot, StreamRoom
 from .serializers import (
     CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer,
     RegisterSerializer, BidSerializer, StreamRoomSerializer,
