@@ -136,7 +136,11 @@ const handlePointerMove = (e) => {
   const token = localStorage.getItem('access_token'); // Do wysyłania licytacji
   const { id } = useParams();
   // URL /live/:id  →  id to ROOM_ID (tak go ustawia <Link to={`/live/${room.id}`}>)
-  const roomId = id || 1;
+  // Jeśli ktoś wszedł na /live bez id, roomId zostaje null - guard niżej wybierze co pokazać.
+  const roomId = id ? Number(id) : null;
+  // Stan walidacji pokoju
+  const [roomsLoaded, setRoomsLoaded] = useState(false);
+  const [liveRoomsFetchOk, setLiveRoomsFetchOk] = useState(false);
   // currentAuctionId ustawiamy z timeline (slot 'current'), z fallbackiem na 1
   const [currentAuctionId, setCurrentAuctionId] = useState(null);
   const [auctionData, setAuctionData] = useState(null); // Szczegóły karty z REST API
@@ -194,9 +198,12 @@ const handlePointerMove = (e) => {
     let cancelled = false;
     safeFetchJson('http://localhost:8000/api/live-rooms/').then(data => {
       if (cancelled) return;
-      if (Array.isArray(data)) setLiveRooms(data);
-      else if (data && Array.isArray(data.results)) setLiveRooms(data.results);
-      else setLiveRooms([]);
+      const list = Array.isArray(data) ? data
+        : (data && Array.isArray(data.results)) ? data.results
+        : null;
+      setLiveRooms(list || []);
+      setLiveRoomsFetchOk(list !== null); // null = endpoint padł / nie-JSON
+      setRoomsLoaded(true);
     });
     return () => { cancelled = true; };
   }, [safeFetchJson]);
@@ -306,6 +313,7 @@ const handlePointerMove = (e) => {
       // Niezalogowany - nie łączymy czatu, ale UI dalej działa (read-only fake nie odpalamy)
       return;
     }
+    if (!roomId) return; // brak id w URL - nie łączymy czatu
 
     let cancelled = false;
     let retryAttempt = 0;
@@ -392,6 +400,7 @@ const handlePointerMove = (e) => {
   // === HARMONOGRAM POKOJU — REST /api/rooms/<roomId>/timeline/ ===
   // Refresh co 10s żeby łapać zmiany (otwarcie slota przez streamera itp.)
   useEffect(() => {
+    if (!roomId) return; // bez id w URL nie ma czego pobierać
     let cancelled = false;
     let intervalId = null;
 
@@ -549,9 +558,104 @@ const handlePointerMove = (e) => {
     };
   }, [currentAuctionId]);
 
+  // --- GUARD POKOJU ---
+  // Walidacja czy pokój jest sensowny zanim pokażemy player/czat/licytację.
+  // Stany: 'loading' (jeszcze ładujemy listę), 'pick' (brak id w URL, masz wybór),
+  //        'not_found' (id istnieje ale pokoju brak na liście live),
+  //        'no_streams' (lista pusta i nikt nie streamuje), 'unverified' (lista padła,
+  //        nie umiemy potwierdzić - pozwalamy ale z banerem), 'ok' (wszystko ładnie).
+  const roomCheck = (() => {
+    if (!roomsLoaded) return 'loading';
+    if (!liveRoomsFetchOk) return 'unverified'; // endpoint /api/live-rooms/ padł
+    if (liveRooms.length === 0) return roomId ? 'not_found' : 'no_streams';
+    if (!roomId) return 'pick';
+    const match = liveRooms.find(r => Number(r.id) === roomId);
+    return match ? 'ok' : 'not_found';
+  })();
+
+  // Wspólny wrapper ekranu blokady (centrowany kafelek)
+  const renderBlocker = (icon, title, subtitle, actions) => (
+    <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-6">
+      <div className="max-w-md w-full bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center shadow-2xl">
+        <div className="text-5xl mb-4">{icon}</div>
+        <h1 className="text-xl font-black uppercase tracking-tighter mb-2">{title}</h1>
+        <p className="text-sm text-gray-400 mb-6">{subtitle}</p>
+        {actions}
+      </div>
+    </div>
+  );
+
+  if (roomCheck === 'loading') {
+    return renderBlocker(
+      '⏳',
+      'Sprawdzam transmisje...',
+      'Łączę się z serwerem.',
+      <div className="w-8 h-8 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin mx-auto" />
+    );
+  }
+
+  if (roomCheck === 'no_streams') {
+    return renderBlocker(
+      '🌙',
+      'Nikt aktualnie nie streamuje',
+      'Wróć później albo zerknij na marketplace.',
+      <div className="flex gap-2 justify-center">
+        <Link to="/marketplace" className="px-4 py-2 rounded-lg bg-amber-400 text-gray-950 font-black text-sm hover:bg-amber-300 transition">
+          Marketplace
+        </Link>
+      </div>
+    );
+  }
+
+  if (roomCheck === 'not_found') {
+    return renderBlocker(
+      '🚫',
+      'Ta transmisja nie istnieje',
+      `Pokój o ID ${roomId || '?'} nie jest dostępny. Może streamer właśnie zakończył transmisję.`,
+      <div className="flex gap-2 justify-center flex-wrap">
+        {liveRooms.length > 0 && (
+          <Link to={`/live/${liveRooms[0].id}`} className="px-4 py-2 rounded-lg bg-emerald-500 text-gray-950 font-black text-sm hover:bg-emerald-400 transition">
+            Pierwsza dostępna transmisja
+          </Link>
+        )}
+        <Link to="/marketplace" className="px-4 py-2 rounded-lg bg-white/10 text-white font-bold text-sm hover:bg-white/20 transition">
+          Marketplace
+        </Link>
+      </div>
+    );
+  }
+
+  if (roomCheck === 'pick') {
+    return renderBlocker(
+      '📺',
+      'Wybierz transmisję',
+      `Aktualnie ${liveRooms.length === 1 ? 'jest dostępna' : 'są dostępne'} ${liveRooms.length} transmisj${liveRooms.length === 1 ? 'a' : liveRooms.length < 5 ? 'e' : 'i'} na żywo.`,
+      <div className="flex flex-col gap-2">
+        {liveRooms.map(r => (
+          <Link
+            key={r.id}
+            to={`/live/${r.id}`}
+            className="block px-4 py-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-emerald-400 transition text-left"
+          >
+            <p className="font-bold text-white">{r.title}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Streamer: {r.streamer_name || r.streamer || '—'}</p>
+          </Link>
+        ))}
+      </div>
+    );
+  }
+
+  // 'ok' lub 'unverified' - lecimy z normalnym widokiem (unverified pokaże baner u góry)
+
   // --- GŁÓWNY WIDOK ---
 return (
     <div className={`min-h-screen bg-gray-950 text-white p-4 pb-40 lg:pb-4 transition-all duration-500 ${isTheater ? 'flex flex-col' : 'grid grid-cols-1 lg:grid-cols-12 gap-6'}`}>
+      {roomCheck === 'unverified' && (
+        <div className="lg:col-span-12 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2">
+          <span>⚠️</span>
+          <span>Nie udało się zweryfikować pokoju (endpoint /api/live-rooms/ niedostępny). Działasz w trybie awaryjnym.</span>
+        </div>
+      )}
       {/* LEWA STRONA (Wideo + Harmonogram) */}
       <div className={`${isTheater ? 'w-full mb-8 flex flex-col gap-6' : 'lg:col-span-9 flex flex-col gap-4'}`}>
         
