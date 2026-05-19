@@ -131,6 +131,10 @@ const handlePointerMove = (e) => {
   const [currentPrice, setCurrentPrice] = useState(0); 
   const [bidIncrement, setBidIncrement] = useState(5);
   const [isWinning, setIsWinning] = useState(false);
+
+  // Minimalizacja paneli prawej kolumny (niezależne od siebie)
+  const [isBidMinimized, setIsBidMinimized] = useState(false);
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
   
   // NOWE STANY:
   const token = localStorage.getItem('access_token'); // Do wysyłania licytacji
@@ -862,12 +866,14 @@ return (
                     />
                   </div>
 
-                  <button onClick={handleBid} disabled={isWinning} className={`w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition mb-2 ${isWinning ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_10px_rgba(22,163,7,0.4)]'}`}>
-                    {isWinning
-                      ? 'Oczekiwanie...'
-                      : customBidAmount
-                        ? `Licytuj $${(parseFloat(customBidAmount) || 0).toFixed(2)}`
-                        : `Podbij o $${bidIncrement}`
+                  <button onClick={handleBid} disabled={isWinning || !token} className={`w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition mb-2 ${(isWinning || !token) ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_10px_rgba(22,163,7,0.4)]'}`}>
+                    {!token
+                      ? 'Zaloguj się aby licytować'
+                      : isWinning
+                        ? 'Oczekiwanie...'
+                        : customBidAmount
+                          ? `Licytuj $${(parseFloat(customBidAmount) || 0).toFixed(2)}`
+                          : `Podbij o $${bidIncrement}`
                     }
                   </button>
                 </>
@@ -876,8 +882,11 @@ return (
               {/* Buy Now - dla buy_now/hybrid, szybki zakup */}
               {(auctionData?.auction_type === 'buy_now' || auctionData?.auction_type === 'Tylko Kup Teraz' ||
                 auctionData?.auction_type === 'hybrid' || auctionData?.auction_type === 'Licytacja + Kup Teraz') && (
-                <button onClick={handleBuyNow} className="w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)] mb-2">
-                  Kup teraz {auctionData?.buy_now_price ? `$${Number(auctionData.buy_now_price).toFixed(2)}` : ''}
+                <button onClick={handleBuyNow} disabled={!token} className={`w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition mb-2 ${token ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}>
+                  {!token
+                    ? 'Zaloguj się aby kupić'
+                    : `Kup teraz ${auctionData?.buy_now_price ? `$${Number(auctionData.buy_now_price).toFixed(2)}` : ''}`
+                  }
                 </button>
               )}
 
@@ -927,7 +936,7 @@ return (
 
             {/* INPUT DO PISANIA W TRYBIE KINOWYM */}
             <div className="p-2 bg-black/40 border-t border-gray-700/50 flex gap-2">
-               <input type="text" placeholder="Napisz..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className="flex-1 bg-gray-800 text-white text-[10px] rounded px-2 py-1.5 outline-none focus:border-blue-500 border border-gray-600" />
+               <input type="text" disabled={!token} placeholder={token ? "Napisz..." : "Zaloguj się aby pisać"} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className={`flex-1 text-[10px] rounded px-2 py-1.5 outline-none border ${token ? 'bg-gray-800 text-white border-gray-600 focus:border-blue-500' : 'bg-gray-900 text-gray-500 border-gray-700 cursor-not-allowed'}`} />
                <button onClick={handleSendMessage} className="bg-blue-600 text-white px-3 rounded hover:bg-blue-500 transition">                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg></button>
             </div>
           </div>
@@ -1131,11 +1140,26 @@ return (
       {/* ========================================================= */}
       {/* PRAWA STRONA: STANDARDOWE AKCJE (Ukrywana w trybie kinowym) */}
       {!isTheater && (
-        <div className="hidden lg:flex lg:col-span-3 flex-col gap-4 max-h-[calc(100vh-2rem)] overflow-y-auto pr-1 custom-scrollbar">
+        <div className="hidden lg:flex lg:col-span-3 flex-col gap-4">
 
           {/* ========================================================= */}
-          {/* PANEL AKCJI — dynamicznie zmienia wygląd wg auction_type   */}
+          {/* PANEL AKCJI — własny scroll, niezależny od czatu          */}
           {/* ========================================================= */}
+          {isBidMinimized ? (
+            <div className="shrink-0 bg-gray-900 rounded-2xl px-4 py-3 border border-gray-800 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-widest text-gray-300">
+                💸 Licytacja zwinięta
+              </span>
+              <button
+                onClick={() => setIsBidMinimized(false)}
+                className="text-xs font-bold text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded hover:bg-white/5 transition"
+                title="Pokaż panel licytacji"
+              >
+                Rozwiń ▾
+              </button>
+            </div>
+          ) : (
+          <div className="shrink-0">
           {(() => {
             const isBuyNow = auctionData?.auction_type === 'buy_now' || auctionData?.auction_type === 'Tylko Kup Teraz';
 
@@ -1143,14 +1167,22 @@ return (
             if (isBuyNow) {
               return (
                 <div className="bg-blue-900/20 rounded-2xl p-6 border-2 border-blue-500/50 shadow-[0_0_20px_rgba(37,99,235,0.15)] shrink-0 relative overflow-hidden">
-                  {/* Badge */}
-                  <div className="absolute top-0 right-0">
-                    <span className="text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-bl-xl rounded-tr-xl block shadow-sm">
+                  {/* Badge - lewa strona */}
+                  <div className="absolute top-0 left-0">
+                    <span className="text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-br-xl rounded-tl-xl block shadow-sm">
                       📦 W KOLEJCE
                     </span>
                   </div>
+                  {/* Minimalizacja - prawa strona */}
+                  <button
+                    onClick={() => setIsBidMinimized(true)}
+                    title="Zwiń panel licytacji"
+                    className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
+                  >
+                    −
+                  </button>
 
-                  <div className="mt-4 mb-5">
+                  <div className="mt-8 mb-5">
                     <span className="block text-[10px] text-blue-400/70 font-bold uppercase tracking-widest mb-1">
                       Kup Teraz
                     </span>
@@ -1185,9 +1217,10 @@ return (
 
                   <button
                     onClick={handleBuyNow}
-                    className="w-full py-4 rounded-xl font-black text-lg transition-all uppercase tracking-tighter bg-blue-600 hover:bg-blue-500 text-white shadow-[0_10px_20px_rgba(37,99,235,0.25)] hover:-translate-y-1"
+                    disabled={!token}
+                    className={`w-full py-4 rounded-xl font-black text-lg transition-all uppercase tracking-tighter ${token ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_10px_20px_rgba(37,99,235,0.25)] hover:-translate-y-1' : 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600'}`}
                   >
-                    Kup Teraz
+                    {token ? 'Kup Teraz' : 'Zaloguj się aby kupić'}
                   </button>
                   {currentAuctionId && (
                     <button
@@ -1204,14 +1237,22 @@ return (
             /* ---------- PANEL: LICYTACJA (styl TERAZ → żółty) ---------- */
             return (
               <div className="bg-yellow-900/20 rounded-2xl p-6 border-2 border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.15)] shrink-0 relative overflow-hidden">
-                {/* Badge z pulsującą kropką */}
-                <div className="absolute top-0 right-0">
-                  <span className="text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-bl-xl rounded-tr-xl block animate-pulse shadow-sm">
+                {/* Badge - lewa strona */}
+                <div className="absolute top-0 left-0">
+                  <span className="text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-br-xl rounded-tl-xl block animate-pulse shadow-sm">
                     🔥 TERAZ
                   </span>
                 </div>
+                {/* Minimalizacja - prawa strona */}
+                <button
+                  onClick={() => setIsBidMinimized(true)}
+                  title="Zwiń panel licytacji"
+                  className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
+                >
+                  −
+                </button>
 
-                <div className="mt-4 mb-5">
+                <div className="mt-8 mb-5">
                   <span className="block text-[10px] text-yellow-500/70 font-bold uppercase tracking-widest mb-1">
                     Licytacja trwa!
                   </span>
@@ -1283,14 +1324,16 @@ return (
 
                 <button
                   onClick={handleBid}
-                  disabled={isWinning}
-                  className={`w-full py-4 rounded-xl font-black text-lg transition-all uppercase tracking-tighter ${isWinning ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_10px_20px_rgba(22,163,7,0.2)] hover:-translate-y-1'}`}
+                  disabled={isWinning || !token}
+                  className={`w-full py-4 rounded-xl font-black text-lg transition-all uppercase tracking-tighter ${(isWinning || !token) ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_10px_20px_rgba(22,163,7,0.2)] hover:-translate-y-1'}`}
                 >
-                  {isWinning
-                    ? 'Jesteś na prowadzeniu'
-                    : customBidAmount
-                      ? `Licytuj $${(parseFloat(customBidAmount) || 0).toFixed(2)}`
-                      : `Podbij o $${bidIncrement}`
+                  {!token
+                    ? 'Zaloguj się aby licytować'
+                    : isWinning
+                      ? 'Jesteś na prowadzeniu'
+                      : customBidAmount
+                        ? `Licytuj $${(parseFloat(customBidAmount) || 0).toFixed(2)}`
+                        : `Podbij o $${bidIncrement}`
                   }
                 </button>
                 {currentAuctionId && (
@@ -1304,10 +1347,35 @@ return (
               </div>
             );
           })()}
+          </div>
+          )}
 
-          {/* Klasyczny Czat - stała wysokość, nie zmienia się gdy panel licytacji rośnie */}
+          {/* Klasyczny Czat - stała wysokość, niezależny od panelu licytacji */}
+          {isChatMinimized ? (
+            <div className="shrink-0 bg-gray-900 rounded-2xl px-4 py-3 border border-gray-800 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-widest text-gray-300">
+                💬 Czat zwinięty
+              </span>
+              <button
+                onClick={() => setIsChatMinimized(false)}
+                className="text-xs font-bold text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded hover:bg-white/5 transition"
+                title="Pokaż czat"
+              >
+                Rozwiń ▾
+              </button>
+            </div>
+          ) : (
           <div className="bg-gray-900 rounded-2xl p-5 flex flex-col border border-gray-800 shadow-xl h-[520px] shrink-0 overflow-hidden">
-            <h2 className="text-xs font-bold mb-4 text-blue-400 uppercase tracking-widest shrink-0">💬 Czat</h2>
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <h2 className="text-xs font-bold text-blue-400 uppercase tracking-widest">💬 Czat</h2>
+              <button
+                onClick={() => setIsChatMinimized(true)}
+                title="Zwiń czat"
+                className="text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
+              >
+                −
+              </button>
+            </div>
             {chatError && (
               <div className="bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-bold px-3 py-2 mb-3 rounded-lg text-center">
                 {chatError}
@@ -1322,12 +1390,13 @@ return (
               ))}
             </div>
             <div className="mt-auto shrink-0 flex gap-2">
-              <input type="text" placeholder="Napisz wiadomość..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className="w-full bg-gray-800 text-white text-sm rounded-xl p-4 outline-none focus:ring-1 focus:ring-blue-500 border border-gray-700 transition" />
+              <input type="text" disabled={!token} placeholder={token ? "Napisz wiadomość..." : "Zaloguj się aby pisać na czacie"} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className={`w-full text-sm rounded-xl p-4 outline-none border transition ${token ? 'bg-gray-800 text-white border-gray-700 focus:ring-1 focus:ring-blue-500' : 'bg-gray-900 text-gray-500 border-gray-700 cursor-not-allowed'}`} />
               <button onClick={() => handleSendMessage()} className="bg-blue-600 hover:bg-blue-500 text-white px-5 rounded-xl transition shadow-[0_5px_15px_rgba(37,99,235,0.2)] hover:-translate-y-0.5 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
               </button>
             </div>
-          </div>   
+          </div>
+          )}
         </div>
       )}
       {/* === MOBILNY POKŁAD LICYTACJI I CZATU === */}
@@ -1354,8 +1423,8 @@ return (
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
             </button>
 
-            <button onClick={handleBid} disabled={isWinning} className={`flex-1 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-colors ${isWinning ? 'bg-gray-800 text-gray-500' : 'bg-green-600 text-white shadow-lg shadow-green-900/50'}`}>
-              {isWinning ? 'Wygrywasz' : `Podbij (+$${bidIncrement})`}
+            <button onClick={handleBid} disabled={isWinning || !token} className={`flex-1 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-colors ${(isWinning || !token) ? 'bg-gray-800 text-gray-500' : 'bg-green-600 text-white shadow-lg shadow-green-900/50'}`}>
+              {!token ? 'Zaloguj się' : isWinning ? 'Wygrywasz' : `Podbij (+$${bidIncrement})`}
             </button>
           </div>
 
@@ -1365,7 +1434,7 @@ return (
             </div>
           )}
           <div className="flex gap-2 mt-1">
-            <input type="text" placeholder="Napisz na czacie..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className="flex-1 bg-black/50 text-xs rounded-lg px-3 py-2 border border-gray-700 outline-none focus:border-blue-500 text-white" />
+            <input type="text" disabled={!token} placeholder={token ? "Napisz na czacie..." : "Zaloguj się aby pisać"} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className={`flex-1 text-xs rounded-lg px-3 py-2 border outline-none ${token ? 'bg-black/50 text-white border-gray-700 focus:border-blue-500' : 'bg-gray-900 text-gray-500 border-gray-700 cursor-not-allowed'}`} />
             <button onClick={() => handleSendMessage()} className="bg-blue-600 text-white px-4 rounded-lg">                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg></button>
           </div>
         </div>

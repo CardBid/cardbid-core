@@ -49,6 +49,54 @@ export default function AppLayout() {
 
   const user = useMemo(() => readCurrentUser(), [location, tick]);
 
+  // === AUTO-REFRESH ACCESS TOKEN ===
+  // Schedule refresh 60s przed wygaśnięciem accessa. Korzystamy z refresh_token
+  // (SimpleJWT trzyma go ~24h domyślnie). Dzięki temu user nie wylatuje co 5 min.
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    const refresh = localStorage.getItem('refresh_token');
+    if (!token || !refresh) return;
+
+    const payload = decodeJwtPayload(token);
+    if (!payload || !payload.exp) return;
+
+    const msUntilRefresh = payload.exp * 1000 - Date.now() - 60_000; // 60s przed wygaśnięciem
+
+    const doRefresh = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/auth/refresh/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh }),
+        });
+        if (!res.ok) {
+          // Refresh token też wygasł albo backend padł - logujemy ciszej
+          // i czekamy aż user się sam zaloguje. Nie czyszczę tokenów,
+          // bo gdy backend jest chwilowo niedostępny user nie traci sesji.
+          return;
+        }
+        const data = await res.json();
+        if (data.access) {
+          localStorage.setItem('access_token', data.access);
+          // SimpleJWT z ROTATE_REFRESH_TOKENS=True może zwrócić też nowy refresh
+          if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
+          setTick(t => t + 1); // re-render dla navbara
+        }
+      } catch {
+        // sieć padła - pominij, spróbujemy później
+      }
+    };
+
+    // Jeśli już blisko / po expiration → odśwież natychmiast.
+    // Inaczej zaplanuj na 60s przed expiration.
+    if (msUntilRefresh <= 0) {
+      doRefresh();
+      return;
+    }
+    const timer = setTimeout(doRefresh, msUntilRefresh);
+    return () => clearTimeout(timer);
+  }, [tick, location]);
+
   // Dropdown z opcją wyloguj
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
