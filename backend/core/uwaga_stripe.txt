@@ -1,0 +1,71 @@
+
+debug:
+$ docker compose down && docker compose up -d
+$ docker compose logs backend
+
+musisz w tym katalogu (backend/core) zrobić sobie plik ".env" i w nim zdefiniować dwa klucze
+publiczny i prywatny do stripe, oraz webhooka o tak:
+
+STRIPE_SECRET_KEY=amogus
+STRIPE_PUBLIC_KEY=sugoma
+STRIPE_WEBHOOK_SECRET=patrzniżej
+
+Wcześniej należy sobie odpalić webhooka stripe lokalnie (gdyż nie mamy jeszcze domeny
+ani hostinga) poleceniem (które osobiście pobrałem aptem na linuxie):
+
+$ stripe listen --forward-to localhost:8000/api/stripe-webhook/
+
+Bo API endpoint do callbacków stripe jest "api/stripe-webhook/"
+Po uruchomieniu polecenia on tam zwróci webhook secret i jego trzeba też do pliku ".env"
+dodać. Po tym można dockera odpalić.
+
+UWAGA!
+Nie robić tak:
+
+$ stripe trigger payment_intent.succeeded
+
+Normalnie to wywali w logach serwera stripe błąd 500 (ustawiony ręcznie) bo prubuje sie
+zakończyć transakcje która nie istnieje (w DB). Normalnie była by już jakaś zrobiona endpointem
+API api/top-up i dopiero potem po akceptacji przez stripe api/stripe-webhook by otrzymał
+dane. Sam działałby na stworzonym w tabeli Transaction rekordzie (przez top-up).
+To i tak nic nie da bo ta komenda robi wogóle swój własny intent id!
+
+TEST PŁATNOŚCI STRIPE:
+
+0. Wejdź sobie w python virtual env (najpierw zrób) i pobierz pakiety z pliku requirements.txt
+
+1. Zainicjuj płatność (i.e. kliknij se guzik że tak chce sobie dopłacić bitsy):
+tu test top-upu (inicjacja płatności) jak sie wejdzie w $ python manage.py shell
+"""
+from django.test import RequestFactory
+from auctions.views import create_payment
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+user = User.objects.first()
+
+factory = RequestFactory()
+
+request = factory.post(
+    "/api/top-up/",
+    data='{"amount": 2000}',
+    content_type="application/json"
+)
+
+request.user = user
+
+response = create_payment(request)
+print(response.content)
+"""
+
+2. Potwierdź płatność (i.e. podaj dane do płacenia np. karty i zatwierdź)
+Po zrobieniu top-upu, stworzy sie transakcja która czeka na potwierdzenie.
+Normalnie to byłby jakiś webui na to ale można konsolą sztucznie potwierdzić:
+(payment id można odczytać w bazie pod /admin na koncie superusera)
+
+$ stripe payment_intents confirm <pi_xyz> --payment-method=pm_card_visa
+
+3. Zakońzcenie
+Po dwóch powyższych krokach tabela Transaction winna zawierać rekord ze statusem
+zakończonym, a balance usera winien się zwiększyć.
+

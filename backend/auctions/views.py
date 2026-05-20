@@ -29,6 +29,129 @@ from .services import process_bid_logic
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
+# Konfiguracja stripa
+from .models import Transaction
+from django.conf import settings
+from django.http import JsonResponse
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import F
+import json
+import stripe
+stripe.api_key = settings.STRIPE_SECRET_KEY
+endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
+
+# Do top-apuw
+def create_payment(request):
+    print("TOP-UP HIT")
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+
+    body = json.loads(request.body)
+
+    amount = body.get("amount")
+
+    intent = stripe.PaymentIntent.create(
+        amount=amount,
+        currency="pln",
+        automatic_payment_methods={
+            "enabled": True,
+            "allow_redirects": "never"  # żeby returnurl nie cza
+        }
+    )
+    
+    # Stwórz rekord transakcji w db
+    Transaction.objects.create(
+        user=request.user,
+        amount=amount,
+        trans_type=Transaction.Type.PAYMENT_IN,
+        trans_status=Transaction.Status.PENDING,
+        stripe_intent_id=intent.id
+    )
+
+    return JsonResponse({
+        "clientSecret": intent.client_secret
+    })
+
+# Do przetwarzania dalszej top apuwki
+@csrf_exempt
+def stripe_webhook(request):
+    print("WEBHOOK HIT")
+    payload = request.body
+    sig_header = request.META["HTTP_STRIPE_SIGNATURE"]
+
+    # Weryfikuj też sygnaturę dla bezpieczeństwa
+    try:
+        event = stripe.Webhook.construct_event(
+            payload,
+            sig_header,
+            endpoint_secret
+        )
+
+    except Exception as e:
+        print("🔥 WEBHOOK CRASH:", e)
+        traceback.print_exc()
+        return HttpResponse(status=500)
+
+    event_type = event["type"]
+
+    # PAYMENT SUCCESS
+    if event_type == "payment_intent.succeeded":
+
+        payment_intent = event["data"]["object"]
+
+        intent_id = payment_intent["id"]
+
+        try:
+            with transaction.atomic():
+
+                t = Transaction.objects.select_for_update().get(
+                    stripe_intent_id=intent_id
+                )
+
+                # zabezpieczenie przed podwójnym webhookiem
+                if t.trans_status == Transaction.Status.COMPLETED:
+                    return HttpResponse(status=200)
+
+                t.trans_status = Transaction.Status.COMPLETED
+                t.save()
+
+                # Stripe zwraca w najmniejszych jednostkach waluty, zatem trzeba
+                # np. w groszach zdzielić na 100 żeby mieć w oryginalnej walucie (zł np.)
+                amount = Decimal(payment_intent["amount"]) / Decimal("100")
+
+                user = t.user
+
+                # Funkcja F zabezpiecza przed race conditions w db przy czytaniu
+                # wartości odrazu zmienianej.
+                CardbidUser.objects.filter(id=user.id).update(
+                    balance=F("balance") + amount
+                )
+
+        except Transaction.DoesNotExist:
+            print("NO TRANSACTION FOR INTENT:", intent_id)
+            return HttpResponse(status=500)
+
+    # PAYMENT FAILED
+    elif event_type == "payment_intent.payment_failed":
+
+        payment_intent = event["data"]["object"]
+
+        intent_id = payment_intent["id"]
+
+        try:
+            t = Transaction.objects.get(
+                stripe_intent_id=intent_id
+            )
+
+            t.trans_status = Transaction.Status.FAILED
+            t.save()
+
+        except Transaction.DoesNotExist:
+            pass
+
+    return HttpResponse(status=200)
+
 
 def broadcast_auction_interrupted(auction):
     channel_layer = get_channel_layer()
@@ -45,7 +168,6 @@ def broadcast_auction_interrupted(auction):
             }
         }
     )
-
 
 
 PSA_CARDS = [
