@@ -12,6 +12,8 @@ from channels.db import database_sync_to_async
 from django.db import transaction
 import json
 
+import time
+
 from .services import process_bid_logic
 
 
@@ -45,8 +47,9 @@ class AuctionConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
+        action_type = data.get('type')
 
-        if data.get("type") == "place_bid":
+        if action_type == "place_bid":
             success, message, auction, _ = await database_sync_to_async(process_bid_logic)(
                 self.scope["user"], self.auction_id, data.get("amount")
             )
@@ -123,3 +126,100 @@ class AuctionConsumer(AsyncWebsocketConsumer):
             "current_price": float(auction.current_price),
             "status": auction.status
         }
+
+
+class StreamRoomConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
+        self.group_name = f"room_{self.room_id}"
+
+        self.last_message_time = 0
+
+        if self.scope["user"].is_anonymous:
+            await self.close()
+            return
+
+        await self.channel_layer.group_add(
+            self.group_name,
+            self.channel_name
+        )
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(
+            self.group_name,
+            self.channel_name
+        )
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        action_type = data.get('type')
+
+        if action_type == "place_bid":
+            target_auction_id = data.get("auction_id")
+            if not target_auction_id:
+                await self.send(text_data=json.dumps({"success": False, "error": "Missing auction_id"}))
+                return
+
+            success, message, auction, _ = await database_sync_to_async(process_bid_logic)(
+                self.scope["user"], target_auction_id, data.get("amount")
+            )
+
+            if success:
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "bid_update",
+                        "data": {
+                            "type": "bid_update",
+                            "current_price": str(auction.current_price),
+                            "bidder": self.scope["user"].username,
+                            "auction_id": auction.id
+                        }
+                    }
+                )
+            else:
+                error_response = message if isinstance(message, dict) else {"error": message}
+                error_response["success"] = False
+                await self.send(text_data=json.dumps(error_response))
+
+        elif action_type == "chat_message":
+            # Anty-spam
+            current_time = time.time()
+            if current_time - self.last_message_time < 2.0:
+                await self.send(text_data=json.dumps({
+                    "type": "chat_error",
+                    "message": "You are sending messages too quickly!"
+                }))
+                return 
+            
+            self.last_message_time = current_time
+
+            message_text = data.get('message')
+            if not message_text or len(message_text.strip()) == 0:
+                return
+            if len(message_text) > 200:
+                message_text = message_text[:200] + "..."
+
+            username = self.scope["user"].username if self.scope["user"].is_authenticated else "Anonymous"
+
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    "type": "chat_message_broadcast",
+                    "data": {
+                        "type": "chat_message",
+                        "username": username,
+                        "message": message_text
+                    }
+                }
+            )
+
+    async def bid_update(self, event):
+        await self.send(text_data=json.dumps(event["data"]))
+
+    async def auction_interrupted(self, event):
+        await self.send(text_data=json.dumps(event["data"]))
+
+    async def chat_message_broadcast(self, event):
+        await self.send(text_data=json.dumps(event["data"]))
