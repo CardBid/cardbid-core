@@ -157,20 +157,6 @@ TIME_ZONE = 'UTC'
 WSGI_APPLICATION = 'core.wsgi.application'
 ASGI_APPLICATION = 'core.asgi.application'
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [
-                (
-                    os.environ.get("REDIS_HOST", "localhost"),
-                    int(os.environ.get("REDIS_PORT", 6379)),
-                )
-            ],
-        },
-    },
-}
-
 # CELERY CONFIGURATION
 TIME_ZONE = 'Europe/Warsaw'
 USE_TZ = True

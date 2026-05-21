@@ -4,7 +4,7 @@ from .views import (
     TopUpBalanceView, UserProfileView, CardListCreateView,
     CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView, UserInventoryView, UserActiveBidsView,
     AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView, BuyNowView, AuctionLiveDataView, RoomTimelineView, SlotOpenView,
-    UserBalanceView
+    UserBalanceView, CreateAuctionView, UserSettingsView, ActivateSlotView
 )
 
 urlpatterns = [
@@ -32,6 +32,7 @@ urlpatterns = [
     path('auctions/<int:pk>/bid/', PlaceBidView.as_view(), name='place-bid'),
     path('auctions/<int:pk>/bids/', AuctionBidHistoryView.as_view(), name='auction-bids'),
     path('auctions/<int:pk>/buy-now/', BuyNowView.as_view(), name='buy-now'),
+    path('auctions/create/', CreateAuctionView.as_view(), name='create-auction'),
 
     # --- AUCTION LIVE STREAMING & ROOMS ---
     path('slots/<int:slot_id>/open/', SlotOpenView.as_view(), name='slot-open'),
@@ -39,7 +40,9 @@ urlpatterns = [
     path('auctions/<int:pk>/live-data/', AuctionLiveDataView.as_view(), name='auction-live-data'),
     path('live-rooms/', LiveRoomsListView.as_view(), name='live-rooms-list'),
     path('live-rooms/toggle/', StreamRoomToggleView.as_view(), name='live-rooms-toggle'),
+    path('slots/<int:slot_id>/activate/', ActivateSlotView.as_view(), name='activate-slot'),
 
     # --- COUNTRIES & STATES ---
     path('countries/', CountryListView.as_view(), name='country-list'),
+    path('user/settings/', UserSettingsView.as_view(), name='user-settings'),
 ]
