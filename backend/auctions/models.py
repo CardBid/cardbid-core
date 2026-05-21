@@ -47,8 +47,8 @@ class CardbidUser(AbstractUser):
     
     ROLE_CHOICES = (
         (Roles.ADMIN,       "Admin"),
-        (Roles.BUYER,       "Kupujący"),
-        (Roles.SELLER,      "Sprzedający"),
+        (Roles.BUYER,       "Buyer"),
+        (Roles.SELLER,      "Seller"),
         (Roles.STREAMER,    "Streamer"),
     )
 
@@ -162,17 +162,17 @@ class Auction(models.Model):
     DEFAULT_STATUS = Status.ACTIVE
     
     STATUS_CHOICES = (
-        (Status.ACTIVE,     "Aktywna"),
-        (Status.CANCELLED,  "Anulowana"),
-        (Status.ENDED,      "Zakończona"),
+        (Status.ACTIVE,     "Active"),
+        (Status.CANCELLED,  "Cancelled"),
+        (Status.ENDED,      "Ended"),
     )
     
     DEFAULT_TYPE = Type.BIDDING;
 
     TYPE_CHOICES = (
-        (Type.BIDDING,  "Tylko Licytacja"),
-        (Type.BUY_NOW,  "Tylko Kup Teraz"),
-        (Type.HYBRID,   "Licytacja + Kup Teraz"),
+        (Type.BIDDING,  "Only Bidding"),
+        (Type.BUY_NOW,  "Only Buy Now"),
+        (Type.HYBRID,   "Bidding + Buy Now"),
     )
 
     # So you can access all auctions for sale of CardbidUser 'U' like: U.auctions_selling.all()
@@ -185,6 +185,13 @@ class Auction(models.Model):
     starting_price  = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     current_price   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     buy_now_price   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    
+    min_increment = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=1.00
+    )
+
     start_date      = models.DateTimeField(default=timezone.now)
     end_date        = models.DateTimeField(default=timezone.now)
     status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default=DEFAULT_STATUS)
@@ -203,22 +210,22 @@ class Auction(models.Model):
         
         if self.auction_type == self.Type.BIDDING:
             if self.starting_price is None:
-                raise ValidationError("Licytacja musi mieć podaną cenę wywoławczą (starting_price).")
+                raise ValidationError("Auction must have a starting price.")
             self.buy_now_price = None
             if self.current_price is None or self.current_price == 0:
                 self.current_price = self.starting_price
         
         elif self.auction_type == self.Type.BUY_NOW:
             if self.buy_now_price is None:
-                raise ValidationError("Aukcja 'Kup Teraz' musi mieć podaną cenę buy_now_price.")
+                raise ValidationError("Auction must have a 'Buy Now' price.")
             self.starting_price = None
             self.current_price  = self.buy_now_price 
 
         elif self.auction_type == self.Type.HYBRID:
             if self.starting_price is None or self.buy_now_price is None:
-                raise ValidationError("Tryb hybrydowy wymaga podania ZARÓWNO ceny wywoławczej, jak i ceny Kup Teraz.")
+                raise ValidationError("Hybrid auction must have both starting_price and buy_now_price.")
             if self.buy_now_price <= self.starting_price:
-                raise ValidationError("W trybie hybrydowym cena 'Kup Teraz' musi być wyższa niż wywoławcza.")
+                raise ValidationError("In hybrid mode, the 'Buy Now' price must be higher than the starting price.")
             if self.current_price is None or self.current_price == 0:
                 self.current_price = self.starting_price
 
@@ -260,20 +267,25 @@ class AuctionSlot(models.Model):
         ACTIVE      = "active"
         FINISHED    = "finished"
         PENDING     = "pending"
-    
-    STATUS_CHOICES = [
-        (Status.ACTIVE,     'Teraz'),
-        (Status.FINISHED,   'Zakończone'),
-        (Status.PENDING,    'W kolejce'),
-    ]
+
+    STATUS_CHOICES = (
+        (Status.ACTIVE,     "Active"),
+        (Status.FINISHED,   "Finished"),
+        (Status.PENDING,    "Pending"),
+    )
 
     auction = models.OneToOneField('Auction', on_delete=models.CASCADE)
-    order   = models.PositiveIntegerField(help_text="Numer slotu (np. 1, 2, 3...)")
+    order   = models.PositiveIntegerField(help_text="Number of the slot (e.g., 1, 2, 3...)")
     
     # So you can access all auction slots in StreamRoom 'SR' like: SR.slots.all()
     room    = models.ForeignKey(StreamRoom, on_delete=models.CASCADE, related_name="slots")
     
-    status  = models.CharField(max_length=10, choices=STATUS_CHOICES, default=Status.PENDING)
+    status  = models.CharField(max_length=10,choices=STATUS_CHOICES,default="pending")
+
+    is_opened = models.BooleanField(
+        default=False, 
+        help_text="Indicates whether the physical package/card has been opened on the stream"
+    )
 
     def __str__(self):
-        return f"AuctionSlot(auction={self.auction}, order={self.order}, room={self.room}, status={self.status})"
+        return f"AuctionSlot(auction={self.auction}, order={self.order}, room={self.room}, status={self.status}, is_opened={self.is_opened})"

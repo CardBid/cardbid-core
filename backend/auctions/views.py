@@ -1,3 +1,4 @@
+from decimal import Decimal
 import random
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -7,8 +8,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
 from .permissions import IsStreamer
-from .models import Card, Category, Auction, CardbidUser, Country, State
+from .models import Card, Category, Auction, CardbidUser, Country, State, Bid, AuctionSlot, StreamRoom
 from .serializers import (
     CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer,
     RegisterSerializer, BidSerializer, StreamRoomSerializer,
@@ -17,7 +22,30 @@ from .serializers import (
 
 from django.db import transaction
 from .utils import calculate_fees
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+
+from .services import process_bid_logic
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
+
+def broadcast_auction_interrupted(auction):
+    channel_layer = get_channel_layer()
+
+    async_to_sync(channel_layer.group_send)(
+        f"auction_{auction.id}",
+        {
+            "type": "auction_interrupted",
+            "data": {
+                "type": "auction_interrupted",
+                "reason": "buy_now",
+                "final_price": str(auction.current_price),
+                "winner": auction.winner.username if auction.winner else None
+            }
+        }
+    )
+
 
 
 PSA_CARDS = [
@@ -49,7 +77,7 @@ class StreamerTestView(APIView):
     permission_classes = [IsStreamer]
 
     def get(self, request):
-        return Response({"message": f"Witaj {request.user.username}! Masz uprawnienia streamera."})
+        return Response({"message": f"Hello {request.user.username}! You have streamer privileges."})
 
 
 class PSAVerifyView(APIView):
@@ -91,6 +119,76 @@ class PSAVerifyView(APIView):
             status=status.HTTP_200_OK,
         )
 
+class AuctionLiveDataView(APIView):
+    """
+    return data about auction to frontend
+    Endpoint: GET /api/v1/auctions/{id}/live-data/
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        auction = get_object_or_404(Auction, pk=pk)
+        card = auction.card
+
+        
+        card_data = {
+            "name": card.name,
+            "description": card.description,
+            "certificate_number": card.certificate_number,
+            "grade": card.grade,
+            "image_url": request.build_absolute_uri(card.image.url) if card.image else None,
+        }
+
+       
+        auction_data = {
+            "auction_type": auction.auction_type,
+            "starting_price": auction.starting_price,
+            "current_price": auction.current_price,
+            "min_bid_increment": round(auction.current_price * Decimal("0.05"), 2) if auction.current_price else None,
+            "buy_now_price": auction.buy_now_price,
+            "status": auction.status,
+            "start_date": auction.start_date,
+            "end_date": auction.end_date,
+        }
+
+     
+        last_bids = auction.bids.select_related("user").order_by("-created_at")[:5]
+        bids_data = [
+            {
+                "username": bid.user.username,
+                "amount": bid.amount,
+                "placed_at": bid.created_at,
+            }
+            for bid in last_bids
+        ]
+
+      
+        try:
+            current_slot = auction.auctionslot
+            next_slots = AuctionSlot.objects.filter(
+                room=current_slot.room,
+                status=AuctionSlot.Status.PENDING,
+                order__gt=current_slot.order,
+            ).select_related("auction__card").order_by("order")[:3]
+
+            slots_data = [
+                {
+                    "order": slot.order,
+                    "card_name": slot.auction.card.name,
+                    "card_grade": slot.auction.card.grade,
+                    "starting_price": slot.auction.starting_price,
+                }
+                for slot in next_slots
+            ]
+        except AuctionSlot.DoesNotExist:
+            slots_data = []
+
+        return Response({
+            "card": card_data,
+            "auction": auction_data,
+            "last_bids": bids_data,
+            "upcoming_slots": slots_data,
+        }, status=status.HTTP_200_OK)
 
 class TaxCalculatorView(APIView):
     permission_classes = [IsAuthenticated]
@@ -146,7 +244,7 @@ class CategoryListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
 class AuctionListCreateView(generics.ListCreateAPIView):
-    queryset = Auction.objects.filter(status='active')
+    queryset = Auction.objects.filter(status=Auction.Status.ACTIVE)
     serializer_class = AuctionSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     
@@ -167,54 +265,34 @@ class PlaceBidView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        try:
-            with transaction.atomic():
-                try:
-                    auction = Auction.objects.select_for_update().get(pk=pk, status='active')
-                except Auction.DoesNotExist:
-                    return Response({"error": "Auction does not exist or is closed."}, status=404)
+        success, message, auction, total_cost = process_bid_logic(
+            request.user, pk, request.data.get('amount')
+        )
 
-                try:
-                    amount_raw = request.data.get('amount')
-                    if amount_raw is None:
-                        return Response({"error": "Amount is required."}, status=400)
-                    bid_amount = Decimal(str(amount_raw))
-                except (TypeError, ValueError, Decimal.InvalidOperation):
-                    return Response({"error": "Invalid bid amount format."}, status=400)
+        if not success:
+            if isinstance(message, dict):
+                return Response(message, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
 
-                if bid_amount <= auction.current_price:
-                    return Response({
-                        "error": f"You must bid more than {auction.current_price}"
-                    }, status=400)
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"auction_{auction.id}",
+            {
+                "type": "bid_update",
+                "data": {
+                    "type": "bid_update",
+                    "current_price": str(auction.current_price),
+                    "bidder": request.user.username,
+                    "auction_id": auction.id
+                }
+            }
+        )
 
-                fees = calculate_fees(bid_amount, request.user)
-                total_cost = fees['total_cost']
-
-                if request.user.balance < total_cost:
-                    return Response({
-                        "error": "Insufficient funds in account (including taxes and duties).",
-                        "required_total": total_cost,
-                        "current_balance": request.user.balance
-                    }, status=400)
-
-                Bid.objects.create(
-                    auction=auction,
-                    user=request.user,
-                    amount=bid_amount
-                )
-
-                auction.current_price = bid_amount
-                auction.winner = request.user
-                auction.save()
-
-                return Response({
-                    "message": "Bid accepted!",
-                    "new_price": auction.current_price,
-                    "total_cost_with_tax": total_cost
-                }, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "message": message,
+            "new_price": auction.current_price,
+            "total_cost_with_tax": total_cost
+        }, status=status.HTTP_201_CREATED)
 
 class RegisterView(generics.CreateAPIView):
     queryset = CardbidUser.objects.all()
@@ -239,13 +317,13 @@ class UserInventoryView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Auction.objects.filter(winner=self.request.user, status='finished')
+        return Auction.objects.filter(winner=self.request.user, status=Auction.Status.ENDED)
 
 class UserActiveBidsView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Auction.objects.filter(winner=self.request.user, status='active')
+        return Auction.objects.filter(winner=self.request.user, status=Auction.Status.ACTIVE)
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
@@ -297,3 +375,137 @@ class CountryListView(generics.ListAPIView):
     queryset = Country.objects.all()
     serializer_class = CountrySerializer
     permission_classes = [AllowAny]
+
+
+class BuyNowView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            auction_to_broadcast = None
+
+            with transaction.atomic():
+                try:
+                    auction = Auction.objects.select_for_update().get(pk=pk)
+
+                    if auction.status != "active":
+                        return Response({"error": "Auction not active."}, status=404)
+                except Auction.DoesNotExist:
+                    return Response({"error": "Auction not active."}, status=404)
+
+                if not auction.buy_now_price:
+                    return Response({"error": "Buy now not available"}, status=400)
+
+                fees = calculate_fees(auction.buy_now_price, request.user)
+                total_cost = fees['total_cost']
+
+                user_locked = CardbidUser.objects.select_for_update().get(id=request.user.id)
+
+                if user_locked.balance < total_cost:
+                    return Response({
+                        "error": "Insufficient funds.",
+                        "required_total": float(total_cost),
+                        "current_balance": float(user_locked.balance)
+                    }, status=400)
+
+                user_locked.balance -= total_cost
+                user_locked.save()
+
+                auction.status = Auction.Status.ENDED
+                auction.end_date = timezone.now()
+                auction.winner = user_locked
+                auction.current_price = auction.buy_now_price
+                auction.save()
+
+                auction_to_broadcast = auction
+
+            if auction_to_broadcast:
+                    broadcast_auction_interrupted(auction_to_broadcast)
+
+            return Response({
+                "message": "Item bought instantly!",
+                "price": auction.buy_now_price,
+                "total_cost_with_tax": total_cost
+            }, status=200)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+
+
+class RoomTimelineView(APIView):
+    """
+    Endpoint: GET /api/v1/rooms/<int:room_id>/timeline/
+    Zwraca harmonogram licytacji dla konkretnego pokoju, podzielony na 4 sekcje.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, room_id):
+        slots = AuctionSlot.objects.filter(room_id=room_id).select_related(
+            'auction', 'auction__card', 'auction__winner'
+        ).order_by('order')
+
+        timeline = {
+            "opened": [],
+            "waiting_to_open": [],
+            "current": None,
+            "queue": []
+        }
+
+        for slot in slots:
+            auction = slot.auction
+            
+            slot_data = {
+                "slot_id": slot.id,
+                "order": slot.order,
+                "auction_id": auction.id,
+                "card_name": auction.card.name,
+                "price": float(auction.current_price),
+                "winner": auction.winner.username if auction.winner else None,
+                # "image_url": request.build_absolute_uri(auction.card.image.url) if auction.card.image else None,
+            }
+
+            
+            if auction.status == Auction.Status.ENDED:
+                if getattr(slot, 'is_opened', False): 
+                    timeline["opened"].append(slot_data)
+                else:
+                    timeline["waiting_to_open"].append(slot_data)
+                    
+            elif auction.status == Auction.Status.ACTIVE and slot.status == getattr(AuctionSlot.Status, 'ACTIVE', 'active'):
+                timeline["current"] = slot_data
+                
+            else:
+                timeline["queue"].append(slot_data)
+
+        return Response(timeline, status=status.HTTP_200_OK)
+
+class SlotOpenView(APIView):
+    """
+    Endpoint: POST /api/v1/slots/<int:slot_id>/open/
+    Streamer klika to, gdy fizycznie rozerwie paczkę na wizji.
+    """
+    permission_classes = [permissions.AllowAny] 
+
+    def post(self, request, slot_id):
+        slot = get_object_or_404(AuctionSlot, id=slot_id)
+
+        if slot.auction.status != Auction.Status.ENDED:
+            return Response(
+                {"error": "You cannot open a card that has not been sold yet (status must be ENDED)."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if slot.is_opened:
+            return Response(
+                {"error": "This package has already been opened!"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        slot.is_opened = True
+        slot.save()
+
+        return Response({
+            "message": "Package opened successfully!", 
+            "slot_id": slot.id,
+            "card_name": slot.auction.card.name
+        }, status=status.HTTP_200_OK)

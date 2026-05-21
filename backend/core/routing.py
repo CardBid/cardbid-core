@@ -1,15 +1,8 @@
 
-"""
-Literal routing (mapping) of websocket endpoints to 'consumers' i.e. connection
-handlers, defined in auctions.consumers module.
-
-Provided by Whisper.
-"""
-
+from django.urls import re_path
 from auctions.consumers import AuctionConsumer
-from django.urls        import path
-
 
 websocket_urlpatterns = [
-    path("ws/chat/", AuctionConsumer.as_asgi()),
+    re_path(r'ws/auction/(?P<auction_id>\d+)/$', AuctionConsumer.as_asgi()),
 ]
+

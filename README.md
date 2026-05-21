@@ -106,6 +106,7 @@ Jeśli z jakiegoś powodu musisz odpalić frontend bez kontenera:
 | `GET` | `/api/auctions/{id}/` | Szczegóły konkretnej aukcji | AllowAny |
 | `POST` | `/api/auctions/{id}/bid/` | Licytowanie (przebicie oferty) | IsAuthenticated |
 | `GET` | `/api/auctions/{id}/bids/` | Historia licytacji dla aukcji | AllowAny |
+| `POST` | `/api/auctions/{id}/buy-now/` | Kup teraz | IsAuthenticated |
 
 ### 🎥 Live Streaming
 | Metoda | Endpoint | Opis | Uprawnienia |
@@ -113,6 +114,9 @@ Jeśli z jakiegoś powodu musisz odpalić frontend bez kontenera:
 | `GET` | `/api/live-rooms/` | Lista wszystkich aktywnych i zaplanowanych streamów | AllowAny |
 | `POST` | `/api/live-rooms/toggle/` | Rozpoczęcie lub zakończenie transmisji (`is_live: true/false`) | IsStreamer |
 | `GET` | `/api/test-streamer/` | Endpoint testowy weryfikujący rolę streamera | IsStreamer |
+| `GET` | `/api/auctions/{id}/live-data/` | Pełne dane (karta, ceny, sloty) dla widoku streamu | AllowAny |
+| `GET` | `/api/rooms/{id}/timeline/` | Harmonogram licytacji dla pokoju (podzielony na 4 statusy) | AllowAny |
+| `POST` | `/api/slots/{id}/open/` | Zmiana statusu na "Otwarte na wizji" (dla streamera) | AllowAny |
 
 ### 🌍 Geografia i narzędzia
 | Metoda | Endpoint | Opis | Uprawnienia |

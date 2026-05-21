@@ -3,7 +3,7 @@ from .views import (
     PSAVerifyView, StreamerTestView, TaxCalculatorView, 
     TopUpBalanceView, UserProfileView, CardListCreateView,
     CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView, UserInventoryView, UserActiveBidsView,
-    AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView
+    AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView, BuyNowView, AuctionLiveDataView, RoomTimelineView, SlotOpenView
 )
 
 urlpatterns = [
@@ -29,8 +29,12 @@ urlpatterns = [
     path('auctions/<int:pk>/', AuctionDetailView.as_view(), name='auction-detail'),
     path('auctions/<int:pk>/bid/', PlaceBidView.as_view(), name='place-bid'),
     path('auctions/<int:pk>/bids/', AuctionBidHistoryView.as_view(), name='auction-bids'),
+    path('auctions/<int:pk>/buy-now/', BuyNowView.as_view(), name='buy-now'),
 
-    # --- LIVE STREAMING ---
+    # --- AUCTION LIVE STREAMING & ROOMS ---
+    path('slots/<int:slot_id>/open/', SlotOpenView.as_view(), name='slot-open'),
+    path('rooms/<int:room_id>/timeline/', RoomTimelineView.as_view(), name='room-timeline'),
+    path('auctions/<int:pk>/live-data/', AuctionLiveDataView.as_view(), name='auction-live-data'),
     path('live-rooms/', LiveRoomsListView.as_view(), name='live-rooms-list'),
     path('live-rooms/toggle/', StreamRoomToggleView.as_view(), name='live-rooms-toggle'),
 

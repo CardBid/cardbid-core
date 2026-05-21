@@ -19,6 +19,7 @@ function App() {
           <Route path="/dev" element={<Home />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/live" element={<LiveRoom />} />
+          <Route path="/live/:id" element={<LiveRoom />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -1,16 +1,14 @@
 ### 1. LOGOWANIE (Pobieranie tokena) ABY TO WSZYSTKO DZIAŁAŁO TRZEBA MIEĆ WTYCZKĘ REST CLIENT
 # Kliknij "Send Request" poniżej, żeby dostać token.
-POST http://localhost:8000/api/token/
+POST http://localhost:8000/auth/login/
 Content-Type: application/json
 
 {
-    "email": "streamer_1@example.com",
+    "email": "streamer_2@example.com",
     "password": "Test1234!"
 }
 
 ###
-### 2. TEST UPRAWNIEŃ (Jako Streamer)
-# SKOPIUJ 'access' z odpowiedzi powyżej i WKLEJ go zamiast <TWOJ_TOKEN>
 POST http://localhost:8000/auth/register/
 Content-Type: application/json
 
