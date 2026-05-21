@@ -73,6 +73,7 @@ class CardbidUser(AbstractUser):
     birth_date = models.DateField(null=True, blank=True)
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     
+    # środki zarezerwowane pod aktywne oferty w aukcjach
     frozen_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
 
     USERNAME_FIELD  = "email"
