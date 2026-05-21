@@ -758,7 +758,12 @@ class ActivateSlotView(APIView):
 
     def post(self, request, slot_id):
         user = request.user
-        
+
+        if slot.status == 'active':
+            return Response({"error": "This slot is already activated!"}, status=400)
+        if slot.status == 'finished':
+            return Response({"error": "This slot has already been finished and opened!"}, status=400)
+
         slot = get_object_or_404(AuctionSlot, id=slot_id)
         if slot.room.streamer != user:
             return Response({"error": "This is not your stream!"}, status=status.HTTP_403_FORBIDDEN)
