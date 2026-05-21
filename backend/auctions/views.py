@@ -631,3 +631,14 @@ class SlotOpenView(APIView):
             "slot_id": slot.id,
             "card_name": slot.auction.card.name
         }, status=status.HTTP_200_OK)
+
+class UserBalanceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            "balance": user.balance,
+            "frozen_balance": user.frozen_balance,
+            "available_balance": user.balance - user.frozen_balance 
+        })

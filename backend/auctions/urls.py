@@ -3,13 +3,15 @@ from .views import (
     PSAVerifyView, StreamerTestView, TaxCalculatorView, 
     TopUpBalanceView, UserProfileView, CardListCreateView,
     CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView, UserInventoryView, UserActiveBidsView,
-    AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView, BuyNowView, AuctionLiveDataView, RoomTimelineView, SlotOpenView
+    AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView, BuyNowView, AuctionLiveDataView, RoomTimelineView, SlotOpenView,
+    UserBalanceView
 )
 
 urlpatterns = [
     # --- AUTH & PROFILE ---
     path('v1/psa-verify/', PSAVerifyView.as_view(), name='psa-verify'),
     path('user/profile/', UserProfileView.as_view(), name='user-profile'),
+    path('user/balance/', UserBalanceView.as_view(), name='user-balance'),
     path('test-streamer/', StreamerTestView.as_view(), name='test-streamer'),
 
     # --- FINANCES ---
