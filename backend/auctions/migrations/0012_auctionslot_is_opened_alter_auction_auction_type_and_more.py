@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('auctions', '0011_auction_min_increment_alter_auctionslot_status'),
+        ('auctions', '0003_load_geo_data'),
     ]
 
     operations = [

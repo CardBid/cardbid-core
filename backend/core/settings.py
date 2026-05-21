@@ -9,7 +9,14 @@ from datetime   import timedelta
 from pathlib    import Path
 from celery.schedules import crontab
 import os
+from dotenv import load_dotenv
 
+load_dotenv()
+
+
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', 'amogus')
+STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY', 'sugoma')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', 'nomindah')
 
 ALLOWED_HOSTS = ['*']
 

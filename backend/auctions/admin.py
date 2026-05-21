@@ -5,15 +5,20 @@ Admin panel tables (models) presentation definition (after logging in).
 Provided by Whisper.
 """
 
-from auctions.models    import CardbidUser, Category, Card, Auction, Bid, StreamRoom, AuctionSlot
+from auctions.models    import CardbidUser, Category, Card, Auction, Bid, StreamRoom, AuctionSlot, Transaction
 from django.contrib     import admin
 
 
 @admin.register(CardbidUser)
 class CardbidUserAdmin(admin.ModelAdmin):
-    list_display        = ('id','email', 'username', 'role', 'is_staff')
+    list_display        = ('id','email', 'username', 'role', 'is_staff', 'balance', 'frozen_balance')
     list_display_links  = ('email',)
     list_filter         = ('role',)
+    
+    
+@admin.register(Transaction)
+class TransactionAdmin(admin.ModelAdmin):
+    list_display        = ('user','amount', 'trans_type', 'trans_status', 'stripe_intent_id', 'timestamp')
 
 
 @admin.register(Category)

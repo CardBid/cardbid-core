@@ -64,3 +64,95 @@ def process_bid_logic(user, auction_id, amount_raw):
         auction.save()
 
         return True, "Bid accepted!", auction, total_cost
+        
+
+
+# =====================================================
+# ESCROW / FUNDS
+# =====================================================
+
+
+class InsufficientFunds(Exception):
+    pass
+
+
+class InvalidFrozenFunds(Exception):
+    pass
+
+
+def lock_user(user):
+    """
+    pobiera ŚWIEŻĄ wersję użytkownika z bazy, jest to sposób pracy z instancją
+    użytkownika zapobiegający race conditionsah.
+    """
+    return (
+        user.__class__.objects
+        .select_for_update()
+        .get(pk=user.pk)
+    )
+
+
+@transaction.atomic
+def freeze_funds(user, amount: Decimal):
+    user = lock_user(user)
+
+    if amount <= 0:
+        raise ValueError("Amount musi byc liczba dodatnia")
+
+    if user.balance < amount:
+        raise InsufficientFunds()
+
+    # Przenieś określoność dynamicznego salda do mrożonki (żeby zapobiegać licytacji
+    # większej ilości hajsu niż sie ma).
+    user.balance -= amount
+    user.frozen_balance += amount
+
+    user.save(update_fields=[
+        "balance",
+        "frozen_balance",
+    ])
+
+    return user
+
+
+@transaction.atomic
+def unfreeze_funds(user, amount: Decimal):
+    user = lock_user(user)
+
+    if amount <= 0:
+        raise ValueError("Amount musi byc liczba dodatnia")
+
+    if user.frozen_balance < amount:
+        raise InvalidFrozenFunds()
+
+    # Zwróć określoność zamrożonych środków do dynamicznego salda
+    user.frozen_balance -= amount
+    user.balance += amount
+
+    user.save(update_fields=[
+        "balance",
+        "frozen_balance",
+    ])
+
+    return user
+    
+
+@transaction.atomic
+def capture_funds(user, amount: Decimal):
+    user = lock_user(user)
+
+    if amount <= 0:
+        raise ValueError("Amount musi byc liczba dodatnia")
+
+    if user.frozen_balance < amount:
+        raise InvalidFrozenFunds()
+
+    # Zabierz środki z zamrożonego salda, bo wygrało się aukcję
+    user.frozen_balance -= amount
+
+    user.save(update_fields=[
+        "frozen_balance",
+    ])
+
+    return user
+

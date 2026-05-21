@@ -61,7 +61,7 @@ def reverse_load_initial_data(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('auctions', '0009_cardbiduser_birth_date'),
+        ('auctions', '0002_auto_20260519_2056'),
     ]
 
     operations = [
