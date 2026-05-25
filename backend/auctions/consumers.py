@@ -223,3 +223,9 @@ class StreamRoomConsumer(AsyncWebsocketConsumer):
 
     async def chat_message_broadcast(self, event):
         await self.send(text_data=json.dumps(event["data"]))
+
+    async def slot_changed(self, event):
+        await self.send(text_data=json.dumps(event["data"]))
+
+    async def package_opened(self, event):
+        await self.send(text_data=json.dumps(event["data"]))

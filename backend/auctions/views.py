@@ -28,6 +28,130 @@ from .services import process_bid_logic
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.shortcuts import get_object_or_404
+
+# Konfiguracja stripa
+from .models import Transaction
+from django.conf import settings
+from django.http import JsonResponse
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import F
+import json
+import stripe
+stripe.api_key = settings.STRIPE_SECRET_KEY
+endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
+
+# Do top-apuw
+def create_payment(request):
+    print("TOP-UP HIT")
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+
+    body = json.loads(request.body)
+
+    amount = body.get("amount")
+
+    intent = stripe.PaymentIntent.create(
+        amount=amount,
+        currency="pln",
+        automatic_payment_methods={
+            "enabled": True,
+            "allow_redirects": "never"  # żeby returnurl nie cza
+        }
+    )
+    
+    # Stwórz rekord transakcji w db
+    Transaction.objects.create(
+        user=request.user,
+        amount=amount,
+        trans_type=Transaction.Type.PAYMENT_IN,
+        trans_status=Transaction.Status.PENDING,
+        stripe_intent_id=intent.id
+    )
+
+    return JsonResponse({
+        "clientSecret": intent.client_secret
+    })
+
+# Do przetwarzania dalszej top apuwki
+@csrf_exempt
+def stripe_webhook(request):
+    print("WEBHOOK HIT")
+    payload = request.body
+    sig_header = request.META["HTTP_STRIPE_SIGNATURE"]
+
+    # Weryfikuj też sygnaturę dla bezpieczeństwa
+    try:
+        event = stripe.Webhook.construct_event(
+            payload,
+            sig_header,
+            endpoint_secret
+        )
+
+    except Exception as e:
+        print("🔥 WEBHOOK CRASH:", e)
+        traceback.print_exc()
+        return HttpResponse(status=500)
+
+    event_type = event["type"]
+
+    # PAYMENT SUCCESS
+    if event_type == "payment_intent.succeeded":
+
+        payment_intent = event["data"]["object"]
+
+        intent_id = payment_intent["id"]
+
+        try:
+            with transaction.atomic():
+
+                t = Transaction.objects.select_for_update().get(
+                    stripe_intent_id=intent_id
+                )
+
+                # zabezpieczenie przed podwójnym webhookiem
+                if t.trans_status == Transaction.Status.COMPLETED:
+                    return HttpResponse(status=200)
+
+                t.trans_status = Transaction.Status.COMPLETED
+                t.save()
+
+                # Stripe zwraca w najmniejszych jednostkach waluty, zatem trzeba
+                # np. w groszach zdzielić na 100 żeby mieć w oryginalnej walucie (zł np.)
+                amount = Decimal(payment_intent["amount"]) / Decimal("100")
+
+                user = t.user
+
+                # Funkcja F zabezpiecza przed race conditions w db przy czytaniu
+                # wartości odrazu zmienianej.
+                CardbidUser.objects.filter(id=user.id).update(
+                    balance=F("balance") + amount
+                )
+
+        except Transaction.DoesNotExist:
+            print("NO TRANSACTION FOR INTENT:", intent_id)
+            return HttpResponse(status=500)
+
+    # PAYMENT FAILED
+    elif event_type == "payment_intent.payment_failed":
+
+        payment_intent = event["data"]["object"]
+
+        intent_id = payment_intent["id"]
+
+        try:
+            t = Transaction.objects.get(
+                stripe_intent_id=intent_id
+            )
+
+            t.trans_status = Transaction.Status.FAILED
+            t.save()
+
+        except Transaction.DoesNotExist:
+            pass
+
+    return HttpResponse(status=200)
 
 
 def broadcast_auction_interrupted(auction):
@@ -45,7 +169,6 @@ def broadcast_auction_interrupted(auction):
             }
         }
     )
-
 
 
 PSA_CARDS = [
@@ -484,10 +607,14 @@ class SlotOpenView(APIView):
     Endpoint: POST /api/v1/slots/<int:slot_id>/open/
     Streamer klika to, gdy fizycznie rozerwie paczkę na wizji.
     """
-    permission_classes = [permissions.AllowAny] 
+
+    permission_classes = [IsAuthenticated] 
 
     def post(self, request, slot_id):
         slot = get_object_or_404(AuctionSlot, id=slot_id)
+
+        if slot.room.streamer != request.user:
+            return Response({"error": "This is not your stream!"}, status=status.HTTP_403_FORBIDDEN)
 
         if slot.auction.status != Auction.Status.ENDED:
             return Response(
@@ -504,8 +631,181 @@ class SlotOpenView(APIView):
         slot.is_opened = True
         slot.save()
 
+        try:
+            channel_layer = get_channel_layer()
+            room_group_name = f"room_{slot.room.id}"
+            
+            async_to_sync(channel_layer.group_send)(
+                room_group_name,
+                {
+                    "type": "package_opened",
+                    "data": {
+                        "event": "package_opened",
+                        "slot_id": slot.id,
+                        "card_name": slot.auction.card.name
+                    }
+                }
+            )
+        except Exception as ws_error:
+            print(f"Error with WS (package_opened): {ws_error}")
+
         return Response({
             "message": "Package opened successfully!", 
             "slot_id": slot.id,
             "card_name": slot.auction.card.name
         }, status=status.HTTP_200_OK)
+
+class UserBalanceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            "balance": user.balance,
+            "frozen_balance": user.frozen_balance,
+            "available_balance": user.balance - user.frozen_balance 
+        })
+
+class CreateAuctionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        data = request.data
+        user = request.user
+
+        if user.role not in ['seller', 'streamer']:
+            return Response({"error": "You are not authorized to create auctions."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            category = Category.objects.get(id=data.get('category_id'))
+
+            card = Card.objects.create(
+                name=data.get('card_name'),
+                description=data.get('description', ''),
+                category=category,
+                grade=data.get('grade', 'Raw'),
+                certificate_number=data.get('certificate_number', ''),
+                image=request.FILES.get('image')
+            )
+
+            start_date_str = data.get('start_date')
+            start_date = timezone.now()
+            if start_date_str:
+                start_date = timezone.datetime.fromisoformat(start_date_str)
+
+            end_date_str = data.get('end_date')
+            if end_date_str:
+                end_date = timezone.datetime.fromisoformat(end_date_str)
+            else:
+                end_date = start_date + timezone.timedelta(days=7)
+
+            auction = Auction.objects.create(
+                seller=user,
+                card=card,
+                auction_type=data.get('auction_type', 'bidding'),
+                starting_price=Decimal(data.get('starting_price')) if data.get('starting_price') else None,
+                buy_now_price=Decimal(data.get('buy_now_price')) if data.get('buy_now_price') else None,
+                status=Auction.Status.ACTIVE if start_date <= timezone.now() else Auction.Status.PENDING,
+                start_date=start_date,
+                end_date=end_date
+            )
+
+            return Response({
+                "message": "Auction created successfully!",
+                "auction_id": auction.id,
+                "start_date": auction.start_date,
+                "end_date": auction.end_date,
+                "status": auction.status
+            }, status=status.HTTP_201_CREATED)
+
+        except Category.DoesNotExist:
+            return Response({"error": "The specified category does not exist."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+class UserSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "shipping_address": user.shipping_address,
+            "country_code": user.country.code if user.country else None,
+            "state_code": user.state.code if user.state else None,
+        })
+
+    def patch(self, request):
+        user = request.user
+        data = request.data
+
+        if 'shipping_address' in data:
+            user.shipping_address = data['shipping_address']
+        
+        if 'country_id' in data:
+            user.country_id = data['country_id']
+        if 'state_id' in data:
+            user.state_id = data['state_id']
+
+        try:
+            user.save()
+            return Response({"message": "Settings have been saved."})
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class ActivateSlotView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, slot_id):
+        user = request.user
+
+        if slot.status == 'active':
+            return Response({"error": "This slot is already activated!"}, status=400)
+        if slot.status == 'finished':
+            return Response({"error": "This slot has already been finished and opened!"}, status=400)
+
+        slot = get_object_or_404(AuctionSlot, id=slot_id)
+        if slot.room.streamer != user:
+            return Response({"error": "This is not your stream!"}, status=status.HTTP_403_FORBIDDEN)
+
+        active_slots = AuctionSlot.objects.filter(room=slot.room, status='active')
+        for old_slot in active_slots:
+            old_slot.status = 'finished'
+            old_slot.save()
+            
+            old_auction = old_slot.auction
+            old_auction.status = 'ended'
+            old_auction.end_date = timezone.now()
+            old_auction.save()
+
+        slot.status = 'active'
+        slot.save()
+
+        current_auction = slot.auction
+        current_auction.status = 'active'
+        current_auction.start_date = timezone.now()
+        current_auction.save()
+
+        try:
+            channel_layer = get_channel_layer()
+            room_group_name = f"room_{slot.room.id}" 
+            
+            async_to_sync(channel_layer.group_send)(
+                room_group_name,
+                {
+                    "type": "slot_changed",
+                    "data": {
+                        "event": "slot_changed",
+                        "active_slot_id": slot.id,
+                        "auction_id": current_auction.id,
+                        "card_name": current_auction.card.name
+                    }
+                }
+            )
+        except Exception as ws_error:
+            print(f"Cannot send WebSocket notification: {ws_error}")
+
+        return Response({
+            "message": f"Slot {slot.order} (Auction {current_auction.id}) is now active!",
+            "start_date": current_auction.start_date
+        })
