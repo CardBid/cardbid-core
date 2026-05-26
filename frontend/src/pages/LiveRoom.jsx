@@ -380,7 +380,7 @@ const handlePointerMove = (e) => {
       try {
         // Backend StreamRoomConsumer odczytuje JWT ze scope - jeśli middleware obsługuje
         // token w query stringu, dorzucamy. Inaczej będzie polegać na ciasteczku/sessji.
-        const url = `ws://cardbid.up.railway.app/ws/rooms/${roomId}/?token=${encodeURIComponent(token)}`;
+        const url = `wss://cardbid.up.railway.app/ws/rooms/${roomId}/?token=${encodeURIComponent(token)}`;
         socket = new WebSocket(url);
       } catch {
         scheduleReconnect();
@@ -577,7 +577,7 @@ const handlePointerMove = (e) => {
       try {
         // JWT token w query - backend ma JWTAuthMiddleware który go odczyta
         const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
-        socket = new WebSocket(`ws://cardbid.up.railway.app/ws/auction/${currentAuctionId}/${tokenParam}`);
+        socket = new WebSocket(`wss://cardbid.up.railway.app/ws/auction/${currentAuctionId}/${tokenParam}`);
       } catch {
         scheduleReconnect();
         return;
