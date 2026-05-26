@@ -30,6 +30,9 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.shortcuts import get_object_or_404
 
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Count, Q
+
 # Konfiguracja stripa
 from .models import Transaction
 from django.conf import settings
@@ -367,15 +370,41 @@ class CategoryListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
 class AuctionListCreateView(generics.ListCreateAPIView):
-    queryset = Auction.objects.filter(status=Auction.Status.ACTIVE)
     serializer_class = AuctionSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    
     search_fields = ['card__name', 'card__certificate_number', 'card__category__name']
-    
-    ordering_fields = ['end_date', 'current_price']
+    ordering_fields = ['end_date', 'current_price', 'start_date']
+    pagination_class = AuctionPagination
+
+    def get_queryset(self):
+        qs = Auction.objects.filter(status=Auction.Status.ACTIVE)
+
+        # Zakres cenowy
+        price_min = self.request.query_params.get('price_min')
+        price_max = self.request.query_params.get('price_max')
+        if price_min:
+            qs = qs.filter(current_price__gte=price_min)
+        if price_max:
+            qs = qs.filter(current_price__lte=price_max)
+
+        # Filtrowanie po grade karty
+        grade = self.request.query_params.get('grade')
+        if grade:
+            qs = qs.filter(card__grade__iexact=grade)
+
+        # Sortowanie
+        sort = self.request.query_params.get('sort')
+        if sort == 'ending_soon':
+            qs = qs.order_by('end_date')
+        elif sort == 'price_low':
+            qs = qs.order_by('current_price')
+        elif sort == 'price_high':
+            qs = qs.order_by('-current_price')
+        elif sort == 'newest':
+            qs = qs.order_by('-start_date')
+
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
@@ -809,3 +838,7 @@ class ActivateSlotView(APIView):
             "message": f"Slot {slot.order} (Auction {current_auction.id}) is now active!",
             "start_date": current_auction.start_date
         })
+class AuctionPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
