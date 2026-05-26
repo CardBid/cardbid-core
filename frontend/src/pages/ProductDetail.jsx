@@ -23,10 +23,10 @@ export default function ProductDetail() {
         // Próba 1: endpoint szczegółowy (wymaga IsAuthenticated domyślnie).
         // Niezalogowani dostają 403 (brak credentiali) lub 401 (wygasły token) –
         // obsługujemy oba przypadki fallbackiem na publiczną listę.
-        let response = await fetch(`http://localhost:8000/api/auctions/${id}/`, { headers });
+        let response = await fetch(`https://cardbid.up.railway.app/api/auctions/${id}/`, { headers });
 
         if (response.status === 401 || response.status === 403) {
-          const listRes = await fetch('http://localhost:8000/api/auctions/');
+          const listRes = await fetch('https://cardbid.up.railway.app/api/auctions/');
           if (listRes.ok) {
             const list = await listRes.json();
             const items = Array.isArray(list) ? list : (list.results || []);
@@ -65,7 +65,7 @@ export default function ProductDetail() {
     setBidStatus({ type: 'loading', msg: 'Wysyłanie oferty...' });
 
     try {
-      const response = await fetch(`http://localhost:8000/api/auctions/${id}/bid/`, {
+      const response = await fetch(`https://cardbid.up.railway.app/api/auctions/${id}/bid/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ export default function ProductDetail() {
     setBidStatus({ type: 'loading', msg: 'Przetwarzanie zakupu...' });
 
     try {
-      const response = await fetch(`http://localhost:8000/api/auctions/${id}/buy-now/`, {
+      const response = await fetch(`https://cardbid.up.railway.app/api/auctions/${id}/buy-now/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +151,7 @@ export default function ProductDetail() {
         {/* Zdjęcie */}
         <div>
           <img
-            src={auction.card_details?.image ? `http://localhost:8000${auction.card_details.image}` : '/placeholder.png'}
+            src={auction.card_details?.image ? `https://cardbid.up.railway.app${auction.card_details.image}` : '/placeholder.png'}
             alt={auction.card_details?.name}
             className="w-full rounded-lg border border-gray-700"
           />
