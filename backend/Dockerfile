@@ -5,10 +5,9 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
+COPY backend/ .
 RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
-
-COPY . .
 
 EXPOSE 8000
 
