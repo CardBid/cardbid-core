@@ -125,7 +125,7 @@ REST_FRAMEWORK = {
 ROOT_URLCONF = 'core.urls'
 
 # Must keep it secret, it is used for cryptographic signing
-SECRET_KEY = os.environ.get('SECRET_KEY')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'dummy-key-tylko-do-budowania')
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME":    timedelta(minutes=15),
