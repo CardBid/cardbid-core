@@ -18,12 +18,12 @@ class CardSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'category', 'category_name', 'grade', 'certificate_number', 'description', 'image']
     
     def get_image(self, obj):
-    if obj.image:
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.image.url)
-        return obj.image.url 
-    return None
+        if obj.image:
+            url = obj.image.url
+            if url.startswith('http://'):
+                return url.replace('http://', 'https://')
+            return url
+        return None
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
