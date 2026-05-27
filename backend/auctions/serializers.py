@@ -18,9 +18,9 @@ class CardSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'category', 'category_name', 'grade', 'certificate_number', 'description', 'image']
     
     def get_image(self, obj):
-        request = self.context.get('request')
-        if obj.image and request:
-            return request.build_absolute_uri(obj.image.url)
+        if obj.image:
+            path = obj.image.url
+            return f"https://cardbid.up.railway.app{path}"
         return None
 
 class UserProfileSerializer(serializers.ModelSerializer):
