@@ -9,8 +9,8 @@ export default function AuthFormLayout({ title, subtitle, children, footerText, 
         <p className="mt-4 max-w-lg text-base leading-7 text-gray-400">{subtitle}</p>
       </div>
 
-      <div className="flex items-center">
-        <div className="w-full rounded-lg border border-white/10 bg-gray-900 p-5 md:p-8">
+      <div className="flex flex-col py-8">
+        <div className="my-auto w-full rounded-lg border border-white/10 bg-gray-900 p-5 md:p-8">
           {children}
           <p className="mt-6 text-center text-sm text-gray-500">
             {footerText}{' '}
