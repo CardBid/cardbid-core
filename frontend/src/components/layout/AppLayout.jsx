@@ -64,7 +64,7 @@ export default function AppLayout() {
 
     const doRefresh = async () => {
       try {
-        const res = await fetch('http://localhost:8000/auth/refresh/', {
+        const res = await fetch('https://cardbid.up.railway.app/auth/refresh/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh }),

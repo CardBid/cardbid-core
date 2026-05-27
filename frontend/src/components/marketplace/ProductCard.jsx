@@ -9,7 +9,7 @@ export default function ProductCard({ product }) {
       <Link to={`/product/${product.id}`} className="block">
         <div className="aspect-[4/3] overflow-hidden bg-gray-800">
           <img
-            src={product.image}
+            src={product.image ? product.image.replace('http:', 'https:') : '/placeholder.jpg'}
             alt=""
             className="h-full w-full object-cover opacity-80 transition duration-300 hover:scale-105 hover:opacity-100"
           />

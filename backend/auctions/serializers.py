@@ -11,9 +11,14 @@ class CategorySerializer(serializers.ModelSerializer):
 class CardSerializer(serializers.ModelSerializer):
     category_name = serializers.ReadOnlyField(source='category.name')
 
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = Card
         fields = ['id', 'name', 'category', 'category_name', 'grade', 'certificate_number', 'description', 'image']
+    
+    def get_image(self, obj):
+        return obj.image.url if obj.image else None
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:

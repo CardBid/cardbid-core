@@ -10,7 +10,7 @@ const videoJsOptions = {
   fill: true,
   responsive: true,
   sources: [{
-    src: 'http://localhost:8888/live/index.m3u8',
+    src: 'https://cardbid-stream-production.up.railway.app/live/index.m3u8',
     type: 'application/x-mpegURL'
   }]
 };
@@ -214,7 +214,7 @@ const handlePointerMove = (e) => {
 
   useEffect(() => {
     let cancelled = false;
-    safeFetchJson('http://localhost:8000/api/live-rooms/').then(data => {
+    safeFetchJson('https://cardbid.up.railway.app/api/live-rooms/').then(data => {
       if (cancelled) return;
       const list = Array.isArray(data) ? data
         : (data && Array.isArray(data.results)) ? data.results
@@ -228,7 +228,7 @@ const handlePointerMove = (e) => {
 
   useEffect(() => {
     let cancelled = false;
-    safeFetchJson('http://localhost:8000/api/auctions/').then(data => {
+    safeFetchJson('https://cardbid.up.railway.app/api/auctions/').then(data => {
       if (cancelled || data == null) return;
       setAllAuctions(data.results || data);
     });
@@ -249,7 +249,7 @@ const handlePointerMove = (e) => {
     setSuccessMsg(null);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/auctions/${currentAuctionId}/buy-now/`, {
+      const response = await fetch(`https://cardbid.up.railway.app/api/auctions/${currentAuctionId}/buy-now/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -310,7 +310,7 @@ const handlePointerMove = (e) => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/api/auctions/${currentAuctionId}/bid/`, {
+      const response = await fetch(`https://cardbid.up.railway.app/api/auctions/${currentAuctionId}/bid/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -380,7 +380,7 @@ const handlePointerMove = (e) => {
       try {
         // Backend StreamRoomConsumer odczytuje JWT ze scope - jeśli middleware obsługuje
         // token w query stringu, dorzucamy. Inaczej będzie polegać na ciasteczku/sessji.
-        const url = `ws://localhost:8000/ws/rooms/${roomId}/?token=${encodeURIComponent(token)}`;
+        const url = `wss://cardbid.up.railway.app/ws/rooms/${roomId}/?token=${encodeURIComponent(token)}`;
         socket = new WebSocket(url);
       } catch {
         scheduleReconnect();
@@ -471,7 +471,7 @@ const handlePointerMove = (e) => {
     let intervalId = null;
 
     const fetchTimeline = async () => {
-      const data = await safeFetchJson(`http://localhost:8000/api/rooms/${roomId}/timeline/`);
+      const data = await safeFetchJson(`https://cardbid.up.railway.app/api/rooms/${roomId}/timeline/`);
       if (cancelled || !data) return;
       setTimelineData({
         opened: data.opened || [],
@@ -538,7 +538,7 @@ const handlePointerMove = (e) => {
     if (!currentAuctionId) return; // czekamy aż timeline ustawi id - bez tego URL .../auctions/null/
     let cancelled = false;
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-    safeFetchJson(`http://localhost:8000/api/auctions/${currentAuctionId}/`, { headers })
+    safeFetchJson(`https://cardbid.up.railway.app/api/auctions/${currentAuctionId}/`, { headers })
       .then(data => {
         if (cancelled) return;
         const finalData = data || allAuctions.find(a => String(a.id) === String(currentAuctionId));
@@ -577,7 +577,7 @@ const handlePointerMove = (e) => {
       try {
         // JWT token w query - backend ma JWTAuthMiddleware który go odczyta
         const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
-        socket = new WebSocket(`ws://localhost:8000/ws/auction/${currentAuctionId}/${tokenParam}`);
+        socket = new WebSocket(`wss://cardbid.up.railway.app/ws/auction/${currentAuctionId}/${tokenParam}`);
       } catch {
         scheduleReconnect();
         return;

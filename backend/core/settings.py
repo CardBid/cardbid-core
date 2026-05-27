@@ -19,6 +19,7 @@ STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY', 'sugoma')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', 'nomindah')
 
 ALLOWED_HOSTS = ['*']
+CSRF_TRUSTED_ORIGINS = ['https://cardbid.up.railway.app', 'https://cardbid67.netlify.app', 'https://cardbid-core.vercel.app/']
 
 AUTH_USER_MODEL = 'auctions.CardbidUser'
 
@@ -36,19 +37,26 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'cardbid_db',
-        'USER': 'admin',
-        'PASSWORD': 'adminpassword',
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': '5432',
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'cardbid_db'),
+            'USER': os.environ.get('DB_USER', 'admin'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', 'adminpassword'),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
+    }
 
 # Note: in final version, one should disable that setting
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 INSTALLED_APPS = [
     'daphne',
@@ -59,6 +67,8 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.messages',      # required for admin UI
     'django.contrib.sessions',      # required for admin login
+    'cloudinary_storage',
+    'cloudinary',
     'django.contrib.staticfiles',
     'corsheaders',
     'users',
@@ -111,13 +121,16 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
 }
 
 # Main URL routing module
 ROOT_URLCONF = 'core.urls'
 
 # Must keep it secret, it is used for cryptographic signing
-SECRET_KEY = 'django-insecure-=d4bw6aqv$*g&wnzg47#3dr@--#wu3#^5cv(9nmk(=arf0vt8s'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'dummy-key-tylko-do-budowania')
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME":    timedelta(minutes=15),
@@ -125,8 +138,9 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME":   timedelta(days=7),
 }
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -152,15 +166,12 @@ TEMPLATES = [
     },
 ]
 
-TIME_ZONE = 'UTC'
-
 WSGI_APPLICATION = 'core.wsgi.application'
 ASGI_APPLICATION = 'core.asgi.application'
 
 # CELERY CONFIGURATION
 TIME_ZONE = 'Europe/Warsaw'
 USE_TZ = True
-CELERY_BROKER_URL = 'redis://redis:6379/0'
 CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
@@ -170,15 +181,31 @@ CELERY_ENABLE_UTC = False
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [("redis", 6379)],
-        },
+        "CONFIG": {"hosts": [os.environ.get('REDIS_URL', 'redis://redis:6379/0')]},
     },
 }
 
+CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
 CELERY_BEAT_SCHEDULE = {
     'close-expired-auctions-every-minute': {
         'task': 'auctions.tasks.close_expired_auctions',
-        'schedule': crontab(minute='*'), # Uruchamia się co 1 minutę
+        'schedule': crontab(minute='*'),
     },
 }
+
+# Cloudinary config
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+CLOUDINARY_STORAGE = {
+    'CLOUDINARY_URL': os.environ.get('CLOUDINARY_URL'),
+}
+
+cloudinary.config( 
+    secure = True
+)
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

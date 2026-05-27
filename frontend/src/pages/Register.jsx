@@ -81,7 +81,7 @@ export default function Register() {
       // Świadomie NIE wysyłamy 'role' - backend nada default 'buyer'.
       // Streamera nadaje admin w panelu Django, nie user sam sobie.
 
-      const regRes = await fetch('http://localhost:8000/auth/register/', {
+      const regRes = await fetch('https://cardbid.up.railway.app/auth/register/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -98,7 +98,7 @@ export default function Register() {
 
       // 2. Auto-login - korzystamy z tych samych credentials.
       // Login używa email + password (USERNAME_FIELD = 'email' w modelu).
-      const loginRes = await fetch('http://localhost:8000/auth/login/', {
+      const loginRes = await fetch('https://cardbid.up.railway.app/auth/login/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: form.email, password: form.password }),

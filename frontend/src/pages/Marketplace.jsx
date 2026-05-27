@@ -1,29 +1,61 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import ProductCard from '../components/marketplace/ProductCard';
-import { categories, liveRooms, marketplaceProducts } from '../data/marketplaceData';
 
 export default function Marketplace() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [query, setQuery] = useState('');
 
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([{ id: 'all', label: 'All' }]);
+  const [liveRooms, setLiveRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const safeFetchJson = useCallback(async (url) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch { return null; }
+  }, []);
+
+  useEffect(() => {
+    const loadAll = async () => {
+      setLoading(true);
+
+      const [pData, cData, lData] = await Promise.all([
+        safeFetchJson('https://cardbid.up.railway.app/api/auctions/'),
+        safeFetchJson('https://cardbid.up.railway.app/api/categories/'),
+        safeFetchJson('https://cardbid.up.railway.app/api/live-rooms/')
+      ]);
+
+      setProducts(pData?.results || (Array.isArray(pData) ? pData : []));
+      
+      const categoriesArray = Array.isArray(cData) 
+        ? cData 
+        : (cData?.results ? cData.results : []);
+      
+      setCategories([{ id: 'all', label: 'All' }, ...categoriesArray]);
+      setLiveRooms(Array.isArray(lData) ? lData : (lData?.results || []));
+      setLoading(false);
+    };
+    loadAll();
+  }, [safeFetchJson]);
+
   const filteredProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-
-    return marketplaceProducts.filter((product) => {
-      const matchesCategory =
-        activeCategory === 'all' || product.categoryId === activeCategory;
-      const matchesQuery =
-        normalizedQuery.length === 0 ||
-        product.title.toLowerCase().includes(normalizedQuery) ||
-        product.category.toLowerCase().includes(normalizedQuery) ||
-        product.seller.toLowerCase().includes(normalizedQuery);
-
+    return products.filter((p) => {
+      const catId = p.category?.id || p.category;
+      const matchesCategory = activeCategory === 'all' || String(catId) === String(activeCategory);
+      const matchesQuery = normalizedQuery.length === 0 || 
+                     p.card_details?.name?.toLowerCase().includes(normalizedQuery);
       return matchesCategory && matchesQuery;
     });
-  }, [activeCategory, query]);
+  }, [activeCategory, query, products]);
 
-  const featuredLive = liveRooms[0];
+  const featuredLive = liveRooms.length > 0 ? liveRooms[0] : null;
+
+  if (loading) return <div className="text-white text-center py-20">Loading...</div>;
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -108,9 +140,21 @@ export default function Marketplace() {
         </div>
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+          {filteredProducts.map((p) => {
+            const isBuyNow = (p.auction_type === 'buy_now' || p.auction_type === 'Buy Now');
+
+            const mappedProduct = {
+              id: p.id,
+              image: p.card_details?.image || '',
+              category: p.card_details?.category_name || 'Others',
+              type: isBuyNow ? 'FIXED' : 'AUCTION',
+              title: p.card_details?.name || 'Unknown product',
+              seller: p.seller_name || 'Unknown seller',
+              currentBid: isBuyNow ? (p.buy_now_price ?? 0) : (p.current_price ?? 0),
+            };
+
+            return <ProductCard key={p.id} product={mappedProduct} />;
+          })}
         </div>
 
         {filteredProducts.length === 0 && (

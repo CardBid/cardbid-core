@@ -28,7 +28,6 @@ from .services import process_bid_logic
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.shortcuts import get_object_or_404
 
 # Konfiguracja stripa
 from .models import Transaction
@@ -39,6 +38,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db.models import F
 import json
 import stripe
+import traceback
 stripe.api_key = settings.STRIPE_SECRET_KEY
 endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
 
@@ -367,15 +367,21 @@ class CategoryListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
 class AuctionListCreateView(generics.ListCreateAPIView):
-    queryset = Auction.objects.filter(status=Auction.Status.ACTIVE)
     serializer_class = AuctionSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    
     search_fields = ['card__name', 'card__certificate_number', 'card__category__name']
-    
     ordering_fields = ['end_date', 'current_price']
+
+    def get_queryset(self):
+        queryset = Auction.objects.filter(status=Auction.Status.ACTIVE).select_related('card', 'card__category')
+
+        category_id = self.request.query_params.get('category')
+        if category_id and category_id != 'all':
+            queryset = queryset.filter(card__category_id=category_id)
+            
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
@@ -759,12 +765,13 @@ class ActivateSlotView(APIView):
     def post(self, request, slot_id):
         user = request.user
 
+        slot = get_object_or_404(AuctionSlot, id=slot_id)
+
         if slot.status == 'active':
             return Response({"error": "This slot is already activated!"}, status=400)
         if slot.status == 'finished':
             return Response({"error": "This slot has already been finished and opened!"}, status=400)
 
-        slot = get_object_or_404(AuctionSlot, id=slot_id)
         if slot.room.streamer != user:
             return Response({"error": "This is not your stream!"}, status=status.HTTP_403_FORBIDDEN)
 
