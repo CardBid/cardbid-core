@@ -38,11 +38,11 @@ export default function ProductDetail() {
             }
           }
           // Aukcja nie znaleziona na publicznej liście (np. nieaktywna lub brak dostępu)
-          throw new Error('Nie znaleziono aukcji. Mogła zostać zakończona lub wymaga zalogowania.');
+          throw new Error('Auction not found. It may have been ended or requires login.');
         }
 
         if (!response.ok) {
-          throw new Error('Nie udało się pobrać danych aukcji. Spróbuj ponownie później.');
+          throw new Error('Failed to fetch auction data. Please try again later.');
         }
 
         const data = await response.json();
@@ -59,10 +59,10 @@ export default function ProductDetail() {
   const handleBid = async (e) => {
     e.preventDefault();
     if (!token) {
-      setBidStatus({ type: 'error', msg: 'Musisz być zalogowany.' });
+      setBidStatus({ type: 'error', msg: 'You must be logged in.' });
       return;
     }
-    setBidStatus({ type: 'loading', msg: 'Wysyłanie oferty...' });
+    setBidStatus({ type: 'loading', msg: 'Sending bid...' });
 
     try {
       const response = await fetch(`https://cardbid.up.railway.app/api/auctions/${id}/bid/`, {
@@ -78,12 +78,12 @@ export default function ProductDetail() {
 
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error('Sesja wygasła. Zaloguj się ponownie.');
+          throw new Error('Session expired. Please log in again.');
         }
-        throw new Error(data.error || data.detail || 'Błąd licytacji.');
+        throw new Error(data.error || data.detail || 'Auction error.');
       }
 
-      setBidStatus({ type: 'success', msg: 'Oferta przyjęta.' });
+      setBidStatus({ type: 'success', msg: 'Offer accepted.' });
       setCurrentPrice(parseFloat(data.new_price));
       setBidAmount('');
     } catch (err) {
@@ -93,11 +93,11 @@ export default function ProductDetail() {
 
   const handleBuyNow = async () => {
     if (!token) {
-      setBidStatus({ type: 'error', msg: 'Musisz być zalogowany.' });
+      setBidStatus({ type: 'error', msg: 'You must be logged in.' });
       return;
     }
 
-    setBidStatus({ type: 'loading', msg: 'Przetwarzanie zakupu...' });
+    setBidStatus({ type: 'loading', msg: 'Processing purchase...' });
 
     try {
       const response = await fetch(`https://cardbid.up.railway.app/api/auctions/${id}/buy-now/`, {
@@ -112,12 +112,12 @@ export default function ProductDetail() {
 
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error('Sesja wygasła. Zaloguj się ponownie.');
+          throw new Error('Session expired. Please log in again.');
         }
-        throw new Error(data.error || data.detail || 'Błąd zakupu.');
+        throw new Error(data.error || data.detail || 'Purchase error.');
       }
 
-      setBidStatus({ type: 'success', msg: 'Zakup zakończony pomyślnie.' });
+      setBidStatus({ type: 'success', msg: 'Successfully purchased.' });
     } catch (err) {
       setBidStatus({ type: 'error', msg: err.message });
     }
@@ -127,15 +127,15 @@ export default function ProductDetail() {
     <div className="p-10">
       <p className="font-bold text-red-400 mb-4">{error}</p>
       <Link to="/marketplace" className="text-blue-400 hover:text-blue-300 text-sm font-bold underline">
-        ← Powrót do marketplace
+        ← Back to marketplace
       </Link>
     </div>
   );
-  if (!auction) return <div className="p-10 text-gray-400">Ładowanie...</div>;
+  if (!auction) return <div className="p-10 text-gray-400">Loading...</div>;
 
   // Rozpoznanie typu — identyczna logika jak w LiveRoom
-  const isBuyNow = auction.auction_type === 'buy_now' || auction.auction_type === 'Tylko Kup Teraz';
-  const isHybrid = auction.auction_type === 'hybrid' || auction.auction_type === 'Licytacja + Kup Teraz';
+  const isBuyNow = auction.auction_type === 'buy_now' || auction.auction_type === 'Buy now';
+  const isHybrid = auction.auction_type === 'hybrid' || auction.auction_type === 'Auction + Buy Now';
 
   return (
     <div className="container mx-auto p-4 text-white">
@@ -143,7 +143,7 @@ export default function ProductDetail() {
 
       {!token && (
         <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
-          Aby licytować lub kupić — <Link to="/login" className="font-bold underline">zaloguj się</Link>.
+          To place a bid or buy now — <Link to="/login" className="font-bold underline">log in</Link>.
         </div>
       )}
 
@@ -165,7 +165,7 @@ export default function ProductDetail() {
             <div className="rounded-2xl border-2 border-blue-500/50 bg-blue-900/20 p-6 shadow-[0_0_20px_rgba(37,99,235,0.15)] relative overflow-hidden">
               <div className="absolute top-0 right-0">
                 <span className="text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-bl-xl rounded-tr-xl block shadow-sm">
-                  🛒 KUP TERAZ
+                  🛒 BUY NOW
                 </span>
               </div>
 
@@ -212,7 +212,7 @@ export default function ProductDetail() {
               <div className="rounded-2xl border-2 border-yellow-500 bg-yellow-900/20 p-6 shadow-[0_0_20px_rgba(234,179,8,0.15)] relative overflow-hidden">
                 <div className="absolute top-0 right-0">
                   <span className="text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-bl-xl rounded-tr-xl block animate-pulse shadow-sm">
-                    🔥 LICYTACJA
+                    🔥 AUCTION
                   </span>
                 </div>
 
@@ -234,8 +234,8 @@ export default function ProductDetail() {
                     }`}
                   >
                     {!token
-                      ? 'Zaloguj się aby kupić od razu'
-                      : `Kup Teraz od razu za $${auction.buy_now_price}`
+                      ? 'Log in to buy now'
+                      : `Buy Now instantly for $${auction.buy_now_price}`
                     }
                   </button>
                 )}
@@ -244,7 +244,7 @@ export default function ProductDetail() {
               <form onSubmit={handleBid} className="space-y-4">
                 <label className="block">
                   <span className="text-sm font-bold text-gray-300">
-                    Przebij ofertę {token && <span className="text-gray-500 font-normal">(min ${(currentPrice + 1).toFixed(2)})</span>}
+                    Place a bid {token && <span className="text-gray-500 font-normal">(min ${(currentPrice + 1).toFixed(2)})</span>}
                   </span>
                   <input
                     type="number"
@@ -259,7 +259,7 @@ export default function ProductDetail() {
                         ? 'bg-gray-900 text-gray-500 border-gray-700 cursor-not-allowed'
                         : 'bg-gray-950 text-white border-white/10 focus:border-yellow-400'
                     }`}
-                    placeholder={token ? `Więcej niż $${currentPrice}` : 'Zaloguj się aby licytować'}
+                    placeholder={token ? `More than $${currentPrice}` : 'Log in to place a bid'}
                   />
                 </label>
                 <button
@@ -271,7 +271,7 @@ export default function ProductDetail() {
                       : 'bg-yellow-500 hover:bg-yellow-400 text-black hover:-translate-y-0.5'
                   }`}
                 >
-                  {!token ? 'Zaloguj się aby licytować' : 'Licytuj'}
+                  {!token ? 'Log in to place a bid' : 'Place a Bid'}
                 </button>
               </form>
 
@@ -305,7 +305,7 @@ export default function ProductDetail() {
               onClick={() => setIsDetailsExpanded(!isDetailsExpanded)}
               className="mt-2 w-full border-t border-gray-800 pt-4 text-sm font-bold uppercase tracking-widest text-blue-400 hover:text-blue-300"
             >
-              {isDetailsExpanded ? 'Zwiń' : 'Czytaj więcej'}
+              {isDetailsExpanded ? 'Collapse' : 'Read more'}
             </button>
           </div>
 

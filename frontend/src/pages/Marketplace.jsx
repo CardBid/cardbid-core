@@ -125,7 +125,7 @@ export default function Marketplace() {
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {products.map((p) => {
-            const isBuyNow = (p.auction_type === 'buy_now' || p.auction_type === 'Tylko Kup Teraz');
+            const isBuyNow = (p.auction_type === 'buy_now' || p.auction_type === 'Buy Now');
             
             const mappedProduct = {
               id: p.id,
