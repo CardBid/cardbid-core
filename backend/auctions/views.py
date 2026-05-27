@@ -367,13 +367,21 @@ class CategoryListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
 class AuctionListCreateView(generics.ListCreateAPIView):
-    queryset = Auction.objects.filter(status=Auction.Status.ACTIVE).select_related('card', 'card__category')
     serializer_class = AuctionSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['card__name', 'card__certificate_number', 'card__category__name']
     ordering_fields = ['end_date', 'current_price']
+
+    def get_queryset(self):
+        queryset = Auction.objects.filter(status=Auction.Status.ACTIVE).select_related('card', 'card__category')
+
+        category_id = self.request.query_params.get('category')
+        if category_id and category_id != 'all':
+            queryset = queryset.filter(card__category_id=category_id)
+            
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)

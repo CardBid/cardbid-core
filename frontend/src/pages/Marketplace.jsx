@@ -22,13 +22,17 @@ export default function Marketplace() {
   useEffect(() => {
     const loadAll = async () => {
       setLoading(true);
+
+      const categoryQuery = activeCategory !== 'all' ? `?category=${activeCategory}` : '';
+      const baseUrl = 'https://cardbid.up.railway.app/api/auctions/';
+
       const [pData, cData, lData] = await Promise.all([
-        safeFetchJson('https://cardbid.up.railway.app/api/auctions/'),
+        safeFetchJson(`${baseUrl}${categoryQuery}`),
         safeFetchJson('https://cardbid.up.railway.app/api/categories/'),
         safeFetchJson('https://cardbid.up.railway.app/api/live-rooms/')
       ]);
       
-      setProducts(pData?.results || pData || []);
+      setProducts(pData?.results || []);
       setCategories([{ id: 'all', label: 'All' }, ...(cData || [])]);
       setLiveRooms(lData || []);
       setLoading(false);
@@ -134,6 +138,8 @@ export default function Marketplace() {
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {filteredProducts.map((p) => {
+            const isBuyNow = (p.auction_type === 'buy_now' || p.auction_type === 'Buy Now');
+
             const mappedProduct = {
               id: p.id,
               image: p.card_details?.image || '',
@@ -141,7 +147,7 @@ export default function Marketplace() {
               type: (p.auction_type === 'buy_now' || p.auction_type === 'Buy Now') ? 'FIXED' : 'AUCTION',
               title: p.card_details?.name || 'Unknown product',
               seller: p.seller_name || 'Unknown seller',
-              currentBid: p.current_price
+              currentBid: isBuyNow ? p.buy_now_price : p.current_price
             };
 
             return <ProductCard key={p.id} product={mappedProduct} />;
