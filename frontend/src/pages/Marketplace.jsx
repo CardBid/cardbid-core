@@ -7,7 +7,7 @@ export default function Marketplace() {
   const [query, setQuery] = useState('');
 
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([{ id: 'all', label: 'Wszystkie' }]);
+  const [categories, setCategories] = useState([{ id: 'all', label: 'All' }]);
   const [liveRooms, setLiveRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,7 +29,8 @@ export default function Marketplace() {
       ]);
       
       setProducts(pData?.results || pData || []);
-      setCategories([{ id: 'all', label: 'Wszystkie' }, ...(cData || [])]);
+      console.log("Struktura pierwszego produktu:", pData?.results?.[0] || pData?.[0]);
+      setCategories([{ id: 'all', label: 'All' }, ...(cData || [])]);
       setLiveRooms(lData || []);
       setLoading(false);
     };
@@ -39,7 +40,7 @@ export default function Marketplace() {
   const filteredProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return products.filter((p) => {
-      const matchesCategory = activeCategory === 'all' || String(p.category) === String(activeCategory);
+      const matchesCategory = activeCategory === 'all' || String(p.category.id) === String(activeCategory);
       const matchesQuery = normalizedQuery.length === 0 || p.card_name?.toLowerCase().includes(normalizedQuery);
       return matchesCategory && matchesQuery;
     });
