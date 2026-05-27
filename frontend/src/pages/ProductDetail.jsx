@@ -151,7 +151,7 @@ export default function ProductDetail() {
         {/* Zdjęcie */}
         <div>
           <img
-            src={auction.card_details?.image ? (auction.card_details.image.startsWith('http') ? auction.card_details.image : `https://cardbid.up.railway.app${auction.card_details.image}`) : '/placeholder.png'}
+            src={auction.card_details?.image || '/placeholder.png'}
             alt={auction.card_details?.name}
             className="w-full rounded-lg border border-gray-700"
           />
