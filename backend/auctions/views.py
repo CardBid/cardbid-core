@@ -39,6 +39,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db.models import F
 import json
 import stripe
+import traceback
 stripe.api_key = settings.STRIPE_SECRET_KEY
 endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
 
@@ -759,12 +760,13 @@ class ActivateSlotView(APIView):
     def post(self, request, slot_id):
         user = request.user
 
+        slot = get_object_or_404(AuctionSlot, id=slot_id)
+
         if slot.status == 'active':
             return Response({"error": "This slot is already activated!"}, status=400)
         if slot.status == 'finished':
             return Response({"error": "This slot has already been finished and opened!"}, status=400)
 
-        slot = get_object_or_404(AuctionSlot, id=slot_id)
         if slot.room.streamer != user:
             return Response({"error": "This is not your stream!"}, status=status.HTTP_403_FORBIDDEN)
 
