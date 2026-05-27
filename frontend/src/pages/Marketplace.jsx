@@ -1,29 +1,56 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 import ProductCard from '../components/marketplace/ProductCard';
-import { categories, liveRooms, marketplaceProducts } from '../data/marketplaceData';
 
 export default function Marketplace() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [query, setQuery] = useState('');
 
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([{ id: 'all', label: 'All' }]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [productsRes, categoriesRes] = await Promise.all([
+          axios.get('/api/auctions/'),
+          axios.get('/api/categories/')
+        ]);
+        
+        setProducts(productsRes.data);
+        setCategories([{ id: 'all', label: 'All' }, ...categoriesRes.data]);
+        setLoading(false);
+      } catch (err) {
+        console.error("Błąd pobierania danych:", err);
+        setError("Nie udało się załadować ofert.");
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   const filteredProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return marketplaceProducts.filter((product) => {
+    return products.filter((product) => {
       const matchesCategory =
-        activeCategory === 'all' || product.categoryId === activeCategory;
+        activeCategory === 'all' || product.category === activeCategory;
+      
       const matchesQuery =
         normalizedQuery.length === 0 ||
-        product.title.toLowerCase().includes(normalizedQuery) ||
-        product.category.toLowerCase().includes(normalizedQuery) ||
-        product.seller.toLowerCase().includes(normalizedQuery);
+        product.name.toLowerCase().includes(normalizedQuery);
 
       return matchesCategory && matchesQuery;
     });
-  }, [activeCategory, query]);
+  }, [activeCategory, query, products]);
 
-  const featuredLive = liveRooms[0];
+  if (loading) return <div className="text-white text-center py-20">Ładowanie ofert...</div>;
+  if (error) return <div className="text-red-500 text-center py-20">{error}</div>;
 
   return (
     <div className="min-h-screen bg-gray-950">
