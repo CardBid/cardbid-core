@@ -29,7 +29,6 @@ export default function Marketplace() {
       ]);
       
       setProducts(pData?.results || pData || []);
-      console.log("Struktura pierwszego produktu:", pData?.results?.[0] || pData?.[0]);
       setCategories([{ id: 'all', label: 'All' }, ...(cData || [])]);
       setLiveRooms(lData || []);
       setLoading(false);
@@ -41,7 +40,8 @@ export default function Marketplace() {
     const normalizedQuery = query.trim().toLowerCase();
     return products.filter((p) => {
       const matchesCategory = activeCategory === 'all' || String(p.category.id) === String(activeCategory);
-      const matchesQuery = normalizedQuery.length === 0 || p.card_name?.toLowerCase().includes(normalizedQuery);
+      const matchesQuery = normalizedQuery.length === 0 || 
+                     p.card_details?.name?.toLowerCase().includes(normalizedQuery);
       return matchesCategory && matchesQuery;
     });
   }, [activeCategory, query, products]);
@@ -133,9 +133,19 @@ export default function Marketplace() {
         </div>
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+          {filteredProducts.map((p) => {
+            const mappedProduct = {
+              id: p.id,
+              image: p.card_details?.image || '',
+              category: p.card_details?.category_name || 'Others',
+              type: (p.auction_type === 'buy_now' || p.auction_type === 'Buy Now') ? 'FIXED' : 'AUCTION',
+              title: p.card_details?.name || 'Unknown product',
+              seller: p.seller_name || 'Unknown seller',
+              currentBid: p.current_price
+            };
+
+            return <ProductCard key={p.id} product={mappedProduct} />;
+          })}
         </div>
 
         {filteredProducts.length === 0 && (
