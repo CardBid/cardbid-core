@@ -717,14 +717,15 @@ const handlePointerMove = (e) => {
   //        'not_found' (id istnieje ale pokoju brak na liście live),
   //        'no_streams' (lista pusta i nikt nie streamuje), 'unverified' (lista padła,
   //        nie umiemy potwierdzić - pozwalamy ale z banerem), 'ok' (wszystko ładnie).
-  const roomCheck = (() => {
-    if (!roomsLoaded) return 'loading';
-    if (!liveRoomsFetchOk) return 'unverified'; // endpoint /api/live-rooms/ padł
-    if (liveRooms.length === 0) return roomId ? 'not_found' : 'no_streams';
-    if (!roomId) return 'pick';
-    const match = liveRooms.find(r => Number(r.id) === roomId);
-    return match ? 'ok' : 'not_found';
-  })();
+  //const roomCheck = (() => {
+    //if (!roomsLoaded) return 'loading';
+   // if (!liveRoomsFetchOk) return 'unverified'; // endpoint /api/live-rooms/ padł
+    //if (liveRooms.length === 0) return roomId ? 'not_found' : 'no_streams';
+    //if (!roomId) return 'pick';
+    //const match = liveRooms.find(r => Number(r.id) === roomId);
+    //return match ? 'ok' : 'not_found';
+  //})();
+  const roomCheck = 'ok';
 
   // Wspólny wrapper ekranu blokady (centrowany kafelek)
   const renderBlocker = (icon, title, subtitle, actions) => (
