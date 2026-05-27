@@ -23,18 +23,20 @@ export default function Marketplace() {
     const loadAll = async () => {
       setLoading(true);
 
-      const categoryQuery = activeCategory !== 'all' ? `?category=${activeCategory}` : '';
-      const baseUrl = 'https://cardbid.up.railway.app/api/auctions/';
-
       const [pData, cData, lData] = await Promise.all([
-        safeFetchJson(`${baseUrl}${categoryQuery}`),
+        safeFetchJson('https://cardbid.up.railway.app/api/auctions/'),
         safeFetchJson('https://cardbid.up.railway.app/api/categories/'),
         safeFetchJson('https://cardbid.up.railway.app/api/live-rooms/')
       ]);
+
+      setProducts(pData?.results || (Array.isArray(pData) ? pData : []));
       
-      setProducts(pData?.results || []);
-      setCategories([{ id: 'all', label: 'All' }, ...(cData || [])]);
-      setLiveRooms(lData || []);
+      const categoriesArray = Array.isArray(cData) 
+        ? cData 
+        : (cData?.results ? cData.results : []);
+      
+      setCategories([{ id: 'all', label: 'All' }, ...categoriesArray]);
+      setLiveRooms(Array.isArray(lData) ? lData : (lData?.results || []));
       setLoading(false);
     };
     loadAll();
