@@ -501,7 +501,7 @@ class StreamRoomToggleView(APIView):
         return Response({"message": status_msg, "room": StreamRoomSerializer(room).data})
 
 class CountryListView(generics.ListAPIView):
-    queryset = Country.objects.all()
+    queryset = Country.objects.prefetch_related('states').all()
     serializer_class = CountrySerializer
     permission_classes = [AllowAny]
     pagination_class = None

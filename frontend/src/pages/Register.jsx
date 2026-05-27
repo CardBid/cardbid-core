@@ -22,13 +22,27 @@ export default function Register() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch('https://cardbid.up.railway.app/api/countries/')
-      .then(res => res.json())
-      .then(data => {
-        const countriesArray = Array.isArray(data) ? data : (data?.results || []);
-        setCountries(countriesArray);
-      })
-      .catch(err => console.error('Błąd pobierania państw:', err));
+    const fetchCountries = async () => {
+      const cached = localStorage.getItem('countries_list');
+      if (cached) {
+        setCountries(JSON.parse(cached));
+        return;
+      }
+
+      try {
+        const res = await fetch('https://cardbid.up.railway.app/api/countries/');
+        const data = await res.json();
+        
+        const list = Array.isArray(data) ? data : (data?.results || []);
+        
+        localStorage.setItem('countries_list', JSON.stringify(list));
+        setCountries(list);
+      } catch (err) {
+        console.error('Błąd pobierania państw:', err);
+      }
+    };
+    
+    fetchCountries();
   }, []);
 
   const handleChange = (event) => {
