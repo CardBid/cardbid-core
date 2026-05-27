@@ -24,6 +24,8 @@ from django.utils               import timezone
 from auctions.managers      import CardbidUserManager
 from auctions.permissions   import Roles
 
+from cloudinary.models import CloudinaryField
+
 # Country and State models for tax calculations
 class Country(models.Model):
     name = models.CharField(max_length=100)
@@ -188,7 +190,7 @@ class Card(models.Model):
     certificate_number  = models.CharField(max_length=50, blank=True)
     description         = models.TextField()
     grade               = models.CharField(max_length=20)
-    image               = models.ImageField(upload_to=CARD_IMAGES_DIR, null=True, blank=True)
+    image               = CloudinaryField('image', null=True, blank=True)
     name                = models.CharField(max_length=100)
 
     def __str__(self):

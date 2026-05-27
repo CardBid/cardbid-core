@@ -11,6 +11,7 @@ from django.core.management.base import BaseCommand
 from faker import Faker
 from auctions.models import CardbidUser, Card, Auction, Category, Bid, StreamRoom, AuctionSlot, Country, State
 from datetime import date
+import cloudinary.uploader
 
 import shutil
 
@@ -225,8 +226,21 @@ class Command(BaseCommand):
                         certificate_number=f"CERT-{random.randint(1000000, 9999999)}"
                     )
                     
-                    with open(matched_img, 'rb') as f:
-                        card.image.save(os.path.basename(matched_img), File(f), save=True)
+                    self.stdout.write(f"Wgrywam {os.path.basename(matched_img)} do Cloudinary...")
+                    try:
+                        filename_without_ext = os.path.splitext(os.path.basename(matched_img))[0]
+                        fixed_public_id = f"cardbid_cards/{filename_without_ext}"
+
+                        upload_result = cloudinary.uploader.upload(
+                            matched_img,
+                            public_id=fixed_public_id,
+                            overwrite=True
+                        )
+
+                        card.image = upload_result['public_id']
+                        card.save()
+                    except Exception as e:
+                        self.stdout.write(self.style.ERROR(f"Błąd Cloudinary: {e}"))
 
                     chance = random.randint(1, 100)
                     a_type = 'buy_now' if chance <= 40 else 'bidding'
