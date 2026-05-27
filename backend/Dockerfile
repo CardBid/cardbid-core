@@ -15,6 +15,8 @@ RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN echo "STRUKTURA PLIKÓW: " && ls -R /app
+
 WORKDIR /app/backend
 
 RUN python manage.py collectstatic --noinput
