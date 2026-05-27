@@ -10,7 +10,7 @@ const videoJsOptions = {
   fill: true,
   responsive: true,
   sources: [{
-    src: 'https://cardbid.up.railway.app/live/index.m3u8',
+    src: 'https://cardbid-stream-production.up.railway.app/live/index.m3u8',
     type: 'application/x-mpegURL'
   }]
 };
