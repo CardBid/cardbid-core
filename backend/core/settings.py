@@ -19,7 +19,7 @@ STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY', 'sugoma')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', 'nomindah')
 
 ALLOWED_HOSTS = ['*']
-CSRF_TRUSTED_ORIGINS = ['https://cardbid.up.railway.app', 'https://cardbid67.netlify.app']
+CSRF_TRUSTED_ORIGINS = ['https://cardbid.up.railway.app', 'https://cardbid67.netlify.app', 'https://cardbid-core.vercel.app/']
 
 AUTH_USER_MODEL = 'auctions.CardbidUser'
 
@@ -135,7 +135,7 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME":   timedelta(days=7),
 }
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
