@@ -17,6 +17,8 @@ COPY . .
 
 WORKDIR /app/backend
 
+RUN mkdir -p /app/backend/staticfiles
+
 RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
