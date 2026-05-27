@@ -180,7 +180,7 @@ class Category(models.Model):
 class Card(models.Model):
     
     # This path is relative to 'MEDIA_ROOT' defined in core/settings.py
-    CARD_IMAGES_DIR = "source_images/"
+    CARD_IMAGES_DIR = "cards/"
     
     # So you can access all cards in a Category 'C' like: C.cards.all()
     category            = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name="cards")
