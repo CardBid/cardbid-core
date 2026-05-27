@@ -67,6 +67,8 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.messages',      # required for admin UI
     'django.contrib.sessions',      # required for admin login
+    'cloudinary_storage',
+    'cloudinary',
     'django.contrib.staticfiles',
     'corsheaders',
     'users',
@@ -185,4 +187,11 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'auctions.tasks.close_expired_auctions',
         'schedule': crontab(minute='*'),
     },
+}
+
+# Cloudinary config
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+CLOUDINARY_STORAGE = {
+    'CLOUDINARY_URL': os.environ.get('CLOUDINARY_URL'),
 }
