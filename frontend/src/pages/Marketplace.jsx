@@ -1,6 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
 import ProductCard from '../components/marketplace/ProductCard';
 
 export default function Marketplace() {
@@ -8,49 +7,47 @@ export default function Marketplace() {
   const [query, setQuery] = useState('');
 
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([{ id: 'all', label: 'All' }]);
+  const [categories, setCategories] = useState([{ id: 'all', label: 'Wszystkie' }]);
+  const [liveRooms, setLiveRooms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+
+  const safeFetchJson = useCallback(async (url) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch { return null; }
+  }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [productsRes, categoriesRes] = await Promise.all([
-          axios.get('/api/auctions/'),
-          axios.get('/api/categories/')
-        ]);
-        
-        setProducts(productsRes.data);
-        setCategories([{ id: 'all', label: 'All' }, ...categoriesRes.data]);
-        setLoading(false);
-      } catch (err) {
-        console.error("Błąd pobierania danych:", err);
-        setError("Nie udało się załadować ofert.");
-        setLoading(false);
-      }
+    const loadAll = async () => {
+      setLoading(true);
+      const [pData, cData, lData] = await Promise.all([
+        safeFetchJson('https://cardbid.up.railway.app/api/auctions/'),
+        safeFetchJson('https://cardbid.up.railway.app/api/categories/'),
+        safeFetchJson('https://cardbid.up.railway.app/api/live-rooms/')
+      ]);
+      
+      setProducts(pData?.results || pData || []);
+      setCategories([{ id: 'all', label: 'Wszystkie' }, ...(cData || [])]);
+      setLiveRooms(lData || []);
+      setLoading(false);
     };
-
-    fetchData();
-  }, []);
+    loadAll();
+  }, [safeFetchJson]);
 
   const filteredProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-
-    return products.filter((product) => {
-      const matchesCategory =
-        activeCategory === 'all' || product.category === activeCategory;
-      
-      const matchesQuery =
-        normalizedQuery.length === 0 ||
-        product.name.toLowerCase().includes(normalizedQuery);
-
+    return products.filter((p) => {
+      const matchesCategory = activeCategory === 'all' || String(p.category) === String(activeCategory);
+      const matchesQuery = normalizedQuery.length === 0 || p.card_name?.toLowerCase().includes(normalizedQuery);
       return matchesCategory && matchesQuery;
     });
   }, [activeCategory, query, products]);
 
-  if (loading) return <div className="text-white text-center py-20">Ładowanie ofert...</div>;
-  if (error) return <div className="text-red-500 text-center py-20">{error}</div>;
+  const featuredLive = liveRooms.length > 0 ? liveRooms[0] : null;
+
+  if (loading) return <div className="text-white text-center py-20">Loading...</div>;
 
   return (
     <div className="min-h-screen bg-gray-950">
