@@ -504,6 +504,7 @@ class CountryListView(generics.ListAPIView):
     queryset = Country.objects.all()
     serializer_class = CountrySerializer
     permission_classes = [AllowAny]
+    pagination_class = None
 
 
 class BuyNowView(APIView):

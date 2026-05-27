@@ -24,8 +24,11 @@ export default function Register() {
   useEffect(() => {
     fetch('https://cardbid.up.railway.app/api/countries/')
       .then(res => res.json())
-      .then(data => setCountries(data || []))
-      .catch(err => console.error('Error:', err));
+      .then(data => {
+        const countriesArray = Array.isArray(data) ? data : (data?.results || []);
+        setCountries(countriesArray);
+      })
+      .catch(err => console.error('Błąd pobierania państw:', err));
   }, []);
 
   const handleChange = (event) => {
@@ -112,7 +115,7 @@ export default function Register() {
         payload.shipping_address = form.shipping_address.trim();
       }
 
-      const regRes = await fetch('https://cardbid.up.railway.app/api/auth/register/', {
+      const regRes = await fetch('https://cardbid.up.railway.app/auth/register/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
