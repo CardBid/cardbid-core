@@ -45,7 +45,8 @@ export default function Marketplace() {
   const filteredProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return products.filter((p) => {
-      const matchesCategory = activeCategory === 'all' || String(p.category.id) === String(activeCategory);
+      const catId = p.category?.id || p.category;
+      const matchesCategory = activeCategory === 'all' || String(catId) === String(activeCategory);
       const matchesQuery = normalizedQuery.length === 0 || 
                      p.card_details?.name?.toLowerCase().includes(normalizedQuery);
       return matchesCategory && matchesQuery;
@@ -146,10 +147,10 @@ export default function Marketplace() {
               id: p.id,
               image: p.card_details?.image || '',
               category: p.card_details?.category_name || 'Others',
-              type: (p.auction_type === 'buy_now' || p.auction_type === 'Buy Now') ? 'FIXED' : 'AUCTION',
+              type: isBuyNow ? 'FIXED' : 'AUCTION',
               title: p.card_details?.name || 'Unknown product',
               seller: p.seller_name || 'Unknown seller',
-              currentBid: isBuyNow ? p.buy_now_price : p.current_price
+              currentBid: isBuyNow ? (p.buy_now_price ?? 0) : (p.current_price ?? 0),
             };
 
             return <ProductCard key={p.id} product={mappedProduct} />;
