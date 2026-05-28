@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useMemo, useState, useRef, useEffect } from 'react';
+import NotificationBell from '../notifications/NotificationBell';
 
 // --- Helpery JWT ---
 // Dekoduje payload JWT (base64url -> JSON). Zwraca null jak coś nie tak.
@@ -182,6 +183,8 @@ export default function AppLayout() {
           </nav>
 
           {user ? (
+            <div className="flex items-center gap-2">
+            <NotificationBell />
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(o => !o)}
@@ -214,6 +217,13 @@ export default function AppLayout() {
                       <p className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">{user.role}</p>
                     )}
                   </div>
+                  <NavLink
+                    to="/account"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-3 py-2 text-left text-sm font-bold text-gray-200 transition hover:bg-white/10"
+                  >
+                    Moje konto
+                  </NavLink>
                   <button
                     onClick={handleLogout}
                     className="w-full px-3 py-2 text-left text-sm font-bold text-red-400 transition hover:bg-red-500/10"
@@ -222,6 +232,7 @@ export default function AppLayout() {
                   </button>
                 </div>
               )}
+            </div>
             </div>
           ) : (
             <div className="flex items-center gap-2">

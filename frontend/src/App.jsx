@@ -7,6 +7,7 @@ import Marketplace from './pages/Marketplace';
 import ProductDetail from './pages/ProductDetail';
 import Register from './pages/Register';
 import Studio from './pages/Studio';
+import Account from './pages/Account';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route path="/live" element={<LiveRoom />} />
           <Route path="/live/:id" element={<LiveRoom />} />
           <Route path="/studio" element={<Studio />} />
+          <Route path="/account" element={<Account />} />
         </Route>
       </Routes>
     </BrowserRouter>
