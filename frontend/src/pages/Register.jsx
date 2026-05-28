@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthFormLayout from '../components/auth/AuthFormLayout';
 
 export default function Register() {
+  const [countries, setCountries] = useState([]);
+  
   const [form, setForm] = useState({
     username: '',
     email: '',
@@ -10,11 +12,38 @@ export default function Register() {
     password_confirm: '',
     birth_date: '',
     shipping_address: '',
+    country_id: '',
+    state_id: '',
   });
+  
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchCountries = async () => {
+      const cached = localStorage.getItem('countries_list');
+      if (cached) {
+        setCountries(JSON.parse(cached));
+        return;
+      }
+
+      try {
+        const res = await fetch('https://cardbid.up.railway.app/api/countries/');
+        const data = await res.json();
+        
+        const list = Array.isArray(data) ? data : (data?.results || []);
+        
+        localStorage.setItem('countries_list', JSON.stringify(list));
+        setCountries(list);
+      } catch (err) {
+        console.error('Błąd pobierania państw:', err);
+      }
+    };
+    
+    fetchCountries();
+  }, []);
 
   const handleChange = (event) => {
     setForm((current) => ({
@@ -23,19 +52,28 @@ export default function Register() {
     }));
   };
 
-  // Pomocnicze: data 18 lat temu (max dla pola date) - blokuje wybór młodszych
+  const handleCountryChange = (event) => {
+    setForm((current) => ({
+      ...current,
+      country_id: event.target.value,
+      state_id: '',
+    }));
+  };
+
+  const selectedCountryObj = countries.find(c => String(c.id) === String(form.country_id));
+  const showStates = selectedCountryObj?.has_states;
+  const availableStates = selectedCountryObj?.states || [];
+
   const maxBirthDate = (() => {
     const d = new Date();
     d.setFullYear(d.getFullYear() - 18);
     return d.toISOString().split('T')[0];
   })();
 
-  // Próba ekstrakcji sensownego błędu z odpowiedzi DRF (różne kształty)
   const extractError = (data) => {
-    if (!data) return 'Nieznany błąd serwera.';
+    if (!data) return 'Unknown server error.';
     if (typeof data === 'string') return data;
     if (data.detail) return data.detail;
-    // Lista pól z błędami: { username: ['...'], email: ['...'] }
     const messages = [];
     for (const [field, val] of Object.entries(data)) {
       const items = Array.isArray(val) ? val : [val];
@@ -43,7 +81,7 @@ export default function Register() {
         if (typeof item === 'string') messages.push(`${field}: ${item}`);
       });
     }
-    return messages.length ? messages.join('\n') : 'Nieznany błąd.';
+    return messages.length ? messages.join('\n') : 'Unknown error.';
   };
 
   const handleSubmit = async (event) => {
@@ -51,35 +89,45 @@ export default function Register() {
     setError('');
     setMessage('');
 
-    // Walidacja po stronie klienta — szybki feedback bez round-tripa
+    // Walidacja frontendowa
     if (form.password !== form.password_confirm) {
-      setError('Hasła nie są takie same.');
+      setError('Passwords do not match.');
       return;
     }
     if (form.password.length < 8) {
-      setError('Hasło musi mieć co najmniej 8 znaków.');
+      setError('Password must be at least 8 characters long.');
       return;
     }
     if (!form.birth_date) {
-      setError('Data urodzenia jest wymagana.');
+      setError('Birth date is required.');
+      return;
+    }
+    if (!form.country_id) {
+      setError('Country selection is required.');
+      return;
+    }
+    if (showStates && !form.state_id) {
+      setError('For the selected country, choosing a state/region is mandatory.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // 1. Rejestracja
       const payload = {
         username: form.username,
         email: form.email,
         password: form.password,
         password_confirm: form.password_confirm,
         birth_date: form.birth_date,
+        country: parseInt(form.country_id),
       };
+      
+      if (showStates && form.state_id) {
+        payload.state = parseInt(form.state_id);
+      }
       if (form.shipping_address.trim()) {
         payload.shipping_address = form.shipping_address.trim();
       }
-      // Świadomie NIE wysyłamy 'role' - backend nada default 'buyer'.
-      // Streamera nadaje admin w panelu Django, nie user sam sobie.
 
       const regRes = await fetch('https://cardbid.up.railway.app/auth/register/', {
         method: 'POST',
@@ -94,11 +142,9 @@ export default function Register() {
         return;
       }
 
-      setMessage('Konto utworzone. Loguję cię automatycznie...');
+      setMessage('Account created...');
 
-      // 2. Auto-login - korzystamy z tych samych credentials.
-      // Login używa email + password (USERNAME_FIELD = 'email' w modelu).
-      const loginRes = await fetch('https://cardbid.up.railway.app/auth/login/', {
+      const loginRes = await fetch('https://cardbid.up.railway.app/api/auth/login/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: form.email, password: form.password }),
@@ -110,12 +156,11 @@ export default function Register() {
         localStorage.setItem('refresh_token', loginData.refresh);
         navigate('/');
       } else {
-        // Konto powstało ale auto-login się nie udał - kieruj na /login
-        setMessage('Konto utworzone. Zaloguj się ręcznie.');
+        setMessage('Account created. Please log in manually.');
         setTimeout(() => navigate('/login'), 1500);
       }
     } catch (err) {
-      setError('Błąd połączenia z serwerem.');
+      setError('Cannot connect to server.');
     } finally {
       setIsSubmitting(false);
     }
@@ -123,15 +168,15 @@ export default function Register() {
 
   return (
     <AuthFormLayout
-      title="Rejestracja"
-      subtitle="Utwórz konto kupującego. Aby zostać streamerem skontaktuj się z administracją."
-      footerText="Masz już konto?"
+      title="Register"
+      subtitle="Create a buyer account. To become a streamer, contact administration."
+      footerText="Already have an account?"
       footerHref="/login"
-      footerLink="Zaloguj się"
+      footerLink="Log in"
     >
       <form className="space-y-5" onSubmit={handleSubmit} autoComplete="off">
         <label className="block">
-          <span className="text-sm font-bold text-gray-300">Nazwa użytkownika</span>
+          <span className="text-sm font-bold text-gray-300">Username</span>
           <input
             name="username"
             value={form.username}
@@ -156,7 +201,7 @@ export default function Register() {
         </label>
 
         <label className="block">
-          <span className="text-sm font-bold text-gray-300">Data urodzenia (musisz mieć 18+)</span>
+          <span className="text-sm font-bold text-gray-300">Birth Date (you must be 18+)</span>
           <input
             name="birth_date"
             type="date"
@@ -169,8 +214,46 @@ export default function Register() {
         </label>
 
         <label className="block">
+          <span className="text-sm font-bold text-gray-300">Country</span>
+          <select
+            name="country_id"
+            value={form.country_id}
+            onChange={handleCountryChange}
+            required
+            className="mt-2 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
+          >
+            <option value="">-- Select Country --</option>
+            {countries.map((country) => (
+              <option key={country.id} value={country.id}>
+                {country.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {showStates && (
+          <label className="block">
+            <span className="text-sm font-bold text-gray-300">State / Province</span>
+            <select
+              name="state_id"
+              value={form.state_id}
+              onChange={handleChange}
+              required
+              className="mt-2 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
+            >
+              <option value="">-- Select Region --</option>
+              {availableStates.map((state) => (
+                <option key={state.id} value={state.id}>
+                  {state.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <label className="block">
           <span className="text-sm font-bold text-gray-300">
-            Adres dostawy <span className="text-gray-500 font-normal">(opcjonalnie)</span>
+            Shipping Address <span className="text-gray-500 font-normal">(optional)</span>
           </span>
           <textarea
             name="shipping_address"
@@ -182,7 +265,7 @@ export default function Register() {
         </label>
 
         <label className="block">
-          <span className="text-sm font-bold text-gray-300">Hasło (min. 8 znaków)</span>
+          <span className="text-sm font-bold text-gray-300">Password (min. 8 characters)</span>
           <input
             name="password"
             type="password"
@@ -196,7 +279,7 @@ export default function Register() {
         </label>
 
         <label className="block">
-          <span className="text-sm font-bold text-gray-300">Potwierdź hasło</span>
+          <span className="text-sm font-bold text-gray-300">Confirm Password</span>
           <input
             name="password_confirm"
             type="password"
@@ -218,7 +301,7 @@ export default function Register() {
               : 'bg-amber-400 hover:bg-amber-300'
           }`}
         >
-          {isSubmitting ? 'Tworzę konto...' : 'Utwórz konto'}
+          {isSubmitting ? 'Creating account...' : 'Create Account'}
         </button>
 
         {error && (
