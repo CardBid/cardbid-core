@@ -41,33 +41,14 @@ def process_bid_logic(user, auction_id, amount_raw):
 
         previous_winner = auction.winner
         previous_price = auction.current_price
+        
         previous_highest_bid = auction.bids.order_by('-amount').first()
-
+        loser = None
         if previous_highest_bid and previous_highest_bid.user != user:
-        loser = previous_highest_bid.user
-        
-        Notification.objects.create(
-            user=loser,
-            notification_type=Notification.Type.OUTBID,
-            message=f"You were outbid on {auction.card.name}! Current price is {auction.current_price} PLN."
-        )
-        
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"user_{loser.id}",
-            {
-                "type": "notify",
-                "data": {
-                    "type": "outbid_alert",
-                    "auction_id": auction.id,
-                    "message": f"You were outbid on {auction.card.name}!"
-                }
-            }
-        )
+            loser = previous_highest_bid.user
 
         if previous_winner and previous_winner.id != user.id:
             prev_user_locked = CardbidUser.objects.select_for_update().get(id=previous_winner.id)
-
             previous_fees = calculate_fees(previous_price, prev_user_locked)
             refund_amount = previous_fees['total_cost']
 
@@ -87,6 +68,26 @@ def process_bid_logic(user, auction_id, amount_raw):
         auction.current_price = bid_amount
         auction.winner = user_locked
         auction.save()
+
+        if loser:
+            Notification.objects.create(
+                user=loser,
+                notification_type=Notification.Type.OUTBID,
+                message=f"You were outbid on {auction.card.name}! Current price is {auction.current_price} PLN."
+            )
+        
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"user_{loser.id}",
+                {
+                    "type": "notify",
+                    "data": {
+                        "type": "outbid_alert",
+                        "auction_id": auction.id,
+                        "message": f"You were outbid on {auction.card.name}! Current price is {auction.current_price} PLN."
+                    }
+                }
+            )
 
         return True, "Bid accepted!", auction, total_cost
         
