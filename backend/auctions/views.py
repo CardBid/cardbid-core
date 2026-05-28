@@ -13,11 +13,11 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from .permissions import IsStreamer
-from .models import Card, Category, Auction, CardbidUser, Country, State, Bid, AuctionSlot, StreamRoom
+from .models import Card, Category, Auction, CardbidUser, Country, State, Bid, AuctionSlot, StreamRoom, Review, Notification
 from .serializers import (
     CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer,
     RegisterSerializer, BidSerializer, StreamRoomSerializer,
-    StateSerializer, CountrySerializer
+    StateSerializer, CountrySerializer, ReviewSerializer, NotificationSerializer
 )
 
 from django.db import transaction
@@ -764,7 +764,7 @@ class UserSettingsView(APIView):
             return Response({"message": "Settings have been saved.", "username": user.username})
         except Exception as e:
             return Response({"error": str(e)}, status=400)
-            
+
 class ActivateSlotView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -822,3 +822,38 @@ class ActivateSlotView(APIView):
             "message": f"Slot {slot.order} (Auction {current_auction.id}) is now active!",
             "start_date": current_auction.start_date
         })
+
+class ReviewCreateView(generics.CreateAPIView):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(buyer=self.request.user)
+
+class SellerReviewsView(generics.ListAPIView):
+    serializer_class = ReviewSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        seller_id = self.kwargs['seller_id']
+        return Review.objects.filter(seller_id=seller_id).order_by('-created_at')
+
+class UserNotificationsView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+
+class MarkNotificationReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            notif = Notification.objects.get(pk=pk, user=request.user)
+            notif.is_read = True
+            notif.save()
+            return Response({"message": "Notification marked as read."})
+        except Notification.DoesNotExist:
+            return Response({"error": "Notification not found."}, status=404)

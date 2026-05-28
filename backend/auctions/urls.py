@@ -4,7 +4,7 @@ from .views import (
     TopUpBalanceView, UserProfileView, CardListCreateView,
     CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView, UserInventoryView, UserActiveBidsView,
     AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView, BuyNowView, AuctionLiveDataView, RoomTimelineView, SlotOpenView,
-    UserBalanceView, CreateAuctionView, UserSettingsView, ActivateSlotView
+    UserBalanceView, CreateAuctionView, UserSettingsView, ActivateSlotView, ReviewCreateView, SellerReviewsView, UserNotificationsView, MarkNotificationReadView
 )
 
 urlpatterns = [
@@ -45,4 +45,10 @@ urlpatterns = [
     # --- COUNTRIES & STATES ---
     path('countries/', CountryListView.as_view(), name='country-list'),
     path('user/settings/', UserSettingsView.as_view(), name='user-settings'),
+
+    # --- REVIEWS & NOTIFICATIONS ---
+    path('reviews/create/', ReviewCreateView.as_view()),
+    path('reviews/seller/<int:seller_id>/', SellerReviewsView.as_view()),
+    path('notifications/', UserNotificationsView.as_view()),
+    path('notifications/<int:pk>/read/', MarkNotificationReadView.as_view()),
 ]

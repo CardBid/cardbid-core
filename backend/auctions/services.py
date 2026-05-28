@@ -1,6 +1,8 @@
 from decimal import Decimal, InvalidOperation
 from django.db import transaction
-from .models import Auction, Bid, CardbidUser
+from .models import Auction, Bid, CardbidUser, Notification
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 from .utils import calculate_fees
 
 def process_bid_logic(user, auction_id, amount_raw):
@@ -39,6 +41,29 @@ def process_bid_logic(user, auction_id, amount_raw):
 
         previous_winner = auction.winner
         previous_price = auction.current_price
+        previous_highest_bid = auction.bids.order_by('-amount').first()
+
+        if previous_highest_bid and previous_highest_bid.user != user:
+        loser = previous_highest_bid.user
+        
+        Notification.objects.create(
+            user=loser,
+            notification_type=Notification.Type.OUTBID,
+            message=f"You were outbid on {auction.card.name}! Current price is {auction.current_price} PLN."
+        )
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_{loser.id}",
+            {
+                "type": "notify",
+                "data": {
+                    "type": "outbid_alert",
+                    "auction_id": auction.id,
+                    "message": f"You were outbid on {auction.card.name}!"
+                }
+            }
+        )
 
         if previous_winner and previous_winner.id != user.id:
             prev_user_locked = CardbidUser.objects.select_for_update().get(id=previous_winner.id)
