@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Marketplace from './pages/Marketplace';
 import ProductDetail from './pages/ProductDetail';
 import Register from './pages/Register';
+import Studio from './pages/Studio';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/live" element={<LiveRoom />} />
           <Route path="/live/:id" element={<LiveRoom />} />
+          <Route path="/studio" element={<Studio />} />
         </Route>
       </Routes>
     </BrowserRouter>

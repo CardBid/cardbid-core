@@ -49,6 +49,14 @@ export default function AppLayout() {
 
   const user = useMemo(() => readCurrentUser(), [location, tick]);
 
+  // Link "Studio" widoczny tylko dla streamerów (panel zarządzania transmisją)
+  const navItems = useMemo(() => {
+    if (user?.role === 'streamer') {
+      return [...baseNavItems, { to: '/studio', label: 'Studio' }];
+    }
+    return baseNavItems;
+  }, [user]);
+
   // === AUTO-REFRESH ACCESS TOKEN ===
   // Schedule refresh 60s przed wygaśnięciem accessa. Korzystamy z refresh_token
   // (SimpleJWT trzyma go ~24h domyślnie). Dzięki temu user nie wylatuje co 5 min.
@@ -142,7 +150,7 @@ export default function AppLayout() {
           </NavLink>
 
           <nav className="hidden items-center gap-1 md:flex">
-            {baseNavItems.map((item) => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
