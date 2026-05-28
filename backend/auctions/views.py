@@ -748,18 +748,23 @@ class UserSettingsView(APIView):
 
         if 'shipping_address' in data:
             user.shipping_address = data['shipping_address']
-        
         if 'country_id' in data:
             user.country_id = data['country_id']
         if 'state_id' in data:
             user.state_id = data['state_id']
+            
+        if 'username' in data:
+            new_username = data['username']
+            if CardbidUser.objects.filter(username=new_username).exclude(id=user.id).exists():
+                return Response({"error": "Username is already taken."}, status=400)
+            user.username = new_username
 
         try:
             user.save()
-            return Response({"message": "Settings have been saved."})
+            return Response({"message": "Settings have been saved.", "username": user.username})
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
+            return Response({"error": str(e)}, status=400)
+            
 class ActivateSlotView(APIView):
     permission_classes = [IsAuthenticated]
 

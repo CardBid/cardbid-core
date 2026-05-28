@@ -20,6 +20,7 @@ from django.contrib.auth.models import AbstractUser
 from django.core.exceptions     import ValidationError
 from django.db                  import models
 from django.utils               import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 from auctions.managers      import CardbidUserManager
 from auctions.permissions   import Roles
@@ -339,3 +340,38 @@ class AuctionSlot(models.Model):
 
     def __str__(self):
         return f"AuctionSlot(auction={self.auction}, order={self.order}, room={self.room}, status={self.status}, is_opened={self.is_opened})"
+
+
+class Review(models.Model):
+    buyer = models.ForeignKey(CardbidUser, on_delete=models.CASCADE, related_name="reviews_given")
+    seller = models.ForeignKey(CardbidUser, on_delete=models.CASCADE, related_name="reviews_received")
+    auction = models.OneToOneField(Auction, on_delete=models.CASCADE)
+    
+    rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Review(seller={self.seller.username}, rating={self.rating}, auction={self.auction.id})"
+
+
+class Notification(models.Model):
+    class Type:
+        OUTBID = "outbid"
+        WON = "won"
+        SYSTEM = "system"
+        
+    TYPE_CHOICES = (
+        (Type.OUTBID, "Outbid"),
+        (Type.WON, "Won"),
+        (Type.SYSTEM, "System"),
+    )
+
+    user = models.ForeignKey(CardbidUser, on_delete=models.CASCADE, related_name="notifications")
+    notification_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default=Type.SYSTEM)
+    message = models.CharField(max_length=255)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Notification({self.user.username}, read={self.is_read}, msg={self.message})"
