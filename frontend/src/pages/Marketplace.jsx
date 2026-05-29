@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import ProductCard from '../components/marketplace/ProductCard';
+import { IconArrowRight } from '../components/icons';
 
 export default function Marketplace() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [query, setQuery] = useState('');
-  
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([{ id: 'all', label: 'All' }]);
   const [liveRooms, setLiveRooms] = useState([]);
@@ -49,14 +51,20 @@ export default function Marketplace() {
     fetchBaseData();
   }, [safeFetchJson]);
 
+  // Debounce wpisywania w wyszukiwarce, żeby nie strzelać do API przy każdym znaku.
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedQuery(query), 350);
+    return () => window.clearTimeout(id);
+  }, [query]);
+
   useEffect(() => {
     const params = new URLSearchParams();
     if (activeCategory !== 'all') params.append('category', activeCategory);
-    if (query) params.append('search', query);
-    
+    if (debouncedQuery) params.append('search', debouncedQuery);
+
     const url = `https://cardbid.up.railway.app/api/auctions/?${params.toString()}`;
     loadAuctions(url, false);
-  }, [activeCategory, query, safeFetchJson]);
+  }, [activeCategory, debouncedQuery, safeFetchJson]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -88,8 +96,8 @@ export default function Marketplace() {
                   <span className="bg-red-600 text-xs px-2 py-1 rounded font-bold uppercase">LIVE</span>
                   <h2 className="text-2xl font-black mt-2 text-white">{featuredLive.title}</h2>
                 </div>
-                <Link to={`/live/${featuredLive.id}`} className="mt-4 text-blue-400 hover:text-blue-300 font-bold">
-                  Join the live stream →
+                <Link to={`/live/${featuredLive.id}`} className="mt-4 inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 font-bold">
+                  Join the live stream <IconArrowRight className="h-4 w-4" />
                 </Link>
              </div>
           )}
@@ -123,6 +131,22 @@ export default function Marketplace() {
           ))}
         </div>
 
+        {loading && products.length === 0 ? (
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="animate-pulse overflow-hidden rounded-lg border border-white/10 bg-gray-900">
+                <div className="aspect-[4/3] bg-gray-800" />
+                <div className="space-y-3 p-4">
+                  <div className="h-4 w-1/3 rounded bg-gray-800" />
+                  <div className="h-5 w-3/4 rounded bg-gray-800" />
+                  <div className="h-20 rounded-lg bg-gray-800" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : products.length === 0 ? (
+          <div className="py-16 text-center font-bold text-gray-500">No offers found.</div>
+        ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {products.map((p) => {
             const isBuyNow = (p.auction_type === 'buy_now' || p.auction_type === 'Buy Now');
@@ -144,6 +168,7 @@ export default function Marketplace() {
             return <ProductCard key={p.id} product={mappedProduct} />;
           })}
         </div>
+        )}
         {loading && products.length > 0 && (
            <div className="text-center py-10 font-bold text-gray-500">
              Loading next offers...

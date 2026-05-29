@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import VideoPlayer from '../components/VideoPlayer';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import {
+  IconHourglass, IconMoon, IconBan, IconTv, IconWarning, IconCrown, IconArrowRight,
+  IconCalendar, IconCheckCircle, IconBox, IconFire, IconCheck, IconCards, IconCart,
+  IconSwords, IconLiveDot, IconMoney, IconChevronDown, IconChat, IconMinus,
+} from '../components/icons';
 
 // --- KONFIGURACJA WIDEO ---
 const videoJsOptions = {
@@ -173,8 +178,8 @@ const handlePointerMove = (e) => {
   });
   
   const [messages, setMessages] = useState([
-    { id: 1, user: 'KarcianyŚwir', text: 'Kiedy zaczynamy?!' },
-    { id: 2, user: 'System', text: 'Użytkownik X właśnie kupił slota #1!', isSystem: true },
+    { id: 1, user: 'CardManiac', text: 'When do we start?!' },
+    { id: 2, user: 'System', text: 'User X just bought slot #1!', isSystem: true },
   ]);
   const [newMessage, setNewMessage] = useState('');
   
@@ -238,11 +243,11 @@ const handlePointerMove = (e) => {
   // Funkcja KUP TERAZ
   const handleBuyNow = async () => {
     if (!token) {
-      setErrorMsg("Musisz być zalogowany aby kupić.");
+      setErrorMsg("You must be logged in to buy.");
       return;
     }
     if (isFinished) {
-      setErrorMsg("Ta aukcja jest już zakończona.");
+      setErrorMsg("This auction has already ended.");
       return;
     }
     setErrorMsg(null);
@@ -261,16 +266,16 @@ const handlePointerMove = (e) => {
 
       if (!response.ok) {
         if (response.status === 401) {
-          setErrorMsg("Sesja wygasła. Zaloguj się ponownie.");
+          setErrorMsg("Session expired. Please log in again.");
         } else {
-          setErrorMsg(data.error || data.detail || "Błąd zakupu");
+          setErrorMsg(data.error || data.detail || "Purchase error");
         }
       } else {
-        setSuccessMsg("Zakup zakończony pomyślnie.");
+        setSuccessMsg("Purchase completed successfully.");
         // WebSocket wyśle sygnał 'auction_interrupted' i sam zakończy aukcję
       }
     } catch (err) {
-      setErrorMsg("Błąd połączenia z serwerem.");
+      setErrorMsg("Connection error.");
     }
   };
 
@@ -283,15 +288,15 @@ const handlePointerMove = (e) => {
 
   const handleBid = async () => {
     if (!token) {
-      setErrorMsg("Musisz być zalogowany aby licytować.");
+      setErrorMsg("You must be logged in to bid.");
       return;
     }
     if (isFinished) {
-      setErrorMsg("Ta aukcja jest już zakończona.");
+      setErrorMsg("This auction has already ended.");
       return;
     }
     if (slotStatusForCurrent === 'upcoming') {
-      setErrorMsg("Licytacja jeszcze się nie zaczęła.");
+      setErrorMsg("The auction hasn't started yet.");
       return;
     }
     setErrorMsg(null);
@@ -323,10 +328,10 @@ const handlePointerMove = (e) => {
 
       if (!response.ok) {
         if (response.status === 401) {
-          setErrorMsg("Sesja wygasła. Zaloguj się ponownie.");
+          setErrorMsg("Session expired. Please log in again.");
         } else {
           // Backend odrzucił (np. brak kasy, za mała kwota)
-          setErrorMsg(data.error || data.detail || "Błąd licytacji");
+          setErrorMsg(data.error || data.detail || "Bid error");
         }
       } else {
         // Licytacja się udała! isWinning ustawi się autorytetnie z WS bid_update.
@@ -335,7 +340,7 @@ const handlePointerMove = (e) => {
         setCustomBidAmount('');
       }
     } catch (err) {
-      setErrorMsg("Błąd połączenia z serwerem.");
+      setErrorMsg("Connection error.");
     }
   };
 
@@ -351,11 +356,11 @@ const handlePointerMove = (e) => {
         socket.send(JSON.stringify({ type: 'chat_message', message: text.slice(0, 200) }));
       } catch {
         // jeśli wysyłka padnie, pokaż lokalnie żeby user widział że "wpisał"
-        setMessages(prev => [...prev, { id: Date.now(), user: 'Ty', text }].slice(-50));
+        setMessages(prev => [...prev, { id: Date.now(), user: 'You', text }].slice(-50));
       }
     } else {
       // Brak połączenia (np. niezalogowany) - wyświetlamy lokalnie, jako placeholder
-      setMessages(prev => [...prev, { id: Date.now(), user: 'Ty', text }].slice(-50));
+      setMessages(prev => [...prev, { id: Date.now(), user: 'You', text }].slice(-50));
     }
     setNewMessage('');
   };
@@ -407,9 +412,9 @@ const handlePointerMove = (e) => {
           } else if (data.type === 'chat_error') {
             // Tłumaczymy lokalnie znane komunikaty z backendu (są po angielsku w consumers.py)
             const rawMsg = data.message || '';
-            let displayMsg = 'Błąd czatu.';
+            let displayMsg = 'Chat error.';
             if (/too quickly/i.test(rawMsg)) {
-              displayMsg = 'Wysyłasz wiadomości zbyt szybko. Odczekaj chwilę.';
+              displayMsg = 'You are sending messages too quickly. Please wait a moment.';
             } else if (rawMsg) {
               displayMsg = rawMsg;
             }
@@ -504,12 +509,12 @@ const handlePointerMove = (e) => {
     ...timelineData.opened.map(s => ({
       id: s.slot_id, slot_id: s.slot_id, auction_id: s.auction_id,
       time: `#${s.order}`, title: s.card_name, status: 'opened',
-      info: 'Otwarto', winner: s.winner
+      info: 'Opened', winner: s.winner
     })),
     ...timelineData.waiting_to_open.map(s => ({
       id: s.slot_id, slot_id: s.slot_id, auction_id: s.auction_id,
       time: `#${s.order}`, title: s.card_name, status: 'queued',
-      info: 'Czeka na otwarcie', winner: s.winner
+      info: 'Waiting to open', winner: s.winner
     })),
     ...(timelineData.current ? [{
       id: timelineData.current.slot_id,
@@ -517,13 +522,13 @@ const handlePointerMove = (e) => {
       auction_id: timelineData.current.auction_id,
       time: `#${timelineData.current.order}`,
       title: timelineData.current.card_name,
-      status: 'active', info: 'Licytacja trwa!',
+      status: 'active', info: 'Auction in progress!',
       winner: null
     }] : []),
     ...timelineData.queue.map(s => ({
       id: s.slot_id, slot_id: s.slot_id, auction_id: s.auction_id,
       time: `#${s.order}`, title: s.card_name, status: 'upcoming',
-      info: 'Wkrótce', winner: null
+      info: 'Soon', winner: null
     }))
   ].sort((a, b) => {
     // Order: opened/queued (zakończone) → active → upcoming
@@ -740,18 +745,18 @@ const handlePointerMove = (e) => {
 
   if (roomCheck === 'loading') {
     return renderBlocker(
-      '⏳',
-      'Sprawdzam transmisje...',
-      'Łączę się z serwerem.',
+      <IconHourglass className="mx-auto h-12 w-12 text-gray-400" />,
+      'Checking streams...',
+      'Connecting to the server.',
       <div className="w-8 h-8 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin mx-auto" />
     );
   }
 
   if (roomCheck === 'no_streams') {
     return renderBlocker(
-      '🌙',
-      'Nikt aktualnie nie streamuje',
-      'Wróć później albo zerknij na marketplace.',
+      <IconMoon className="mx-auto h-12 w-12 text-gray-400" />,
+      'No one is streaming right now',
+      'Come back later or take a look at the marketplace.',
       <div className="flex gap-2 justify-center">
         <Link to="/marketplace" className="px-4 py-2 rounded-lg bg-amber-400 text-gray-950 font-black text-sm hover:bg-amber-300 transition">
           Marketplace
@@ -762,13 +767,13 @@ const handlePointerMove = (e) => {
 
   if (roomCheck === 'not_found') {
     return renderBlocker(
-      '🚫',
-      'Ta transmisja nie istnieje',
-      `Pokój o ID ${roomId || '?'} nie jest dostępny. Może streamer właśnie zakończył transmisję.`,
+      <IconBan className="mx-auto h-12 w-12 text-gray-400" />,
+      'This stream does not exist',
+      `Room with ID ${roomId || '?'} is not available. The streamer may have just ended the broadcast.`,
       <div className="flex gap-2 justify-center flex-wrap">
         {liveRooms.length > 0 && (
           <Link to={`/live/${liveRooms[0].id}`} className="px-4 py-2 rounded-lg bg-emerald-500 text-gray-950 font-black text-sm hover:bg-emerald-400 transition">
-            Pierwsza dostępna transmisja
+            First available stream
           </Link>
         )}
         <Link to="/marketplace" className="px-4 py-2 rounded-lg bg-white/10 text-white font-bold text-sm hover:bg-white/20 transition">
@@ -780,9 +785,9 @@ const handlePointerMove = (e) => {
 
   if (roomCheck === 'pick') {
     return renderBlocker(
-      '📺',
-      'Wybierz transmisję',
-      `Aktualnie ${liveRooms.length === 1 ? 'jest dostępna' : 'są dostępne'} ${liveRooms.length} transmisj${liveRooms.length === 1 ? 'a' : liveRooms.length < 5 ? 'e' : 'i'} na żywo.`,
+      <IconTv className="mx-auto h-12 w-12 text-gray-400" />,
+      'Choose a stream',
+      `There ${liveRooms.length === 1 ? 'is' : 'are'} currently ${liveRooms.length} live stream${liveRooms.length === 1 ? '' : 's'} available.`,
       <div className="flex flex-col gap-2">
         {liveRooms.map(r => (
           <Link
@@ -805,8 +810,8 @@ return (
     <div className={`min-h-screen bg-gray-950 text-white p-4 pb-40 lg:pb-4 transition-all duration-500 ${isTheater ? 'flex flex-col' : 'grid grid-cols-1 lg:grid-cols-12 gap-6'}`}>
       {roomCheck === 'unverified' && (
         <div className="lg:col-span-12 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2">
-          <span>⚠️</span>
-          <span>Nie udało się zweryfikować pokoju (endpoint /api/live-rooms/ niedostępny). Działasz w trybie awaryjnym.</span>
+          <IconWarning className="h-4 w-4 shrink-0" />
+          <span>Could not verify the room (endpoint /api/live-rooms/ unavailable). You are running in fallback mode.</span>
         </div>
       )}
       {/* LEWA STRONA (Wideo + Harmonogram) */}
@@ -864,22 +869,22 @@ return (
             {/* Uchwyt do przesuwania */}
             <div 
               onPointerDown={(e) => handlePointerDown(e, 'bid')} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
-              className="w-full h-6 bg-gray-800/80 flex items-center justify-center cursor-move touch-none border-b border-gray-600/50" title="Chwyć i przesuń"
+              className="w-full h-6 bg-gray-800/80 flex items-center justify-center cursor-move touch-none border-b border-gray-600/50" title="Grab and drag"
             >
               <div className="w-8 h-1 bg-gray-500 rounded-full pointer-events-none"></div>
             </div>
             
             <div className="p-3">
               <div className="flex justify-between items-center mb-1 gap-2">
-                <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest truncate flex-1">{auctionData?.card_name || auctionData?.card_details?.name || 'Ładowanie...'}</p>
-                {isWinning && <span className="text-[8px] bg-green-500/20 text-green-400 font-bold px-1.5 py-0.5 rounded animate-pulse border border-green-500/30 whitespace-nowrap">👑 PROWADZISZ</span>}
+                <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest truncate flex-1">{auctionData?.card_name || auctionData?.card_details?.name || 'Loading...'}</p>
+                {isWinning && <span className="inline-flex items-center gap-1 text-[8px] bg-green-500/20 text-green-400 font-bold px-1.5 py-0.5 rounded animate-pulse border border-green-500/30 whitespace-nowrap"><IconCrown className="h-2.5 w-2.5" /> LEADING</span>}
               </div>
               {errorMsg && <p className="text-[9px] text-red-400 font-bold mb-1 text-center bg-red-900/30 p-1 rounded">{errorMsg}</p>}
               {successMsg && <p className="text-[9px] text-green-400 font-bold mb-1 text-center bg-green-900/30 p-1 rounded">{successMsg}</p>}
 
               <div className="flex justify-between items-end mb-2 mt-1">
                 <span className="text-[9px] text-gray-400 uppercase font-bold tracking-widest pb-1">
-                  {(auctionData?.auction_type === 'buy_now' || auctionData?.auction_type === 'Tylko Kup Teraz') ? 'Cena (Kup teraz):' : 'Aktualna cena:'}
+                  {(auctionData?.auction_type === 'buy_now' || auctionData?.auction_type === 'Tylko Kup Teraz') ? 'Price (Buy now):' : 'Current price:'}
                 </span>
                 <span className={`text-2xl font-black tracking-tight transition-colors ${isWinning ? 'text-green-400' : 'text-white'}`}>${Number(currentPrice || 0).toFixed(2)}</span>
               </div>
@@ -887,7 +892,7 @@ return (
               {/* Zakończona aukcja - tylko info */}
               {isFinished && (
                 <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-2 text-[10px] text-gray-400 text-center mb-2">
-                  Aukcja zakończona{auctionData?.winner_name ? `. Wygrał: ${auctionData.winner_name}` : ''}.
+                  Auction ended{auctionData?.winner_name ? `. Winner: ${auctionData.winner_name}` : ''}.
                 </div>
               )}
 
@@ -916,12 +921,12 @@ return (
 
                   <button onClick={handleBid} disabled={isWinning || !token} className={`w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition mb-2 ${(isWinning || !token) ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_10px_rgba(22,163,7,0.4)]'}`}>
                     {!token
-                      ? 'Zaloguj się aby licytować'
+                      ? 'Log in to bid'
                       : isWinning
-                        ? 'Oczekiwanie...'
+                        ? 'Waiting...'
                         : customBidAmount
-                          ? `Licytuj $${(parseFloat(customBidAmount) || 0).toFixed(2)}`
-                          : `Podbij o $${bidIncrement}`
+                          ? `Bid $${(parseFloat(customBidAmount) || 0).toFixed(2)}`
+                          : `Raise by $${bidIncrement}`
                     }
                   </button>
                 </>
@@ -930,7 +935,7 @@ return (
               {/* Wkrótce bez buy_now - info zamiast akcji */}
               {slotStatusForCurrent === 'upcoming' && !auctionData?.buy_now_price && (
                 <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-2 text-[10px] text-gray-400 text-center mb-2">
-                  Wkrótce się zacznie. Poczekaj na otwarcie slotu.
+                  Starting soon. Wait for the slot to open.
                 </div>
               )}
 
@@ -940,8 +945,8 @@ return (
                  auctionData?.auction_type === 'hybrid' || auctionData?.auction_type === 'Licytacja + Kup Teraz') && (
                 <button onClick={handleBuyNow} disabled={!token} className={`w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition mb-2 ${token ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}>
                   {!token
-                    ? 'Zaloguj się aby kupić'
-                    : `Kup teraz $${Number(auctionData.buy_now_price).toFixed(2)}`
+                    ? 'Log in to buy'
+                    : `Buy now $${Number(auctionData.buy_now_price).toFixed(2)}`
                   }
                 </button>
                 )
@@ -953,7 +958,7 @@ return (
                   onClick={() => navigate(`/product/${currentAuctionId}`)}
                   className="w-full py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition border border-gray-600 text-gray-300 hover:bg-white/10"
                 >
-                  Szczegóły →
+                  Details <IconArrowRight className="inline h-3 w-3 align-[-0.125em]" />
                 </button>
               )}
             </div>
@@ -967,13 +972,13 @@ return (
             {/* Uchwyt do przesuwania */}
             <div 
               onPointerDown={(e) => handlePointerDown(e, 'chat')} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
-              className="w-full h-7 bg-gray-800/80 flex items-center justify-center cursor-move touch-none border-b border-gray-700/50" title="Chwyć i przesuń"
+              className="w-full h-7 bg-gray-800/80 flex items-center justify-center cursor-move touch-none border-b border-gray-700/50" title="Grab and drag"
             >
               <div className="w-10 h-1 bg-gray-500 rounded-full pointer-events-none"></div>
             </div>
 
             <div className="bg-black/20 px-3 py-1.5 flex justify-between items-center border-b border-gray-700/30">
-              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Czat na żywo</span>
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Live chat</span>
             </div>
             
             <div ref={overlayChatRef} className="flex-1 overflow-y-auto p-3 space-y-2 text-xs custom-scrollbar">
@@ -993,7 +998,7 @@ return (
 
             {/* INPUT DO PISANIA W TRYBIE KINOWYM */}
             <div className="p-2 bg-black/40 border-t border-gray-700/50 flex gap-2">
-               <input type="text" disabled={!token} placeholder={token ? "Napisz..." : "Zaloguj się aby pisać"} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className={`flex-1 text-[10px] rounded px-2 py-1.5 outline-none border ${token ? 'bg-gray-800 text-white border-gray-600 focus:border-blue-500' : 'bg-gray-900 text-gray-500 border-gray-700 cursor-not-allowed'}`} />
+               <input type="text" disabled={!token} placeholder={token ? "Type..." : "Log in to chat"} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className={`flex-1 text-[10px] rounded px-2 py-1.5 outline-none border ${token ? 'bg-gray-800 text-white border-gray-600 focus:border-blue-500' : 'bg-gray-900 text-gray-500 border-gray-700 cursor-not-allowed'}`} />
                <button onClick={handleSendMessage} className="bg-blue-600 text-white px-3 rounded hover:bg-blue-500 transition">                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg></button>
             </div>
           </div>
@@ -1018,23 +1023,23 @@ return (
                   <button onClick={() => setOverlayChatMode((prev) => (prev + 1) % 3)} className={`transition tooltip-container relative group/btn ${overlayChatMode > 0 ? 'text-blue-500' : 'text-gray-400 hover:text-white'}`}>
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                     <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition z-50">
-                      {overlayChatMode === 0 ? 'Włącz Czat (Pływający)' : overlayChatMode === 1 ? 'Włącz Czat (Klasyczny)' : 'Wyłącz Czat'}
+                      {overlayChatMode === 0 ? 'Enable Chat (Floating)' : overlayChatMode === 1 ? 'Enable Chat (Classic)' : 'Disable Chat'}
                     </span>
                   </button>
                   <button onClick={() => setShowOverlayBid(!showOverlayBid)} className={`transition tooltip-container relative group/btn ${showOverlayBid ? 'text-yellow-500' : 'text-gray-400 hover:text-white'}`}>
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition">Licytacja</span>
+                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition">Bidding</span>
                   </button>
                 </div>
               )}
 
               <button onClick={() => setIsTheater(!isTheater)} className={`transition tooltip-container relative group/btn ${isTheater ? 'text-blue-500' : 'text-white hover:text-blue-400'}`}>
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 6h16v12H4z" /><path d="M8 6v12M16 6v12" /></svg>
-                <span className="absolute -top-8 right-0 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition z-50">Tryb Kinowy</span>
+                <span className="absolute -top-8 right-0 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition z-50">Theater Mode</span>
               </button>
               <button onClick={toggleFullscreen} className="text-white hover:text-blue-400 transition tooltip-container relative group/btn">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-                <span className="absolute -top-8 right-0 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition z-50">Pełny Ekran</span>
+                <span className="absolute -top-8 right-0 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition z-50">Fullscreen</span>
               </button>
             </div>
           </div>
@@ -1045,18 +1050,18 @@ return (
         <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 flex flex-col">
           <div className="flex justify-between items-end mb-4">
             <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-              📅 Harmonogram Otwierania
+              <IconCalendar className="h-3.5 w-3.5" /> Opening Schedule
             </h3>
-            <span className="bg-gray-800 text-gray-500 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Kolejka na dziś</span>
+            <span className="bg-gray-800 text-gray-500 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Today's queue</span>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-3 custom-scrollbar">
             {timelineSlots.map((slot) => {
               let borderStyle = "border-gray-700"; let bgStyle = "bg-gray-800"; let textStyle = "text-gray-400"; let badge = null;
 
-              if (slot.status === 'opened') { bgStyle = "bg-gray-800/50"; borderStyle = "border-gray-800"; textStyle = "text-gray-600 line-through"; badge = <span className="text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg">✅ ZAKOŃCZONE</span>; }
-              else if (slot.status === 'queued') { borderStyle = "border-blue-500/50"; bgStyle = "bg-blue-900/20"; textStyle = "text-gray-200"; badge = <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">📦 W KOLEJCE</span>; }
-              else if (slot.status === 'active') { borderStyle = "border-yellow-500"; bgStyle = "bg-yellow-900/20"; textStyle = "text-yellow-400"; badge = <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg animate-pulse">🔥 TERAZ</span>; }
-              else { badge = <span className="text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg">⏳ WKRÓTCE</span>; }
+              if (slot.status === 'opened') { bgStyle = "bg-gray-800/50"; borderStyle = "border-gray-800"; textStyle = "text-gray-600 line-through"; badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg"><IconCheckCircle className="h-3 w-3" /> FINISHED</span>; }
+              else if (slot.status === 'queued') { borderStyle = "border-blue-500/50"; bgStyle = "bg-blue-900/20"; textStyle = "text-gray-200"; badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm"><IconBox className="h-3 w-3" /> IN QUEUE</span>; }
+              else if (slot.status === 'active') { borderStyle = "border-yellow-500"; bgStyle = "bg-yellow-900/20"; textStyle = "text-yellow-400"; badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg animate-pulse"><IconFire className="h-3 w-3" /> NOW</span>; }
+              else { badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg"><IconHourglass className="h-3 w-3" /> SOON</span>; }
 
               const isSelected = slot.auction_id && Number(slot.auction_id) === Number(currentAuctionId);
               // Tylko aktywna licytacja i wkrótce są interaktywne - zakończone już nie da się tknąć
@@ -1067,9 +1072,9 @@ return (
 
               // Akcja sugerowana w panelu po wybraniu
               const actionHint = slot.status === 'active'
-                ? '💸 Licytuj w panelu'
+                ? <><IconMoney className="inline h-3.5 w-3.5 align-[-0.125em]" /> Bid in the panel</>
                 : slot.status === 'upcoming'
-                  ? '🛒 Kup teraz w panelu'
+                  ? <><IconCart className="inline h-3.5 w-3.5 align-[-0.125em]" /> Buy now in the panel</>
                   : null;
 
               return (
@@ -1077,14 +1082,14 @@ return (
                   key={slot.id}
                   onClick={() => { if (isClickable) setCurrentAuctionId(slot.auction_id); }}
                   className={`group min-w-[220px] p-4 rounded-xl border-2 transition-colors ${borderStyle} ${bgStyle} ${finishedDim} relative flex flex-col justify-between shrink-0 overflow-hidden ${selectedRing} ${hoverRing} ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
-                  title={isClickable ? 'Kliknij aby załadować w panelu szybkich akcji →' : 'Ta aukcja jest zakończona'}
+                  title={isClickable ? 'Click to load in the quick actions panel' : 'This auction has ended'}
                 >
                   <div className="absolute top-0 right-0 z-10">{badge}</div>
 
                   {/* "Wybrane" znacznik dla aktualnie wybranego slota */}
                   {isSelected && (
                     <div className="absolute top-2 left-2 z-10 bg-emerald-500 text-gray-950 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-md">
-                      ✓ Wybrane
+                      <span className="inline-flex items-center gap-1"><IconCheck className="h-2.5 w-2.5" /> Selected</span>
                     </div>
                   )}
 
@@ -1099,14 +1104,14 @@ return (
                     </span>
                     {slot.winner && (
                       <span className="block text-[10px] text-gray-500 mt-1 uppercase tracking-wider">
-                        Wygrał: <span className="text-gray-300 font-bold">{slot.winner}</span>
+                        Winner: <span className="text-gray-300 font-bold">{slot.winner}</span>
                       </span>
                     )}
 
                     {/* Hint do kliknięcia - widoczny przy hoverze klikalnych slotów */}
                     {isClickable && !isSelected && (
                       <span className="block text-[10px] font-bold uppercase tracking-wider mt-2 text-emerald-400/0 group-hover:text-emerald-400 transition-colors">
-                        {actionHint} →
+                        {actionHint} <IconArrowRight className="inline h-3 w-3 align-[-0.125em]" />
                       </span>
                     )}
                   </div>
@@ -1119,10 +1124,10 @@ return (
         <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 flex flex-col mb-4">
           <div className="flex justify-between items-end mb-4">
             <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-              🃏 Pozostałe Licytacje
+              <IconCards className="h-3.5 w-3.5" /> Other Auctions
             </h3>
-            <Link to="/marketplace" className="text-[10px] font-bold text-blue-500 hover:text-blue-400 transition uppercase tracking-wider">
-              Zobacz rynek &rarr;
+            <Link to="/marketplace" className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-500 hover:text-blue-400 transition uppercase tracking-wider">
+              View market <IconArrowRight className="h-3 w-3" />
             </Link>
           </div>
 
@@ -1133,9 +1138,9 @@ return (
               const isHybrid = auction.auction_type === 'hybrid' || auction.auction_type === 'Licytacja + Kup Teraz';
               
               // Odznaki w stylu Harmonogramu
-              let badge = <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg">🔥 LICYTACJA</span>;
-              if (isBuyNow) badge = <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">🛒 KUP TERAZ</span>;
-              if (isHybrid) badge = <span className="text-[10px] font-bold bg-purple-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">⚔️ LIC. + KUP</span>;
+              let badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg"><IconFire className="h-3 w-3" /> AUCTION</span>;
+              if (isBuyNow) badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm"><IconCart className="h-3 w-3" /> BUY NOW</span>;
+              if (isHybrid) badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-purple-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm"><IconSwords className="h-3 w-3" /> BID + BUY</span>;
 
               // Wszystkie karty pełne kolory; aktywna dostaje zielony ring
               const isActive = String(currentAuctionId) === String(auction.id);
@@ -1157,7 +1162,9 @@ return (
               const hoverRing = !isActive ? 'hover:ring-1 hover:ring-inset hover:ring-emerald-400/50' : '';
 
               // Akcja sugerowana w panelu po wybraniu - zależy od typu aukcji
-              const actionHint = isBuyNow ? '🛒 Kup teraz w panelu' : '💸 Licytuj w panelu';
+              const actionHint = isBuyNow
+                ? <><IconCart className="inline h-3.5 w-3.5 align-[-0.125em]" /> Buy now in the panel</>
+                : <><IconMoney className="inline h-3.5 w-3.5 align-[-0.125em]" /> Bid in the panel</>;
 
               const btnClass = isBuyNow ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-yellow-500 hover:bg-yellow-400 text-black';
 
@@ -1166,7 +1173,7 @@ return (
                   key={auction.id}
                   onClick={() => setCurrentAuctionId(auction.id)}
                   className={`min-w-[220px] p-4 rounded-xl border-2 transition-colors cursor-pointer group flex flex-col justify-between shrink-0 overflow-hidden relative ${borderStyle} ${bgStyle} ${selectedRing} ${hoverRing}`}
-                  title="Kliknij aby załadować w panelu szybkich akcji →"
+                  title="Click to load in the quick actions panel"
                 >
                   {/* ODZNAKA W PRAWYM GÓRNYM ROGU */}
                   <div className="absolute top-0 right-0 z-10">{badge}</div>
@@ -1174,22 +1181,22 @@ return (
                   {/* "Wybrane" znacznik dla aktualnie wybranej aukcji */}
                   {isActive && (
                     <div className="absolute top-2 left-2 z-10 bg-emerald-500 text-gray-950 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-md">
-                      ✓ Wybrane
+                      <span className="inline-flex items-center gap-1"><IconCheck className="h-2.5 w-2.5" /> Selected</span>
                     </div>
                   )}
 
                   <div className={`${isActive ? 'mt-6' : 'mt-2'}`}>
                     <span className={`font-black italic text-lg block uppercase tracking-tight pr-16 ${titleColor}`}>
-                      {auction.card_details?.name || auction.card_name || 'Karta'}
+                      {auction.card_details?.name || auction.card_name || 'Card'}
                     </span>
                     {(auction.card_details?.grade || auction.grade) && (
-                      <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mt-1">Ocena: {auction.card_details?.grade || auction.grade}</p>
+                      <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mt-1">Grade: {auction.card_details?.grade || auction.grade}</p>
                     )}
                   </div>
 
                   <div className="mt-3 pt-3 border-t border-gray-700/50 flex flex-col gap-2">
                     <div className="flex justify-between items-end">
-                      <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Cena:</span>
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Price:</span>
                       <span className={`text-xl font-black ${priceColor}`}>
                         ${auction.current_price}
                       </span>
@@ -1198,7 +1205,7 @@ return (
                     {/* Hint do kliknięcia - widoczny przy hoverze gdy nie wybrane */}
                     {!isActive && (
                       <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-400/0 group-hover:text-emerald-400 transition-colors">
-                        {actionHint} →
+                        {actionHint} <IconArrowRight className="inline h-3 w-3 align-[-0.125em]" />
                       </span>
                     )}
 
@@ -1209,13 +1216,13 @@ return (
                       }}
                       className={`w-full text-center py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-colors shadow-md ${btnClass}`}
                     >
-                      {isBuyNow ? 'Kup Teraz' : 'Licytuj'}
+                      {isBuyNow ? 'Buy Now' : 'Bid'}
                     </button>
                   </div>
                 </div>
               );
             }) : (
-              <p className="text-sm text-gray-500">Wszystkie licytacje są już w tym pokoju.</p>
+              <p className="text-sm text-gray-500">All auctions are already in this room.</p>
             )}
           </div>
         </div>
@@ -1223,7 +1230,7 @@ return (
         <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 flex flex-col">
           <div className="flex justify-between items-end mb-4">
             <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-              🔴 Inne Transmisje Live
+              <IconLiveDot className="h-2.5 w-2.5 text-red-500" /> Other Live Streams
             </h3>
           </div>
           <div className="flex gap-4 overflow-x-auto custom-scrollbar">
@@ -1235,7 +1242,7 @@ return (
               >
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-[10px] font-bold bg-red-600/20 text-red-500 px-2 py-0.5 rounded uppercase">LIVE</span>
-                  <span className="text-[10px] text-gray-500">Pokój #{room.id}</span>
+                  <span className="text-[10px] text-gray-500">Room #{room.id}</span>
                 </div>
                 <h4 className="font-bold text-gray-200 group-hover:text-white truncate">{room.title}</h4>
                 <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-wider">
@@ -1243,7 +1250,7 @@ return (
                 </p>
               </Link>
             )) : (
-              <p className="text-sm text-gray-500">Brak innych aktywnych transmisji w tym momencie.</p>
+              <p className="text-sm text-gray-500">No other active streams at the moment.</p>
             )}
           </div>
         </div>
@@ -1259,15 +1266,15 @@ return (
           {/* ========================================================= */}
           {isBidMinimized ? (
             <div className="shrink-0 bg-gray-900 rounded-2xl px-4 py-3 border border-gray-800 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-widest text-gray-300">
-                💸 Licytacja zwinięta
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gray-300">
+                <IconMoney className="h-4 w-4" /> Bidding collapsed
               </span>
               <button
                 onClick={() => setIsBidMinimized(false)}
                 className="text-xs font-bold text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded hover:bg-white/5 transition"
-                title="Pokaż panel licytacji"
+                title="Show bidding panel"
               >
-                Rozwiń ▾
+                <span className="inline-flex items-center gap-1">Expand <IconChevronDown className="h-3.5 w-3.5" /></span>
               </button>
             </div>
           ) : (
@@ -1287,41 +1294,41 @@ return (
               return (
                 <div className="bg-gray-800/40 rounded-2xl p-6 border-2 border-gray-700 shrink-0 relative overflow-hidden">
                   <div className="absolute top-0 left-0">
-                    <span className="text-[10px] font-bold bg-gray-700 text-gray-300 px-3 py-1.5 rounded-br-xl rounded-tl-xl block shadow-sm">
-                      ✅ ZAKOŃCZONE
+                    <span className="flex items-center gap-1 text-[10px] font-bold bg-gray-700 text-gray-300 px-3 py-1.5 rounded-br-xl rounded-tl-xl shadow-sm">
+                      <IconCheckCircle className="h-3 w-3" /> FINISHED
                     </span>
                   </div>
                   <button
                     onClick={() => setIsBidMinimized(true)}
-                    title="Zwiń panel"
+                    title="Collapse panel"
                     className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
                   >
-                    −
+                    <IconMinus className="h-5 w-5" />
                   </button>
                   <div className="mt-8 mb-5">
-                    <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Aukcja zakończona</span>
+                    <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Auction ended</span>
                     <span className="block text-2xl font-black italic uppercase tracking-tighter text-gray-200">
-                      {auctionData?.card_details?.name || auctionData?.card_name || 'Karta'}
+                      {auctionData?.card_details?.name || auctionData?.card_name || 'Card'}
                     </span>
                     {auctionData?.winner_name && (
                       <span className="block text-gray-400 text-xs mt-2">
-                        Wygrał: <span className="font-bold text-emerald-300">{auctionData.winner_name}</span>
+                        Winner: <span className="font-bold text-emerald-300">{auctionData.winner_name}</span>
                       </span>
                     )}
                   </div>
                   <div className="rounded-xl p-4 mb-4 flex justify-between items-center border bg-gray-900/50 border-gray-700">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Cena końcowa:</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Final price:</span>
                     <span className="text-3xl font-black text-gray-200">${Number(currentPrice || 0).toFixed(2)}</span>
                   </div>
                   <p className="text-xs text-gray-500 text-center mb-3">
-                    {slotStatusForCurrent === 'opened' ? 'Paczka została otwarta na wizji.' : 'Paczka czeka na otwarcie przez streamera.'}
+                    {slotStatusForCurrent === 'opened' ? 'The pack was opened on stream.' : 'The pack is waiting to be opened by the streamer.'}
                   </p>
                   {currentAuctionId && (
                     <button
                       onClick={() => navigate(`/product/${currentAuctionId}`)}
                       className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition border border-white/15 text-gray-300 hover:bg-white/10"
                     >
-                      Szczegóły aukcji →
+                      Auction details <IconArrowRight className="inline h-3.5 w-3.5 align-[-0.125em]" />
                     </button>
                   )}
                 </div>
@@ -1338,32 +1345,32 @@ return (
               return (
                 <div className="bg-gray-800/40 rounded-2xl p-6 border-2 border-gray-700 shrink-0 relative overflow-hidden">
                   <div className="absolute top-0 left-0">
-                    <span className="text-[10px] font-bold bg-gray-700 text-gray-300 px-3 py-1.5 rounded-br-xl rounded-tl-xl block shadow-sm">
-                      ⏳ WKRÓTCE
+                    <span className="flex items-center gap-1 text-[10px] font-bold bg-gray-700 text-gray-300 px-3 py-1.5 rounded-br-xl rounded-tl-xl shadow-sm">
+                      <IconHourglass className="h-3 w-3" /> SOON
                     </span>
                   </div>
                   <button
                     onClick={() => setIsBidMinimized(true)}
-                    title="Zwiń panel"
+                    title="Collapse panel"
                     className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
                   >
-                    −
+                    <IconMinus className="h-5 w-5" />
                   </button>
                   <div className="mt-8 mb-5">
-                    <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Wkrótce</span>
+                    <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Soon</span>
                     <span className="block text-2xl font-black italic uppercase tracking-tighter text-gray-200">
-                      {auctionData?.card_details?.name || auctionData?.card_name || 'Karta'}
+                      {auctionData?.card_details?.name || auctionData?.card_name || 'Card'}
                     </span>
                   </div>
                   <p className="text-xs text-gray-400 mb-3 text-center">
-                    Ta aukcja zacznie się wkrótce. Poczekaj aż streamer otworzy slot.
+                    This auction will start soon. Wait for the streamer to open the slot.
                   </p>
                   {currentAuctionId && (
                     <button
                       onClick={() => navigate(`/product/${currentAuctionId}`)}
                       className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition border border-white/15 text-gray-300 hover:bg-white/10"
                     >
-                      Szczegóły aukcji →
+                      Auction details <IconArrowRight className="inline h-3.5 w-3.5 align-[-0.125em]" />
                     </button>
                   )}
                 </div>
@@ -1376,28 +1383,28 @@ return (
                 <div className="bg-blue-900/20 rounded-2xl p-6 border-2 border-blue-500/50 shadow-[0_0_20px_rgba(37,99,235,0.15)] shrink-0 relative overflow-hidden">
                   {/* Badge - lewa strona */}
                   <div className="absolute top-0 left-0">
-                    <span className="text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-br-xl rounded-tl-xl block shadow-sm">
-                      📦 W KOLEJCE
+                    <span className="flex items-center gap-1 text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-br-xl rounded-tl-xl shadow-sm">
+                      <IconBox className="h-3 w-3" /> IN QUEUE
                     </span>
                   </div>
                   {/* Minimalizacja - prawa strona */}
                   <button
                     onClick={() => setIsBidMinimized(true)}
-                    title="Zwiń panel licytacji"
+                    title="Collapse bidding panel"
                     className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
                   >
-                    −
+                    <IconMinus className="h-5 w-5" />
                   </button>
 
                   <div className="mt-8 mb-5">
                     <span className="block text-[10px] text-blue-400/70 font-bold uppercase tracking-widest mb-1">
-                      Kup Teraz
+                      Buy Now
                     </span>
                     <span className="block text-2xl font-black italic uppercase tracking-tighter text-gray-100">
-                      {auctionData ? (auctionData.card_details?.name || auctionData.card_name || 'Karta') : 'Ładowanie...'}
+                      {auctionData ? (auctionData.card_details?.name || auctionData.card_name || 'Card') : 'Loading...'}
                     </span>
                     <span className="block text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">
-                      Ocena: {auctionData?.card_details?.grade || auctionData?.grade || 'Brak danych'}
+                      Grade: {auctionData?.card_details?.grade || auctionData?.grade || 'No data'}
                     </span>
                   </div>
 
@@ -1415,7 +1422,7 @@ return (
                   {/* Cena */}
                   <div className="rounded-xl p-4 mb-6 flex justify-between items-center border bg-blue-950/40 border-blue-500/30">
                     <span className="text-[10px] font-black uppercase tracking-widest text-blue-300/70">
-                      Cena:
+                      Price:
                     </span>
                     <span className="text-4xl font-black italic text-blue-300">
                       ${auctionData?.buy_now_price ?? currentPrice}
@@ -1427,14 +1434,14 @@ return (
                     disabled={!token}
                     className={`w-full py-4 rounded-xl font-black text-lg transition-all uppercase tracking-tighter ${token ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_10px_20px_rgba(37,99,235,0.25)] hover:-translate-y-1' : 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600'}`}
                   >
-                    {token ? 'Kup Teraz' : 'Zaloguj się aby kupić'}
+                    {token ? 'Buy Now' : 'Log in to buy'}
                   </button>
                   {currentAuctionId && (
                     <button
                       onClick={() => navigate(`/product/${currentAuctionId}`)}
                       className="w-full mt-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition border border-white/15 text-gray-300 hover:bg-white/10"
                     >
-                      Szczegóły aukcji →
+                      Auction details <IconArrowRight className="inline h-3.5 w-3.5 align-[-0.125em]" />
                     </button>
                   )}
                 </div>
@@ -1446,28 +1453,28 @@ return (
               <div className="bg-yellow-900/20 rounded-2xl p-6 border-2 border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.15)] shrink-0 relative overflow-hidden">
                 {/* Badge - lewa strona */}
                 <div className="absolute top-0 left-0">
-                  <span className="text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-br-xl rounded-tl-xl block animate-pulse shadow-sm">
-                    🔥 TERAZ
+                  <span className="flex items-center gap-1 text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-br-xl rounded-tl-xl animate-pulse shadow-sm">
+                    <IconFire className="h-3 w-3" /> NOW
                   </span>
                 </div>
                 {/* Minimalizacja - prawa strona */}
                 <button
                   onClick={() => setIsBidMinimized(true)}
-                  title="Zwiń panel licytacji"
+                  title="Collapse bidding panel"
                   className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
                 >
-                  −
+                  <IconMinus className="h-5 w-5" />
                 </button>
 
                 <div className="mt-8 mb-5">
                   <span className="block text-[10px] text-yellow-500/70 font-bold uppercase tracking-widest mb-1">
-                    Licytacja trwa!
+                    Auction in progress!
                   </span>
                   <span className="block text-2xl font-black italic uppercase tracking-tighter text-yellow-400">
-                    {auctionData ? (auctionData.card_details?.name || auctionData.card_name || 'Karta') : 'Ładowanie...'}
+                    {auctionData ? (auctionData.card_details?.name || auctionData.card_name || 'Card') : 'Loading...'}
                   </span>
                   <span className="block text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">
-                    Ocena: {auctionData?.card_details?.grade || auctionData?.grade || 'Brak danych'}
+                    Grade: {auctionData?.card_details?.grade || auctionData?.grade || 'No data'}
                   </span>
                 </div>
 
@@ -1486,9 +1493,9 @@ return (
                 <div className={`rounded-xl p-4 mb-6 flex justify-between items-center border transition-all duration-300 ${isWinning ? 'bg-green-900/20 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.15)]' : 'bg-yellow-950/40 border-yellow-500/30'}`}>
                   <div className="flex flex-col">
                     <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isWinning ? 'text-green-400' : 'text-yellow-500/70'}`}>
-                      Aktualna cena:
+                      Current price:
                     </span>
-                    {isWinning && <span className="text-xs font-bold text-green-500 animate-pulse mt-1">👑 WYGRYWASZ!</span>}
+                    {isWinning && <span className="inline-flex items-center gap-1 text-xs font-bold text-green-500 animate-pulse mt-1"><IconCrown className="h-3.5 w-3.5" /> YOU'RE WINNING!</span>}
                   </div>
                   <span className={`text-4xl font-black italic transition-colors ${isWinning ? 'text-green-400' : 'text-yellow-400'}`}>
                     ${currentPrice}
@@ -1498,7 +1505,7 @@ return (
                 {/* Wybór przebicia */}
                 <div className="mb-3">
                   <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-2 block">
-                    Wybierz przebicie:
+                    Choose increment:
                   </span>
                   <div className="grid grid-cols-3 gap-3">
                     {[5, 10, 25].map(val => (
@@ -1516,13 +1523,13 @@ return (
                 {/* Ręczna kwota */}
                 <div className="mb-4">
                   <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-2 block">
-                    Lub wpisz kwotę (min ${minNextBid.toFixed(2)}):
+                    Or enter an amount (min ${minNextBid.toFixed(2)}):
                   </label>
                   <input
                     type="number"
                     step="0.01"
                     min={minNextBid}
-                    placeholder={`np. ${minNextBid.toFixed(2)}`}
+                    placeholder={`e.g. ${minNextBid.toFixed(2)}`}
                     value={customBidAmount}
                     onChange={(e) => setCustomBidAmount(e.target.value)}
                     className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-yellow-500"
@@ -1535,12 +1542,12 @@ return (
                   className={`w-full py-4 rounded-xl font-black text-lg transition-all uppercase tracking-tighter ${(isWinning || !token) ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_10px_20px_rgba(22,163,7,0.2)] hover:-translate-y-1'}`}
                 >
                   {!token
-                    ? 'Zaloguj się aby licytować'
+                    ? 'Log in to bid'
                     : isWinning
-                      ? 'Jesteś na prowadzeniu'
+                      ? 'You are leading'
                       : customBidAmount
-                        ? `Licytuj $${(parseFloat(customBidAmount) || 0).toFixed(2)}`
-                        : `Podbij o $${bidIncrement}`
+                        ? `Bid $${(parseFloat(customBidAmount) || 0).toFixed(2)}`
+                        : `Raise by $${bidIncrement}`
                   }
                 </button>
 
@@ -1551,7 +1558,7 @@ return (
                     disabled={!token}
                     className={`mt-3 w-full py-3 rounded-xl font-black text-sm transition-all uppercase tracking-tighter ${token ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_5px_15px_rgba(37,99,235,0.2)]' : 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600'}`}
                   >
-                    {!token ? 'Zaloguj się aby kupić' : `Kup teraz za $${Number(auctionData.buy_now_price).toFixed(2)}`}
+                    {!token ? 'Log in to buy' : `Buy now for $${Number(auctionData.buy_now_price).toFixed(2)}`}
                   </button>
                 )}
 
@@ -1560,7 +1567,7 @@ return (
                     onClick={() => navigate(`/product/${currentAuctionId}`)}
                     className="w-full mt-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition border border-white/15 text-gray-300 hover:bg-white/10"
                   >
-                    Szczegóły aukcji →
+                    Auction details <IconArrowRight className="inline h-3.5 w-3.5 align-[-0.125em]" />
                   </button>
                 )}
               </div>
@@ -1572,27 +1579,27 @@ return (
           {/* Klasyczny Czat - stała wysokość, niezależny od panelu licytacji */}
           {isChatMinimized ? (
             <div className="shrink-0 bg-gray-900 rounded-2xl px-4 py-3 border border-gray-800 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-widest text-gray-300">
-                💬 Czat zwinięty
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gray-300">
+                <IconChat className="h-4 w-4" /> Chat collapsed
               </span>
               <button
                 onClick={() => setIsChatMinimized(false)}
                 className="text-xs font-bold text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded hover:bg-white/5 transition"
-                title="Pokaż czat"
+                title="Show chat"
               >
-                Rozwiń ▾
+                <span className="inline-flex items-center gap-1">Expand <IconChevronDown className="h-3.5 w-3.5" /></span>
               </button>
             </div>
           ) : (
           <div className="bg-gray-900 rounded-2xl p-5 flex flex-col border border-gray-800 shadow-xl h-[520px] shrink-0 overflow-hidden">
             <div className="flex items-center justify-between mb-4 shrink-0">
-              <h2 className="text-xs font-bold text-blue-400 uppercase tracking-widest">💬 Czat</h2>
+              <h2 className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-400 uppercase tracking-widest"><IconChat className="h-4 w-4" /> Chat</h2>
               <button
                 onClick={() => setIsChatMinimized(true)}
-                title="Zwiń czat"
+                title="Collapse chat"
                 className="text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
               >
-                −
+                <IconMinus className="h-5 w-5" />
               </button>
             </div>
             {chatError && (
@@ -1609,7 +1616,7 @@ return (
               ))}
             </div>
             <div className="mt-auto shrink-0 flex gap-2">
-              <input type="text" disabled={!token} placeholder={token ? "Napisz wiadomość..." : "Zaloguj się aby pisać na czacie"} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className={`w-full text-sm rounded-xl p-4 outline-none border transition ${token ? 'bg-gray-800 text-white border-gray-700 focus:ring-1 focus:ring-blue-500' : 'bg-gray-900 text-gray-500 border-gray-700 cursor-not-allowed'}`} />
+              <input type="text" disabled={!token} placeholder={token ? "Type a message..." : "Log in to chat"} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className={`w-full text-sm rounded-xl p-4 outline-none border transition ${token ? 'bg-gray-800 text-white border-gray-700 focus:ring-1 focus:ring-blue-500' : 'bg-gray-900 text-gray-500 border-gray-700 cursor-not-allowed'}`} />
               <button onClick={() => handleSendMessage()} className="bg-blue-600 hover:bg-blue-500 text-white px-5 rounded-xl transition shadow-[0_5px_15px_rgba(37,99,235,0.2)] hover:-translate-y-0.5 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
               </button>
@@ -1634,7 +1641,7 @@ return (
         <div className="bg-gray-900/95 backdrop-blur-md border-t border-gray-800 px-4 py-3 pb-safe flex flex-col gap-2 pointer-events-auto shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
           <div className="flex items-center gap-3">
             <div className="flex flex-col min-w-[70px]">
-              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Cena</span>
+              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Price</span>
               <span className={`text-xl font-black leading-none ${isWinning ? 'text-green-400' : 'text-white'}`}>${currentPrice}</span>
             </div>
             
@@ -1643,7 +1650,7 @@ return (
             </button>
 
             <button onClick={handleBid} disabled={isWinning || !token} className={`flex-1 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-colors ${(isWinning || !token) ? 'bg-gray-800 text-gray-500' : 'bg-green-600 text-white shadow-lg shadow-green-900/50'}`}>
-              {!token ? 'Zaloguj się' : isWinning ? 'Wygrywasz' : `Podbij (+$${bidIncrement})`}
+              {!token ? 'Log in' : isWinning ? 'Winning' : `Raise (+$${bidIncrement})`}
             </button>
           </div>
 
@@ -1653,7 +1660,7 @@ return (
             </div>
           )}
           <div className="flex gap-2 mt-1">
-            <input type="text" disabled={!token} placeholder={token ? "Napisz na czacie..." : "Zaloguj się aby pisać"} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className={`flex-1 text-xs rounded-lg px-3 py-2 border outline-none ${token ? 'bg-black/50 text-white border-gray-700 focus:border-blue-500' : 'bg-gray-900 text-gray-500 border-gray-700 cursor-not-allowed'}`} />
+            <input type="text" disabled={!token} placeholder={token ? "Type in chat..." : "Log in to chat"} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleSendMessage} className={`flex-1 text-xs rounded-lg px-3 py-2 border outline-none ${token ? 'bg-black/50 text-white border-gray-700 focus:border-blue-500' : 'bg-gray-900 text-gray-500 border-gray-700 cursor-not-allowed'}`} />
             <button onClick={() => handleSendMessage()} className="bg-blue-600 text-white px-4 rounded-lg">                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg></button>
           </div>
         </div>

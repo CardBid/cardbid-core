@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import SellerReviews from '../components/marketplace/SellerReviews';
+import { IconArrowLeft, IconCart, IconFire } from '../components/icons';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -126,8 +128,8 @@ export default function ProductDetail() {
   if (error) return (
     <div className="p-10">
       <p className="font-bold text-red-400 mb-4">{error}</p>
-      <Link to="/marketplace" className="text-blue-400 hover:text-blue-300 text-sm font-bold underline">
-        ← Back to marketplace
+      <Link to="/marketplace" className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm font-bold underline">
+        <IconArrowLeft className="h-4 w-4" /> Back to marketplace
       </Link>
     </div>
   );
@@ -139,7 +141,7 @@ export default function ProductDetail() {
 
   return (
     <div className="container mx-auto p-4 text-white">
-      <h1 className="mb-4 text-3xl font-bold">{auction.card_details?.name || 'Brak nazwy'}</h1>
+      <h1 className="mb-4 text-3xl font-bold">{auction.card_details?.name || 'No name'}</h1>
 
       {!token && (
         <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
@@ -164,17 +166,17 @@ export default function ProductDetail() {
           {isBuyNow && (
             <div className="rounded-2xl border-2 border-blue-500/50 bg-blue-900/20 p-6 shadow-[0_0_20px_rgba(37,99,235,0.15)] relative overflow-hidden">
               <div className="absolute top-0 right-0">
-                <span className="text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-bl-xl rounded-tr-xl block shadow-sm">
-                  🛒 BUY NOW
+                <span className="flex items-center gap-1 text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-bl-xl rounded-tr-xl shadow-sm">
+                  <IconCart className="h-3 w-3" /> BUY NOW
                 </span>
               </div>
 
-              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400/70 mb-1 mt-4">Cena zakupu</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400/70 mb-1 mt-4">Purchase price</p>
               <p className="text-4xl font-black text-blue-300">
                 ${auction.buy_now_price ?? currentPrice}
               </p>
               <p className="mt-1 text-xs text-gray-500">
-                Sprzedawca: {auction.seller_name || '—'} | Ocena: {auction.card_details?.grade || '—'}
+                Seller: {auction.seller_name || '—'} | Grade: {auction.card_details?.grade || '—'}
               </p>
 
               {bidStatus && (
@@ -199,8 +201,8 @@ export default function ProductDetail() {
                 }`}
               >
                 {!token
-                  ? 'Zaloguj się aby kupić'
-                  : bidStatus?.type === 'success' ? 'Zakupiono' : 'Kup Teraz'
+                  ? 'Log in to buy'
+                  : bidStatus?.type === 'success' ? 'Purchased' : 'Buy Now'
                 }
               </button>
             </div>
@@ -211,15 +213,15 @@ export default function ProductDetail() {
             <>
               <div className="rounded-2xl border-2 border-yellow-500 bg-yellow-900/20 p-6 shadow-[0_0_20px_rgba(234,179,8,0.15)] relative overflow-hidden">
                 <div className="absolute top-0 right-0">
-                  <span className="text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-bl-xl rounded-tr-xl block animate-pulse shadow-sm">
-                    🔥 AUCTION
+                  <span className="flex items-center gap-1 text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-bl-xl rounded-tr-xl animate-pulse shadow-sm">
+                    <IconFire className="h-3 w-3" /> AUCTION
                   </span>
                 </div>
 
-                <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-500/70 mb-1 mt-4">Aktualna cena</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-500/70 mb-1 mt-4">Current price</p>
                 <p className="text-4xl font-black text-yellow-400">${currentPrice}</p>
                 <p className="mt-1 text-xs text-gray-500">
-                  Sprzedawca: {auction.seller_name || '—'} | Ocena: {auction.card_details?.grade || '—'}
+                  Seller: {auction.seller_name || '—'} | Grade: {auction.card_details?.grade || '—'}
                 </p>
 
                 {/* Przycisk Kup Teraz dla trybu hybrid */}
@@ -290,9 +292,9 @@ export default function ProductDetail() {
           {/* Opis karty (wspólny) */}
           <div className="relative rounded-lg border border-gray-800 bg-gray-900 p-6">
             <div className={`overflow-hidden transition-all ${isDetailsExpanded ? 'max-h-[1000px]' : 'max-h-32'}`}>
-              <p className="mb-2 text-[10px] font-bold uppercase text-gray-500">Opis karty</p>
+              <p className="mb-2 text-[10px] font-bold uppercase text-gray-500">Card description</p>
               <p className="pb-4 text-sm leading-relaxed text-gray-400">
-                {auction.card_details?.description || 'Brak opisu.'}
+                {auction.card_details?.description || 'No description.'}
               </p>
 
               {!isDetailsExpanded && (
@@ -308,6 +310,9 @@ export default function ProductDetail() {
               {isDetailsExpanded ? 'Collapse' : 'Read more'}
             </button>
           </div>
+
+          {/* Oceny sprzedawcy (per seller, wg /reviews/seller/<id>/) */}
+          <SellerReviews sellerId={auction.seller} sellerName={auction.seller_name} />
 
         </div>
       </div>

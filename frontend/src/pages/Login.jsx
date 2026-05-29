@@ -12,7 +12,7 @@ export default function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
-    setMessage('Logowanie...');
+    setMessage('Logging in...');
 
     try {
       const response = await fetch('https://cardbid.up.railway.app/auth/login/', {
@@ -22,7 +22,7 @@ export default function Login() {
       });
 
       if (!response.ok) {
-        throw new Error('Niepoprawne dane logowania. Sprawdź adres e-mail i hasło.');
+        throw new Error('Invalid login credentials. Check your email and password.');
       }
 
       const data = await response.json();
@@ -30,7 +30,7 @@ export default function Login() {
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
       
-      setMessage('Zalogowano. Przekierowuję...');
+      setMessage('Logged in. Redirecting...');
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -39,7 +39,7 @@ export default function Login() {
   };
 
   return (
-    <AuthFormLayout title="Logowanie" subtitle="Zaloguj się, aby mieć dostęp do licytacji">
+    <AuthFormLayout title="Log in" subtitle="Log in to access the auctions">
       <form className="space-y-5" onSubmit={handleLogin}>
         <label className="block">
           <span className="text-sm font-bold text-gray-300">Email</span>
@@ -54,7 +54,7 @@ export default function Login() {
         </label>
 
         <label className="block">
-          <span className="text-sm font-bold text-gray-300">Hasło</span>
+          <span className="text-sm font-bold text-gray-300">Password</span>
           <input
             name="password"
             type="password"
@@ -69,7 +69,7 @@ export default function Login() {
           type="submit"
           className="w-full rounded-lg bg-emerald-400 px-5 py-4 text-sm font-black uppercase text-gray-950 transition hover:bg-emerald-300"
         >
-          Zaloguj
+          Log in
         </button>
 
         {message && <p className="mt-4 font-bold text-emerald-400">{message}</p>}

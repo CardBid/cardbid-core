@@ -22,11 +22,11 @@ export default function BuyNowPanel({ product, compact = false }) {
     <div className={compact ? 'space-y-3' : 'rounded-xl border border-white/10 bg-gray-900 p-5'}>
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase text-gray-500">Kup teraz</p>
+          <p className="text-xs font-bold uppercase text-gray-500">Buy now</p>
           <p className="mt-1 text-3xl font-black text-white">{product.price} PLN</p>
         </div>
         <p className="text-right text-xs font-bold uppercase text-gray-500">
-          Dostepne: {product.stock}
+          Available: {product.stock}
         </p>
       </div>
 
@@ -40,12 +40,12 @@ export default function BuyNowPanel({ product, compact = false }) {
             : 'bg-emerald-500 text-gray-950 hover:bg-emerald-400 disabled:cursor-wait disabled:bg-emerald-500/60'
         }`}
       >
-        {isProcessing ? 'Przetwarzanie...' : isSuccess ? 'Zakup zarezerwowany' : 'Kup natychmiast'}
+        {isProcessing ? 'Processing...' : isSuccess ? 'Purchase reserved' : 'Buy instantly'}
       </button>
 
       {isSuccess && (
         <p className="text-sm font-semibold text-emerald-300">
-          Zakup został zarezerwowany. Wkrótce otrzymasz potwierdzenie.
+          Your purchase has been reserved. You'll receive a confirmation soon.
         </p>
       )}
     </div>

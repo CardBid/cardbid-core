@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useMemo, useState, useRef, useEffect } from 'react';
+import NotificationBell from '../notifications/NotificationBell';
 
 // --- Helpery JWT ---
 // Dekoduje payload JWT (base64url -> JSON). Zwraca null jak coś nie tak.
@@ -48,6 +49,14 @@ export default function AppLayout() {
   }, []);
 
   const user = useMemo(() => readCurrentUser(), [location, tick]);
+
+  // Link "Studio" widoczny tylko dla streamerów (panel zarządzania transmisją)
+  const navItems = useMemo(() => {
+    if (user?.role === 'streamer') {
+      return [...baseNavItems, { to: '/studio', label: 'Studio' }];
+    }
+    return baseNavItems;
+  }, [user]);
 
   // === AUTO-REFRESH ACCESS TOKEN ===
   // Schedule refresh 60s przed wygaśnięciem accessa. Korzystamy z refresh_token
@@ -142,7 +151,7 @@ export default function AppLayout() {
           </NavLink>
 
           <nav className="hidden items-center gap-1 md:flex">
-            {baseNavItems.map((item) => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -168,12 +177,14 @@ export default function AppLayout() {
                   }`
                 }
               >
-                Logowanie
+                Log in
               </NavLink>
             )}
           </nav>
 
           {user ? (
+            <div className="flex items-center gap-2">
+            <NotificationBell />
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(o => !o)}
@@ -206,14 +217,22 @@ export default function AppLayout() {
                       <p className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">{user.role}</p>
                     )}
                   </div>
+                  <NavLink
+                    to="/account"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-3 py-2 text-left text-sm font-bold text-gray-200 transition hover:bg-white/10"
+                  >
+                    My account
+                  </NavLink>
                   <button
                     onClick={handleLogout}
                     className="w-full px-3 py-2 text-left text-sm font-bold text-red-400 transition hover:bg-red-500/10"
                   >
-                    Wyloguj się
+                    Log out
                   </button>
                 </div>
               )}
+            </div>
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -221,13 +240,13 @@ export default function AppLayout() {
                 to="/login"
                 className="hidden md:inline-block rounded-lg border border-white/15 px-4 py-2 text-sm font-bold text-gray-300 transition hover:bg-white/10 hover:text-white"
               >
-                Zaloguj się
+                Log in
               </NavLink>
               <NavLink
                 to="/register"
                 className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-black text-gray-950 transition hover:bg-amber-300"
               >
-                Załóż konto
+                Sign up
               </NavLink>
             </div>
           )}
