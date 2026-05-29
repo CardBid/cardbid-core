@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { API_BASE, safeJson, asList } from '../../lib/api';
+import { IconStar } from '../icons';
 
 // Read-only gwiazdki dla danej wartości (0-5, wspiera połówki wizualnie przez zaokrąglenie).
 function Stars({ value, className = '' }) {
   const rounded = Math.round(value);
   return (
-    <span className={`tracking-tight ${className}`} aria-label={`${value.toFixed(1)} / 5`}>
+    <span className={`inline-flex items-center gap-0.5 ${className}`} aria-label={`${value.toFixed(1)} / 5`}>
       {[1, 2, 3, 4, 5].map((n) => (
-        <span key={n} className={n <= rounded ? 'text-amber-400' : 'text-gray-600'}>★</span>
+        <IconStar key={n} className={`h-[1em] w-[1em] ${n <= rounded ? 'text-amber-400' : 'text-gray-600'}`} />
       ))}
     </span>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import SellerReviews from '../components/marketplace/SellerReviews';
+import { IconArrowLeft, IconCart, IconFire } from '../components/icons';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -127,8 +128,8 @@ export default function ProductDetail() {
   if (error) return (
     <div className="p-10">
       <p className="font-bold text-red-400 mb-4">{error}</p>
-      <Link to="/marketplace" className="text-blue-400 hover:text-blue-300 text-sm font-bold underline">
-        ← Back to marketplace
+      <Link to="/marketplace" className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm font-bold underline">
+        <IconArrowLeft className="h-4 w-4" /> Back to marketplace
       </Link>
     </div>
   );
@@ -165,8 +166,8 @@ export default function ProductDetail() {
           {isBuyNow && (
             <div className="rounded-2xl border-2 border-blue-500/50 bg-blue-900/20 p-6 shadow-[0_0_20px_rgba(37,99,235,0.15)] relative overflow-hidden">
               <div className="absolute top-0 right-0">
-                <span className="text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-bl-xl rounded-tr-xl block shadow-sm">
-                  🛒 BUY NOW
+                <span className="flex items-center gap-1 text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-bl-xl rounded-tr-xl shadow-sm">
+                  <IconCart className="h-3 w-3" /> BUY NOW
                 </span>
               </div>
 
@@ -212,8 +213,8 @@ export default function ProductDetail() {
             <>
               <div className="rounded-2xl border-2 border-yellow-500 bg-yellow-900/20 p-6 shadow-[0_0_20px_rgba(234,179,8,0.15)] relative overflow-hidden">
                 <div className="absolute top-0 right-0">
-                  <span className="text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-bl-xl rounded-tr-xl block animate-pulse shadow-sm">
-                    🔥 AUCTION
+                  <span className="flex items-center gap-1 text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-bl-xl rounded-tr-xl animate-pulse shadow-sm">
+                    <IconFire className="h-3 w-3" /> AUCTION
                   </span>
                 </div>
 

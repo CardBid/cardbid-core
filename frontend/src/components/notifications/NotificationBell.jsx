@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { WS_BASE, getToken, authFetch, asList } from '../../lib/api';
+import { IconBolt, IconTrophy, IconInfo, IconX } from '../icons';
 
 // Dzwonek powiadomień: lista z REST + live push przez WebSocket (ws/notifications/).
 // Backend realnie generuje tylko typ 'outbid' (przebicie w licytacji).
@@ -15,9 +16,9 @@ function timeAgo(iso) {
 }
 
 const TYPE_ICON = {
-  outbid: '⚡',
-  won: '🏆',
-  system: 'ℹ️',
+  outbid: IconBolt,
+  won: IconTrophy,
+  system: IconInfo,
 };
 
 export default function NotificationBell() {
@@ -183,7 +184,10 @@ export default function NotificationBell() {
                       n.is_read ? 'opacity-60' : ''
                     }`}
                   >
-                    <span className="mt-0.5 text-lg">{TYPE_ICON[n.notification_type] || 'ℹ️'}</span>
+                    {(() => {
+                      const Icon = TYPE_ICON[n.notification_type] || IconInfo;
+                      return <Icon className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />;
+                    })()}
                     <span className="flex-1">
                       <span className="block text-sm text-white">{n.message}</span>
                       <span className="mt-0.5 block text-[11px] text-gray-500">{timeAgo(n.created_at)}</span>
@@ -207,12 +211,12 @@ export default function NotificationBell() {
 
       {toast && (
         <div className="fixed bottom-6 right-6 z-[60] flex max-w-sm items-start gap-3 rounded-lg border border-emerald-500/30 bg-gray-900 px-4 py-3 shadow-2xl animate-[fadeIn_0.2s_ease-out]">
-          <span className="text-lg">⚡</span>
+          <IconBolt className="h-5 w-5 shrink-0 text-emerald-400" />
           <div className="flex-1">
             <p className="text-sm font-bold text-white">{toast}</p>
           </div>
           <button onClick={() => setToast(null)} className="text-gray-500 hover:text-white" aria-label="Close">
-            ✕
+            <IconX className="h-4 w-4" />
           </button>
         </div>
       )}

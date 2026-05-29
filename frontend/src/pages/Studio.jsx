@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  IconLock, IconBan, IconClapperboard, IconBroadcast, IconPlus, IconLayers,
+  IconFire, IconHourglass, IconBox, IconCheckCircle, IconCheck, IconArrowRight,
+} from '../components/icons';
 
 const API = 'https://cardbid.up.railway.app/api';
 
@@ -305,7 +309,7 @@ export default function Studio() {
   if (!token || tokenExpired) {
     return (
       <Blocker
-        icon="🔒"
+        icon={<IconLock className="mx-auto h-12 w-12 text-gray-400" />}
         title="Login required"
         subtitle="Log in with a streamer account to open the studio."
         action={
@@ -320,7 +324,7 @@ export default function Studio() {
   if (!isStreamer) {
     return (
       <Blocker
-        icon="🚫"
+        icon={<IconBan className="mx-auto h-12 w-12 text-gray-400" />}
         title="Streamers only"
         subtitle={`This studio is available only for accounts with the "streamer" role. Your role: ${role || 'none'}.`}
         action={
@@ -339,7 +343,7 @@ export default function Studio() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-6">
       <header className="mb-8">
-        <h1 className="text-2xl font-black uppercase tracking-tight">🎬 Streamer Studio</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-black uppercase tracking-tight"><IconClapperboard className="h-7 w-7 text-emerald-400" /> Streamer Studio</h1>
         <p className="mt-1 text-sm text-gray-400">
           Logged in as <span className="font-bold text-white">{username}</span> (streamer)
         </p>
@@ -349,7 +353,7 @@ export default function Studio() {
         {/* ====== SEKCJA A: TRANSMISJA ====== */}
         <section className="rounded-2xl border border-white/10 bg-gray-900 p-6">
           <h2 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400">
-            📡 Stream
+            <IconBroadcast className="h-4 w-4" /> Stream
           </h2>
 
           <div className="mb-4 flex items-center gap-3">
@@ -398,12 +402,12 @@ export default function Studio() {
                   onClick={copyStreamKey}
                   className="rounded-lg bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20"
                 >
-                  {copied ? '✓ Copied' : 'Copy'}
+                  {copied ? <span className="inline-flex items-center gap-1"><IconCheck className="h-3.5 w-3.5" /> Copied</span> : 'Copy'}
                 </button>
               </div>
               {room.id && (
-                <Link to={`/live/${room.id}`} className="mt-3 inline-block text-xs font-bold text-emerald-400 hover:text-emerald-300">
-                  Preview room →
+                <Link to={`/live/${room.id}`} className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-emerald-400 hover:text-emerald-300">
+                  Preview room <IconArrowRight className="h-3.5 w-3.5" />
                 </Link>
               )}
             </div>
@@ -416,7 +420,7 @@ export default function Studio() {
         {/* ====== SEKCJA B: NOWA AUKCJA ====== */}
         <section className="rounded-2xl border border-white/10 bg-gray-900 p-6">
           <h2 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400">
-            ➕ New auction
+            <IconPlus className="h-4 w-4" /> New auction
           </h2>
 
           <form onSubmit={submitAuction} className="space-y-4">
@@ -536,8 +540,8 @@ export default function Studio() {
 
           {createdAuction && (
             <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
-              <p className="text-sm font-bold text-emerald-300">
-                ✓ Created auction #{createdAuction.auction_id} — {createdAuction.card_name}
+              <p className="flex items-center gap-1.5 text-sm font-bold text-emerald-300">
+                <IconCheck className="h-4 w-4 shrink-0" /> Created auction #{createdAuction.auction_id} — {createdAuction.card_name}
               </p>
               <button
                 onClick={addToQueue}
@@ -558,7 +562,7 @@ export default function Studio() {
       <section className="mt-6 rounded-2xl border border-white/10 bg-gray-900 p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400">
-            🗂️ Stream queue
+            <IconLayers className="h-4 w-4" /> Stream queue
           </h2>
           <label className="flex items-center gap-2 text-xs text-gray-400">
             Room ID:
@@ -581,13 +585,13 @@ export default function Studio() {
             {slotMsg && <Note type="ok">{slotMsg}</Note>}
             {slotErr && <Note type="err">{slotErr}</Note>}
 
-            <SlotGroup title="🔥 Live now" empty="No active slot.">
+            <SlotGroup title={<span className="inline-flex items-center gap-1.5"><IconFire className="h-3.5 w-3.5" /> Live now</span>} empty="No active slot.">
               {timeline.current && (
                 <SlotRow slot={timeline.current} badge="active" />
               )}
             </SlotGroup>
 
-            <SlotGroup title="⏳ In queue" empty="The queue is empty.">
+            <SlotGroup title={<span className="inline-flex items-center gap-1.5"><IconHourglass className="h-3.5 w-3.5" /> In queue</span>} empty="The queue is empty.">
               {timeline.queue.map((s) => (
                 <SlotRow
                   key={s.slot_id}
@@ -602,7 +606,7 @@ export default function Studio() {
               ))}
             </SlotGroup>
 
-            <SlotGroup title="📦 Waiting to open" empty="Nothing waiting to open.">
+            <SlotGroup title={<span className="inline-flex items-center gap-1.5"><IconBox className="h-3.5 w-3.5" /> Waiting to open</span>} empty="Nothing waiting to open.">
               {timeline.waiting_to_open.map((s) => (
                 <SlotRow
                   key={s.slot_id}
@@ -617,7 +621,7 @@ export default function Studio() {
               ))}
             </SlotGroup>
 
-            <SlotGroup title="✅ Opened" empty="No opened packs.">
+            <SlotGroup title={<span className="inline-flex items-center gap-1.5"><IconCheckCircle className="h-3.5 w-3.5" /> Opened</span>} empty="No opened packs.">
               {timeline.opened.map((s) => (
                 <SlotRow key={s.slot_id} slot={s} badge="opened" />
               ))}

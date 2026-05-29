@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authFetch, safeJson, asList, API_BASE, getCurrentUser } from '../lib/api';
+import { IconStar, IconCheck } from '../components/icons';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -54,10 +55,10 @@ function StarInput({ value, onChange }) {
           key={n}
           type="button"
           onClick={() => onChange(n)}
-          className={`text-2xl transition ${n <= value ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'}`}
+          className={`transition ${n <= value ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'}`}
           aria-label={`${n} stars`}
         >
-          ★
+          <IconStar className="h-7 w-7" />
         </button>
       ))}
     </div>
@@ -192,7 +193,7 @@ function BidsSection() {
             {won.map((a) => (
               <AuctionRow key={a.id} a={a}>
                 {reviewed[a.id] ? (
-                  <span className="text-xs font-bold text-amber-400">★ Reviewed</span>
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-400"><IconStar className="h-3.5 w-3.5" /> Reviewed</span>
                 ) : (
                   <button
                     onClick={() => setModalAuction(a)}
@@ -263,7 +264,7 @@ function OrdersSection() {
                     <div className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-black ${
                       i <= stageIdx ? 'bg-emerald-400 text-gray-950' : 'bg-gray-800 text-gray-500'
                     }`}>
-                      {i < stageIdx ? '✓' : i + 1}
+                      {i < stageIdx ? <IconCheck className="h-4 w-4" /> : i + 1}
                     </div>
                     {i < FAKE_STAGES.length - 1 && (
                       <div className={`h-1 flex-1 ${i < stageIdx ? 'bg-emerald-400' : 'bg-gray-800'}`} />

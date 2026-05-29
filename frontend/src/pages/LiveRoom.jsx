@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import VideoPlayer from '../components/VideoPlayer';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import {
+  IconHourglass, IconMoon, IconBan, IconTv, IconWarning, IconCrown, IconArrowRight,
+  IconCalendar, IconCheckCircle, IconBox, IconFire, IconCheck, IconCards, IconCart,
+  IconSwords, IconLiveDot, IconMoney, IconChevronDown, IconChat, IconMinus,
+} from '../components/icons';
 
 // --- KONFIGURACJA WIDEO ---
 const videoJsOptions = {
@@ -740,7 +745,7 @@ const handlePointerMove = (e) => {
 
   if (roomCheck === 'loading') {
     return renderBlocker(
-      '⏳',
+      <IconHourglass className="mx-auto h-12 w-12 text-gray-400" />,
       'Checking streams...',
       'Connecting to the server.',
       <div className="w-8 h-8 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin mx-auto" />
@@ -749,7 +754,7 @@ const handlePointerMove = (e) => {
 
   if (roomCheck === 'no_streams') {
     return renderBlocker(
-      '🌙',
+      <IconMoon className="mx-auto h-12 w-12 text-gray-400" />,
       'No one is streaming right now',
       'Come back later or take a look at the marketplace.',
       <div className="flex gap-2 justify-center">
@@ -762,7 +767,7 @@ const handlePointerMove = (e) => {
 
   if (roomCheck === 'not_found') {
     return renderBlocker(
-      '🚫',
+      <IconBan className="mx-auto h-12 w-12 text-gray-400" />,
       'This stream does not exist',
       `Room with ID ${roomId || '?'} is not available. The streamer may have just ended the broadcast.`,
       <div className="flex gap-2 justify-center flex-wrap">
@@ -780,7 +785,7 @@ const handlePointerMove = (e) => {
 
   if (roomCheck === 'pick') {
     return renderBlocker(
-      '📺',
+      <IconTv className="mx-auto h-12 w-12 text-gray-400" />,
       'Choose a stream',
       `There ${liveRooms.length === 1 ? 'is' : 'are'} currently ${liveRooms.length} live stream${liveRooms.length === 1 ? '' : 's'} available.`,
       <div className="flex flex-col gap-2">
@@ -805,7 +810,7 @@ return (
     <div className={`min-h-screen bg-gray-950 text-white p-4 pb-40 lg:pb-4 transition-all duration-500 ${isTheater ? 'flex flex-col' : 'grid grid-cols-1 lg:grid-cols-12 gap-6'}`}>
       {roomCheck === 'unverified' && (
         <div className="lg:col-span-12 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2">
-          <span>⚠️</span>
+          <IconWarning className="h-4 w-4 shrink-0" />
           <span>Could not verify the room (endpoint /api/live-rooms/ unavailable). You are running in fallback mode.</span>
         </div>
       )}
@@ -872,7 +877,7 @@ return (
             <div className="p-3">
               <div className="flex justify-between items-center mb-1 gap-2">
                 <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest truncate flex-1">{auctionData?.card_name || auctionData?.card_details?.name || 'Loading...'}</p>
-                {isWinning && <span className="text-[8px] bg-green-500/20 text-green-400 font-bold px-1.5 py-0.5 rounded animate-pulse border border-green-500/30 whitespace-nowrap">👑 LEADING</span>}
+                {isWinning && <span className="inline-flex items-center gap-1 text-[8px] bg-green-500/20 text-green-400 font-bold px-1.5 py-0.5 rounded animate-pulse border border-green-500/30 whitespace-nowrap"><IconCrown className="h-2.5 w-2.5" /> LEADING</span>}
               </div>
               {errorMsg && <p className="text-[9px] text-red-400 font-bold mb-1 text-center bg-red-900/30 p-1 rounded">{errorMsg}</p>}
               {successMsg && <p className="text-[9px] text-green-400 font-bold mb-1 text-center bg-green-900/30 p-1 rounded">{successMsg}</p>}
@@ -953,7 +958,7 @@ return (
                   onClick={() => navigate(`/product/${currentAuctionId}`)}
                   className="w-full py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition border border-gray-600 text-gray-300 hover:bg-white/10"
                 >
-                  Details →
+                  Details <IconArrowRight className="inline h-3 w-3 align-[-0.125em]" />
                 </button>
               )}
             </div>
@@ -1045,7 +1050,7 @@ return (
         <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 flex flex-col">
           <div className="flex justify-between items-end mb-4">
             <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-              📅 Opening Schedule
+              <IconCalendar className="h-3.5 w-3.5" /> Opening Schedule
             </h3>
             <span className="bg-gray-800 text-gray-500 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Today's queue</span>
           </div>
@@ -1053,10 +1058,10 @@ return (
             {timelineSlots.map((slot) => {
               let borderStyle = "border-gray-700"; let bgStyle = "bg-gray-800"; let textStyle = "text-gray-400"; let badge = null;
 
-              if (slot.status === 'opened') { bgStyle = "bg-gray-800/50"; borderStyle = "border-gray-800"; textStyle = "text-gray-600 line-through"; badge = <span className="text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg">✅ FINISHED</span>; }
-              else if (slot.status === 'queued') { borderStyle = "border-blue-500/50"; bgStyle = "bg-blue-900/20"; textStyle = "text-gray-200"; badge = <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">📦 IN QUEUE</span>; }
-              else if (slot.status === 'active') { borderStyle = "border-yellow-500"; bgStyle = "bg-yellow-900/20"; textStyle = "text-yellow-400"; badge = <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg animate-pulse">🔥 NOW</span>; }
-              else { badge = <span className="text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg">⏳ SOON</span>; }
+              if (slot.status === 'opened') { bgStyle = "bg-gray-800/50"; borderStyle = "border-gray-800"; textStyle = "text-gray-600 line-through"; badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg"><IconCheckCircle className="h-3 w-3" /> FINISHED</span>; }
+              else if (slot.status === 'queued') { borderStyle = "border-blue-500/50"; bgStyle = "bg-blue-900/20"; textStyle = "text-gray-200"; badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm"><IconBox className="h-3 w-3" /> IN QUEUE</span>; }
+              else if (slot.status === 'active') { borderStyle = "border-yellow-500"; bgStyle = "bg-yellow-900/20"; textStyle = "text-yellow-400"; badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg animate-pulse"><IconFire className="h-3 w-3" /> NOW</span>; }
+              else { badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-gray-700 text-gray-400 px-2 py-1 rounded-bl-lg rounded-tr-lg"><IconHourglass className="h-3 w-3" /> SOON</span>; }
 
               const isSelected = slot.auction_id && Number(slot.auction_id) === Number(currentAuctionId);
               // Tylko aktywna licytacja i wkrótce są interaktywne - zakończone już nie da się tknąć
@@ -1067,9 +1072,9 @@ return (
 
               // Akcja sugerowana w panelu po wybraniu
               const actionHint = slot.status === 'active'
-                ? '💸 Bid in the panel'
+                ? <><IconMoney className="inline h-3.5 w-3.5 align-[-0.125em]" /> Bid in the panel</>
                 : slot.status === 'upcoming'
-                  ? '🛒 Buy now in the panel'
+                  ? <><IconCart className="inline h-3.5 w-3.5 align-[-0.125em]" /> Buy now in the panel</>
                   : null;
 
               return (
@@ -1077,14 +1082,14 @@ return (
                   key={slot.id}
                   onClick={() => { if (isClickable) setCurrentAuctionId(slot.auction_id); }}
                   className={`group min-w-[220px] p-4 rounded-xl border-2 transition-colors ${borderStyle} ${bgStyle} ${finishedDim} relative flex flex-col justify-between shrink-0 overflow-hidden ${selectedRing} ${hoverRing} ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
-                  title={isClickable ? 'Click to load in the quick actions panel →' : 'This auction has ended'}
+                  title={isClickable ? 'Click to load in the quick actions panel' : 'This auction has ended'}
                 >
                   <div className="absolute top-0 right-0 z-10">{badge}</div>
 
                   {/* "Wybrane" znacznik dla aktualnie wybranego slota */}
                   {isSelected && (
                     <div className="absolute top-2 left-2 z-10 bg-emerald-500 text-gray-950 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-md">
-                      ✓ Selected
+                      <span className="inline-flex items-center gap-1"><IconCheck className="h-2.5 w-2.5" /> Selected</span>
                     </div>
                   )}
 
@@ -1106,7 +1111,7 @@ return (
                     {/* Hint do kliknięcia - widoczny przy hoverze klikalnych slotów */}
                     {isClickable && !isSelected && (
                       <span className="block text-[10px] font-bold uppercase tracking-wider mt-2 text-emerald-400/0 group-hover:text-emerald-400 transition-colors">
-                        {actionHint} →
+                        {actionHint} <IconArrowRight className="inline h-3 w-3 align-[-0.125em]" />
                       </span>
                     )}
                   </div>
@@ -1119,10 +1124,10 @@ return (
         <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 flex flex-col mb-4">
           <div className="flex justify-between items-end mb-4">
             <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-              🃏 Other Auctions
+              <IconCards className="h-3.5 w-3.5" /> Other Auctions
             </h3>
-            <Link to="/marketplace" className="text-[10px] font-bold text-blue-500 hover:text-blue-400 transition uppercase tracking-wider">
-              View market &rarr;
+            <Link to="/marketplace" className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-500 hover:text-blue-400 transition uppercase tracking-wider">
+              View market <IconArrowRight className="h-3 w-3" />
             </Link>
           </div>
 
@@ -1133,9 +1138,9 @@ return (
               const isHybrid = auction.auction_type === 'hybrid' || auction.auction_type === 'Licytacja + Kup Teraz';
               
               // Odznaki w stylu Harmonogramu
-              let badge = <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg">🔥 AUCTION</span>;
-              if (isBuyNow) badge = <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">🛒 BUY NOW</span>;
-              if (isHybrid) badge = <span className="text-[10px] font-bold bg-purple-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm">⚔️ BID + BUY</span>;
+              let badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-yellow-500 text-black px-2 py-1 rounded-bl-lg rounded-tr-lg"><IconFire className="h-3 w-3" /> AUCTION</span>;
+              if (isBuyNow) badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm"><IconCart className="h-3 w-3" /> BUY NOW</span>;
+              if (isHybrid) badge = <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-purple-600 text-white px-2 py-1 rounded-bl-lg rounded-tr-lg shadow-sm"><IconSwords className="h-3 w-3" /> BID + BUY</span>;
 
               // Wszystkie karty pełne kolory; aktywna dostaje zielony ring
               const isActive = String(currentAuctionId) === String(auction.id);
@@ -1157,7 +1162,9 @@ return (
               const hoverRing = !isActive ? 'hover:ring-1 hover:ring-inset hover:ring-emerald-400/50' : '';
 
               // Akcja sugerowana w panelu po wybraniu - zależy od typu aukcji
-              const actionHint = isBuyNow ? '🛒 Buy now in the panel' : '💸 Bid in the panel';
+              const actionHint = isBuyNow
+                ? <><IconCart className="inline h-3.5 w-3.5 align-[-0.125em]" /> Buy now in the panel</>
+                : <><IconMoney className="inline h-3.5 w-3.5 align-[-0.125em]" /> Bid in the panel</>;
 
               const btnClass = isBuyNow ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-yellow-500 hover:bg-yellow-400 text-black';
 
@@ -1166,7 +1173,7 @@ return (
                   key={auction.id}
                   onClick={() => setCurrentAuctionId(auction.id)}
                   className={`min-w-[220px] p-4 rounded-xl border-2 transition-colors cursor-pointer group flex flex-col justify-between shrink-0 overflow-hidden relative ${borderStyle} ${bgStyle} ${selectedRing} ${hoverRing}`}
-                  title="Click to load in the quick actions panel →"
+                  title="Click to load in the quick actions panel"
                 >
                   {/* ODZNAKA W PRAWYM GÓRNYM ROGU */}
                   <div className="absolute top-0 right-0 z-10">{badge}</div>
@@ -1174,7 +1181,7 @@ return (
                   {/* "Wybrane" znacznik dla aktualnie wybranej aukcji */}
                   {isActive && (
                     <div className="absolute top-2 left-2 z-10 bg-emerald-500 text-gray-950 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-md">
-                      ✓ Selected
+                      <span className="inline-flex items-center gap-1"><IconCheck className="h-2.5 w-2.5" /> Selected</span>
                     </div>
                   )}
 
@@ -1198,7 +1205,7 @@ return (
                     {/* Hint do kliknięcia - widoczny przy hoverze gdy nie wybrane */}
                     {!isActive && (
                       <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-400/0 group-hover:text-emerald-400 transition-colors">
-                        {actionHint} →
+                        {actionHint} <IconArrowRight className="inline h-3 w-3 align-[-0.125em]" />
                       </span>
                     )}
 
@@ -1223,7 +1230,7 @@ return (
         <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 flex flex-col">
           <div className="flex justify-between items-end mb-4">
             <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-              🔴 Other Live Streams
+              <IconLiveDot className="h-2.5 w-2.5 text-red-500" /> Other Live Streams
             </h3>
           </div>
           <div className="flex gap-4 overflow-x-auto custom-scrollbar">
@@ -1259,15 +1266,15 @@ return (
           {/* ========================================================= */}
           {isBidMinimized ? (
             <div className="shrink-0 bg-gray-900 rounded-2xl px-4 py-3 border border-gray-800 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-widest text-gray-300">
-                💸 Bidding collapsed
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gray-300">
+                <IconMoney className="h-4 w-4" /> Bidding collapsed
               </span>
               <button
                 onClick={() => setIsBidMinimized(false)}
                 className="text-xs font-bold text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded hover:bg-white/5 transition"
                 title="Show bidding panel"
               >
-                Expand ▾
+                <span className="inline-flex items-center gap-1">Expand <IconChevronDown className="h-3.5 w-3.5" /></span>
               </button>
             </div>
           ) : (
@@ -1287,8 +1294,8 @@ return (
               return (
                 <div className="bg-gray-800/40 rounded-2xl p-6 border-2 border-gray-700 shrink-0 relative overflow-hidden">
                   <div className="absolute top-0 left-0">
-                    <span className="text-[10px] font-bold bg-gray-700 text-gray-300 px-3 py-1.5 rounded-br-xl rounded-tl-xl block shadow-sm">
-                      ✅ FINISHED
+                    <span className="flex items-center gap-1 text-[10px] font-bold bg-gray-700 text-gray-300 px-3 py-1.5 rounded-br-xl rounded-tl-xl shadow-sm">
+                      <IconCheckCircle className="h-3 w-3" /> FINISHED
                     </span>
                   </div>
                   <button
@@ -1296,7 +1303,7 @@ return (
                     title="Collapse panel"
                     className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
                   >
-                    −
+                    <IconMinus className="h-5 w-5" />
                   </button>
                   <div className="mt-8 mb-5">
                     <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Auction ended</span>
@@ -1321,7 +1328,7 @@ return (
                       onClick={() => navigate(`/product/${currentAuctionId}`)}
                       className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition border border-white/15 text-gray-300 hover:bg-white/10"
                     >
-                      Auction details →
+                      Auction details <IconArrowRight className="inline h-3.5 w-3.5 align-[-0.125em]" />
                     </button>
                   )}
                 </div>
@@ -1338,8 +1345,8 @@ return (
               return (
                 <div className="bg-gray-800/40 rounded-2xl p-6 border-2 border-gray-700 shrink-0 relative overflow-hidden">
                   <div className="absolute top-0 left-0">
-                    <span className="text-[10px] font-bold bg-gray-700 text-gray-300 px-3 py-1.5 rounded-br-xl rounded-tl-xl block shadow-sm">
-                      ⏳ SOON
+                    <span className="flex items-center gap-1 text-[10px] font-bold bg-gray-700 text-gray-300 px-3 py-1.5 rounded-br-xl rounded-tl-xl shadow-sm">
+                      <IconHourglass className="h-3 w-3" /> SOON
                     </span>
                   </div>
                   <button
@@ -1347,7 +1354,7 @@ return (
                     title="Collapse panel"
                     className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
                   >
-                    −
+                    <IconMinus className="h-5 w-5" />
                   </button>
                   <div className="mt-8 mb-5">
                     <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Soon</span>
@@ -1363,7 +1370,7 @@ return (
                       onClick={() => navigate(`/product/${currentAuctionId}`)}
                       className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition border border-white/15 text-gray-300 hover:bg-white/10"
                     >
-                      Auction details →
+                      Auction details <IconArrowRight className="inline h-3.5 w-3.5 align-[-0.125em]" />
                     </button>
                   )}
                 </div>
@@ -1376,8 +1383,8 @@ return (
                 <div className="bg-blue-900/20 rounded-2xl p-6 border-2 border-blue-500/50 shadow-[0_0_20px_rgba(37,99,235,0.15)] shrink-0 relative overflow-hidden">
                   {/* Badge - lewa strona */}
                   <div className="absolute top-0 left-0">
-                    <span className="text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-br-xl rounded-tl-xl block shadow-sm">
-                      📦 IN QUEUE
+                    <span className="flex items-center gap-1 text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-br-xl rounded-tl-xl shadow-sm">
+                      <IconBox className="h-3 w-3" /> IN QUEUE
                     </span>
                   </div>
                   {/* Minimalizacja - prawa strona */}
@@ -1386,7 +1393,7 @@ return (
                     title="Collapse bidding panel"
                     className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
                   >
-                    −
+                    <IconMinus className="h-5 w-5" />
                   </button>
 
                   <div className="mt-8 mb-5">
@@ -1434,7 +1441,7 @@ return (
                       onClick={() => navigate(`/product/${currentAuctionId}`)}
                       className="w-full mt-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition border border-white/15 text-gray-300 hover:bg-white/10"
                     >
-                      Auction details →
+                      Auction details <IconArrowRight className="inline h-3.5 w-3.5 align-[-0.125em]" />
                     </button>
                   )}
                 </div>
@@ -1446,8 +1453,8 @@ return (
               <div className="bg-yellow-900/20 rounded-2xl p-6 border-2 border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.15)] shrink-0 relative overflow-hidden">
                 {/* Badge - lewa strona */}
                 <div className="absolute top-0 left-0">
-                  <span className="text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-br-xl rounded-tl-xl block animate-pulse shadow-sm">
-                    🔥 NOW
+                  <span className="flex items-center gap-1 text-[10px] font-bold bg-yellow-500 text-black px-3 py-1.5 rounded-br-xl rounded-tl-xl animate-pulse shadow-sm">
+                    <IconFire className="h-3 w-3" /> NOW
                   </span>
                 </div>
                 {/* Minimalizacja - prawa strona */}
@@ -1456,7 +1463,7 @@ return (
                   title="Collapse bidding panel"
                   className="absolute top-2 right-2 z-10 text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
                 >
-                  −
+                  <IconMinus className="h-5 w-5" />
                 </button>
 
                 <div className="mt-8 mb-5">
@@ -1488,7 +1495,7 @@ return (
                     <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isWinning ? 'text-green-400' : 'text-yellow-500/70'}`}>
                       Current price:
                     </span>
-                    {isWinning && <span className="text-xs font-bold text-green-500 animate-pulse mt-1">👑 YOU'RE WINNING!</span>}
+                    {isWinning && <span className="inline-flex items-center gap-1 text-xs font-bold text-green-500 animate-pulse mt-1"><IconCrown className="h-3.5 w-3.5" /> YOU'RE WINNING!</span>}
                   </div>
                   <span className={`text-4xl font-black italic transition-colors ${isWinning ? 'text-green-400' : 'text-yellow-400'}`}>
                     ${currentPrice}
@@ -1560,7 +1567,7 @@ return (
                     onClick={() => navigate(`/product/${currentAuctionId}`)}
                     className="w-full mt-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition border border-white/15 text-gray-300 hover:bg-white/10"
                   >
-                    Auction details →
+                    Auction details <IconArrowRight className="inline h-3.5 w-3.5 align-[-0.125em]" />
                   </button>
                 )}
               </div>
@@ -1572,27 +1579,27 @@ return (
           {/* Klasyczny Czat - stała wysokość, niezależny od panelu licytacji */}
           {isChatMinimized ? (
             <div className="shrink-0 bg-gray-900 rounded-2xl px-4 py-3 border border-gray-800 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-widest text-gray-300">
-                💬 Chat collapsed
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gray-300">
+                <IconChat className="h-4 w-4" /> Chat collapsed
               </span>
               <button
                 onClick={() => setIsChatMinimized(false)}
                 className="text-xs font-bold text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded hover:bg-white/5 transition"
                 title="Show chat"
               >
-                Expand ▾
+                <span className="inline-flex items-center gap-1">Expand <IconChevronDown className="h-3.5 w-3.5" /></span>
               </button>
             </div>
           ) : (
           <div className="bg-gray-900 rounded-2xl p-5 flex flex-col border border-gray-800 shadow-xl h-[520px] shrink-0 overflow-hidden">
             <div className="flex items-center justify-between mb-4 shrink-0">
-              <h2 className="text-xs font-bold text-blue-400 uppercase tracking-widest">💬 Chat</h2>
+              <h2 className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-400 uppercase tracking-widest"><IconChat className="h-4 w-4" /> Chat</h2>
               <button
                 onClick={() => setIsChatMinimized(true)}
                 title="Collapse chat"
                 className="text-gray-400 hover:text-white text-lg leading-none px-2 py-0.5 rounded hover:bg-white/10 transition"
               >
-                −
+                <IconMinus className="h-5 w-5" />
               </button>
             </div>
             {chatError && (
