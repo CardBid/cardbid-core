@@ -177,7 +177,7 @@ export default function AppLayout() {
                   }`
                 }
               >
-                Logowanie
+                Log in
               </NavLink>
             )}
           </nav>
@@ -222,13 +222,13 @@ export default function AppLayout() {
                     onClick={() => setMenuOpen(false)}
                     className="block px-3 py-2 text-left text-sm font-bold text-gray-200 transition hover:bg-white/10"
                   >
-                    Moje konto
+                    My account
                   </NavLink>
                   <button
                     onClick={handleLogout}
                     className="w-full px-3 py-2 text-left text-sm font-bold text-red-400 transition hover:bg-red-500/10"
                   >
-                    Wyloguj się
+                    Log out
                   </button>
                 </div>
               )}
@@ -240,13 +240,13 @@ export default function AppLayout() {
                 to="/login"
                 className="hidden md:inline-block rounded-lg border border-white/15 px-4 py-2 text-sm font-bold text-gray-300 transition hover:bg-white/10 hover:text-white"
               >
-                Zaloguj się
+                Log in
               </NavLink>
               <NavLink
                 to="/register"
                 className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-black text-gray-950 transition hover:bg-amber-300"
               >
-                Załóż konto
+                Sign up
               </NavLink>
             </div>
           )}

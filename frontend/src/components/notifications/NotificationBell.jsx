@@ -8,10 +8,10 @@ function timeAgo(iso) {
   const d = new Date(iso);
   const diff = Math.floor((Date.now() - d.getTime()) / 1000);
   if (Number.isNaN(diff)) return '';
-  if (diff < 60) return 'przed chwilą';
-  if (diff < 3600) return `${Math.floor(diff / 60)} min temu`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} godz. temu`;
-  return `${Math.floor(diff / 86400)} dni temu`;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`;
+  return `${Math.floor(diff / 86400)} d ago`;
 }
 
 const TYPE_ICON = {
@@ -81,7 +81,7 @@ export default function NotificationBell() {
         if (cancelled) return;
         try {
           const data = JSON.parse(event.data);
-          const msg = data.message || 'Nowe powiadomienie';
+          const msg = data.message || 'New notification';
           // Pokaż toast i dociągnij świeżą listę z backendu (rekord już zapisany w DB).
           setToast(msg);
           if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -148,7 +148,7 @@ export default function NotificationBell() {
           className="relative grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/5 text-gray-300 transition hover:bg-white/10 hover:text-white"
           aria-haspopup="menu"
           aria-expanded={open}
-          aria-label="Powiadomienia"
+          aria-label="Notifications"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -163,17 +163,17 @@ export default function NotificationBell() {
         {open && (
           <div className="absolute right-0 mt-2 w-80 max-w-[90vw] rounded-lg border border-white/10 bg-gray-900 shadow-xl z-50">
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <p className="text-sm font-black text-white">Powiadomienia</p>
+              <p className="text-sm font-black text-white">Notifications</p>
               {unread > 0 && (
                 <button onClick={markAllRead} className="text-xs font-bold text-emerald-400 hover:text-emerald-300">
-                  Oznacz wszystkie
+                  Mark all
                 </button>
               )}
             </div>
 
             <div className="max-h-96 overflow-y-auto">
               {items.length === 0 ? (
-                <p className="px-4 py-8 text-center text-sm text-gray-500">Brak powiadomień.</p>
+                <p className="px-4 py-8 text-center text-sm text-gray-500">No notifications.</p>
               ) : (
                 items.map((n) => (
                   <button
@@ -199,7 +199,7 @@ export default function NotificationBell() {
               onClick={() => setOpen(false)}
               className="block border-t border-white/10 px-4 py-3 text-center text-xs font-bold text-gray-400 hover:bg-white/5 hover:text-white"
             >
-              Przejdź do konta
+              Go to account
             </Link>
           </div>
         )}
@@ -211,7 +211,7 @@ export default function NotificationBell() {
           <div className="flex-1">
             <p className="text-sm font-bold text-white">{toast}</p>
           </div>
-          <button onClick={() => setToast(null)} className="text-gray-500 hover:text-white" aria-label="Zamknij">
+          <button onClick={() => setToast(null)} className="text-gray-500 hover:text-white" aria-label="Close">
             ✕
           </button>
         </div>

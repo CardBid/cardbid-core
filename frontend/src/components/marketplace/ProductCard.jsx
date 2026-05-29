@@ -23,26 +23,26 @@ export default function ProductCard({ product }) {
               {product.category}
             </span>
             <span className={isFixed ? 'text-emerald-300' : 'text-amber-300'}>
-              {isFixed ? 'Kup Teraz' : 'Aukcja'}
+              {isFixed ? 'Buy Now' : 'Auction'}
             </span>
           </div>
           <Link to={`/product/${product.id}`} className="block text-lg font-black leading-tight hover:text-amber-300">
             {product.title}
           </Link>
-          <p className="mt-2 text-sm text-gray-500">Sprzedawca: {product.seller}</p>
+          <p className="mt-2 text-sm text-gray-500">Seller: {product.seller}</p>
         </div>
 
         {isFixed ? (
           <BuyNowPanel product={product} compact />
         ) : (
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
-            <p className="text-xs font-bold uppercase text-amber-300">Aktualna oferta</p>
+            <p className="text-xs font-bold uppercase text-amber-300">Current bid</p>
             <p className="mt-1 text-2xl font-black">{product.currentBid} PLN</p>
             <Link
               to={`/product/${product.id}`}
               className="mt-3 inline-block w-full rounded-lg bg-amber-400 px-4 py-3 text-center text-sm font-black uppercase text-gray-950 transition hover:bg-amber-300"
             >
-              Przejdz do licytacji
+              Go to auction
             </Link>
           </div>
         )}

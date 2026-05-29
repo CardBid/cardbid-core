@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { authFetch, safeJson, asList, API_BASE, getCurrentUser } from '../lib/api';
 
 const TABS = [
-  { id: 'overview', label: 'Przegląd' },
-  { id: 'bids', label: 'Moje aukcje' },
-  { id: 'orders', label: 'Zamówienia' },
-  { id: 'settings', label: 'Ustawienia' },
+  { id: 'overview', label: 'Overview' },
+  { id: 'bids', label: 'My auctions' },
+  { id: 'orders', label: 'Orders' },
+  { id: 'settings', label: 'Settings' },
 ];
 
 // --- Saldo ---
@@ -18,24 +18,24 @@ function BalanceCard() {
     authFetch('/user/balance/').then(setBal).catch(() => setErr(true));
   }, []);
 
-  const money = (v) => `${Number(v ?? 0).toFixed(2)} zł`;
+  const money = (v) => `$${Number(v ?? 0).toFixed(2)}`;
 
   return (
     <div className="rounded-xl border border-white/10 bg-gray-900 p-6">
-      <p className="text-sm font-black uppercase tracking-wide text-emerald-300">Saldo konta</p>
+      <p className="text-sm font-black uppercase tracking-wide text-emerald-300">Account balance</p>
       {err ? (
-        <p className="mt-3 text-sm text-gray-500">Nie udało się pobrać salda.</p>
+        <p className="mt-3 text-sm text-gray-500">Could not load balance.</p>
       ) : (
         <>
           <p className="mt-2 text-4xl font-black text-white">{money(bal?.available_balance)}</p>
-          <p className="mt-1 text-xs text-gray-500">dostępne</p>
+          <p className="mt-1 text-xs text-gray-500">available</p>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-lg bg-white/5 px-3 py-2">
-              <p className="text-xs text-gray-500">Całość</p>
+              <p className="text-xs text-gray-500">Total</p>
               <p className="font-bold text-white">{money(bal?.balance)}</p>
             </div>
             <div className="rounded-lg bg-white/5 px-3 py-2">
-              <p className="text-xs text-gray-500">Zamrożone</p>
+              <p className="text-xs text-gray-500">Frozen</p>
               <p className="font-bold text-amber-400">{money(bal?.frozen_balance)}</p>
             </div>
           </div>
@@ -55,7 +55,7 @@ function StarInput({ value, onChange }) {
           type="button"
           onClick={() => onChange(n)}
           className={`text-2xl transition ${n <= value ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'}`}
-          aria-label={`${n} gwiazdek`}
+          aria-label={`${n} stars`}
         >
           ★
         </button>
@@ -81,9 +81,9 @@ function ReviewModal({ auction, onClose, onDone }) {
       });
       onDone(auction.id);
     } catch (e) {
-      if (e.status === 400) setErr('Tę aukcję już oceniono.');
-      else if (e.status === 401) setErr('Sesja wygasła. Zaloguj się ponownie.');
-      else setErr('Nie udało się zapisać oceny.');
+      if (e.status === 400) setErr('This auction has already been reviewed.');
+      else if (e.status === 401) setErr('Session expired. Please log in again.');
+      else setErr('Could not save your review.');
       setBusy(false);
     }
   };
@@ -91,9 +91,9 @@ function ReviewModal({ auction, onClose, onDone }) {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-gray-900 p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-black text-white">Oceń sprzedawcę</h3>
+        <h3 className="text-lg font-black text-white">Rate seller</h3>
         <p className="mt-1 text-sm text-gray-400">
-          {auction.card_details?.name || 'Karta'} · sprzedawca {auction.seller_name || '—'}
+          {auction.card_details?.name || 'Card'} · seller {auction.seller_name || '—'}
         </p>
 
         <div className="mt-4">
@@ -104,7 +104,7 @@ function ReviewModal({ auction, onClose, onDone }) {
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           rows={3}
-          placeholder="Komentarz (opcjonalnie)"
+          placeholder="Comment (optional)"
           className="mt-4 w-full rounded-lg border border-white/10 bg-gray-950 px-3 py-2 text-sm text-white outline-none focus:border-emerald-400"
         />
 
@@ -116,10 +116,10 @@ function ReviewModal({ auction, onClose, onDone }) {
             disabled={busy}
             className="flex-1 rounded-lg bg-emerald-400 px-4 py-3 text-sm font-black uppercase text-gray-950 transition hover:bg-emerald-300 disabled:opacity-50"
           >
-            {busy ? 'Zapisywanie...' : 'Wyślij ocenę'}
+            {busy ? 'Saving...' : 'Submit review'}
           </button>
           <button onClick={onClose} className="rounded-lg border border-white/15 px-4 py-3 text-sm font-bold text-gray-300 hover:bg-white/10">
-            Anuluj
+            Cancel
           </button>
         </div>
       </div>
@@ -135,9 +135,9 @@ function AuctionRow({ a, children }) {
         {img ? <img src={img} alt="" className="h-full w-full object-cover" /> : null}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-bold text-white">{a.card_details?.name || 'Karta'}</p>
-        <p className="text-xs text-gray-500">Sprzedawca: {a.seller_name || '—'}</p>
-        <p className="mt-1 text-sm font-black text-emerald-400">{Number(a.current_price ?? 0).toFixed(2)} zł</p>
+        <p className="truncate font-bold text-white">{a.card_details?.name || 'Card'}</p>
+        <p className="text-xs text-gray-500">Seller: {a.seller_name || '—'}</p>
+        <p className="mt-1 text-sm font-black text-emerald-400">${Number(a.current_price ?? 0).toFixed(2)}</p>
       </div>
       {children}
     </div>
@@ -165,18 +165,18 @@ function BidsSection() {
   return (
     <div className="space-y-8">
       <section>
-        <h2 className="mb-3 text-lg font-black text-white">Aktualnie wygrywasz</h2>
+        <h2 className="mb-3 text-lg font-black text-white">Currently winning</h2>
         {winningErr ? (
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-            Endpoint listy aktualnie wygrywanych aukcji nie odpowiada poprawnie (błąd backendu). Sekcja będzie działać po jego naprawie.
+            The endpoint for currently winning auctions is not responding correctly (backend error). This section will work once it is fixed.
           </p>
         ) : winning.length === 0 ? (
-          <p className="text-sm text-gray-500">Nie prowadzisz aktualnie w żadnej aukcji.</p>
+          <p className="text-sm text-gray-500">You're not currently leading any auction.</p>
         ) : (
           <div className="space-y-3">
             {winning.map((a) => (
               <AuctionRow key={a.id} a={a}>
-                <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-black text-emerald-300">PROWADZISZ</span>
+                <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-black text-emerald-300">LEADING</span>
               </AuctionRow>
             ))}
           </div>
@@ -184,21 +184,21 @@ function BidsSection() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-black text-white">Wygrane</h2>
+        <h2 className="mb-3 text-lg font-black text-white">Won</h2>
         {won.length === 0 ? (
-          <p className="text-sm text-gray-500">Nie masz jeszcze wygranych aukcji.</p>
+          <p className="text-sm text-gray-500">You don't have any won auctions yet.</p>
         ) : (
           <div className="space-y-3">
             {won.map((a) => (
               <AuctionRow key={a.id} a={a}>
                 {reviewed[a.id] ? (
-                  <span className="text-xs font-bold text-amber-400">★ Oceniono</span>
+                  <span className="text-xs font-bold text-amber-400">★ Reviewed</span>
                 ) : (
                   <button
                     onClick={() => setModalAuction(a)}
                     className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold text-gray-200 hover:bg-white/10"
                   >
-                    Oceń sprzedawcę
+                    Rate seller
                   </button>
                 )}
               </AuctionRow>
@@ -222,7 +222,7 @@ function BidsSection() {
 }
 
 // --- Zamówienia (mock - backend nie ma endpointów śledzenia) ---
-const FAKE_STAGES = ['Opłacone', 'Spakowane', 'Wysłane', 'Dostarczone'];
+const FAKE_STAGES = ['Paid', 'Packed', 'Shipped', 'Delivered'];
 
 function OrdersSection() {
   const [won, setWon] = useState([]);
@@ -240,18 +240,18 @@ function OrdersSection() {
   return (
     <div>
       <div className="mb-4 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-xs text-gray-400">
-        Śledzenie zamówień jest demonstracyjne — backend nie udostępnia jeszcze danych logistycznych.
+        Order tracking is for demonstration only — the backend does not provide logistics data yet.
       </div>
       {orders.length === 0 ? (
-        <p className="text-sm text-gray-500">Brak zamówień. Wygraj aukcję, aby zobaczyć tu przesyłkę.</p>
+        <p className="text-sm text-gray-500">No orders. Win an auction to see your shipment here.</p>
       ) : (
         <div className="space-y-4">
           {orders.map(({ auction, stageIdx, tracking }) => (
             <div key={auction.id} className="rounded-xl border border-white/10 bg-gray-900 p-5">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="font-bold text-white">{auction.card_details?.name || 'Karta'}</p>
-                  <p className="text-xs text-gray-500">Nr przesyłki: {tracking}</p>
+                  <p className="font-bold text-white">{auction.card_details?.name || 'Card'}</p>
+                  <p className="text-xs text-gray-500">Tracking no.: {tracking}</p>
                 </div>
                 <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-black text-emerald-300">
                   {FAKE_STAGES[stageIdx]}
@@ -335,11 +335,11 @@ function SettingsSection() {
 
     try {
       const res = await authFetch('/user/settings/', { method: 'PATCH', body });
-      setMsg(res?.message || 'Zapisano ustawienia.');
+      setMsg(res?.message || 'Settings saved.');
     } catch (e2) {
-      if (e2.status === 400 && /taken/i.test(e2.message)) setErr('Ta nazwa użytkownika jest już zajęta.');
-      else if (e2.status === 401) setErr('Sesja wygasła. Zaloguj się ponownie.');
-      else setErr('Nie udało się zapisać ustawień.');
+      if (e2.status === 400 && /taken/i.test(e2.message)) setErr('This username is already taken.');
+      else if (e2.status === 401) setErr('Session expired. Please log in again.');
+      else setErr('Could not save settings.');
     } finally {
       setBusy(false);
     }
@@ -348,7 +348,7 @@ function SettingsSection() {
   return (
     <form onSubmit={save} className="max-w-lg space-y-5">
       <label className="block">
-        <span className="text-sm font-bold text-gray-300">Nazwa użytkownika</span>
+        <span className="text-sm font-bold text-gray-300">Username</span>
         <input
           value={username}
           onChange={(e) => setUsername(e.target.value)}
@@ -357,7 +357,7 @@ function SettingsSection() {
       </label>
 
       <label className="block">
-        <span className="text-sm font-bold text-gray-300">Adres wysyłki</span>
+        <span className="text-sm font-bold text-gray-300">Shipping address</span>
         <textarea
           value={shipping}
           onChange={(e) => setShipping(e.target.value)}
@@ -367,13 +367,13 @@ function SettingsSection() {
       </label>
 
       <label className="block">
-        <span className="text-sm font-bold text-gray-300">Kraj</span>
+        <span className="text-sm font-bold text-gray-300">Country</span>
         <select
           value={countryId}
           onChange={(e) => onCountryChange(e.target.value)}
           className="mt-2 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-white outline-none focus:border-emerald-400"
         >
-          <option value="">— wybierz —</option>
+          <option value="">— select —</option>
           {countries.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
@@ -382,13 +382,13 @@ function SettingsSection() {
 
       {selectedCountry?.has_states && (
         <label className="block">
-          <span className="text-sm font-bold text-gray-300">Region / stan</span>
+          <span className="text-sm font-bold text-gray-300">Region / state</span>
           <select
             value={stateId}
             onChange={(e) => setStateId(e.target.value)}
             className="mt-2 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-white outline-none focus:border-emerald-400"
           >
-            <option value="">— wybierz —</option>
+            <option value="">— select —</option>
             {states.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
@@ -404,7 +404,7 @@ function SettingsSection() {
         disabled={busy}
         className="rounded-lg bg-emerald-400 px-6 py-3 text-sm font-black uppercase text-gray-950 transition hover:bg-emerald-300 disabled:opacity-50"
       >
-        {busy ? 'Zapisywanie...' : 'Zapisz zmiany'}
+        {busy ? 'Saving...' : 'Save changes'}
       </button>
     </form>
   );
@@ -425,7 +425,7 @@ export default function Account() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-6">
       <header className="mb-6">
-        <p className="text-sm font-black uppercase text-emerald-300">Twoje konto</p>
+        <p className="text-sm font-black uppercase text-emerald-300">Your account</p>
         <h1 className="mt-1 text-3xl font-black text-white">{user.username}</h1>
         {user.role && <p className="text-xs font-bold uppercase tracking-wide text-gray-500">{user.role}</p>}
       </header>
@@ -447,20 +447,6 @@ export default function Account() {
       {tab === 'overview' && (
         <div className="grid gap-5 md:grid-cols-2">
           <BalanceCard />
-          <div className="rounded-xl border border-white/10 bg-gray-900 p-6">
-            <p className="text-sm font-black uppercase tracking-wide text-gray-400">Skróty</p>
-            <div className="mt-3 flex flex-col gap-2">
-              <button onClick={() => setTab('bids')} className="rounded-lg bg-white/5 px-4 py-3 text-left text-sm font-bold text-white hover:bg-white/10">
-                Moje aukcje →
-              </button>
-              <button onClick={() => setTab('orders')} className="rounded-lg bg-white/5 px-4 py-3 text-left text-sm font-bold text-white hover:bg-white/10">
-                Zamówienia →
-              </button>
-              <Link to="/marketplace" className="rounded-lg bg-white/5 px-4 py-3 text-left text-sm font-bold text-white hover:bg-white/10">
-                Marketplace →
-              </Link>
-            </div>
-          </div>
         </div>
       )}
 

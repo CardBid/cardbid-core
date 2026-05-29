@@ -38,7 +38,7 @@ export default function Register() {
         localStorage.setItem('countries_list', JSON.stringify(list));
         setCountries(list);
       } catch (err) {
-        console.error('Błąd pobierania państw:', err);
+        console.error('Error fetching countries:', err);
       }
     };
     

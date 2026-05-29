@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import SellerReviews from '../components/marketplace/SellerReviews';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -139,7 +140,7 @@ export default function ProductDetail() {
 
   return (
     <div className="container mx-auto p-4 text-white">
-      <h1 className="mb-4 text-3xl font-bold">{auction.card_details?.name || 'Brak nazwy'}</h1>
+      <h1 className="mb-4 text-3xl font-bold">{auction.card_details?.name || 'No name'}</h1>
 
       {!token && (
         <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
@@ -169,12 +170,12 @@ export default function ProductDetail() {
                 </span>
               </div>
 
-              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400/70 mb-1 mt-4">Cena zakupu</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400/70 mb-1 mt-4">Purchase price</p>
               <p className="text-4xl font-black text-blue-300">
                 ${auction.buy_now_price ?? currentPrice}
               </p>
               <p className="mt-1 text-xs text-gray-500">
-                Sprzedawca: {auction.seller_name || '—'} | Ocena: {auction.card_details?.grade || '—'}
+                Seller: {auction.seller_name || '—'} | Grade: {auction.card_details?.grade || '—'}
               </p>
 
               {bidStatus && (
@@ -199,8 +200,8 @@ export default function ProductDetail() {
                 }`}
               >
                 {!token
-                  ? 'Zaloguj się aby kupić'
-                  : bidStatus?.type === 'success' ? 'Zakupiono' : 'Kup Teraz'
+                  ? 'Log in to buy'
+                  : bidStatus?.type === 'success' ? 'Purchased' : 'Buy Now'
                 }
               </button>
             </div>
@@ -216,10 +217,10 @@ export default function ProductDetail() {
                   </span>
                 </div>
 
-                <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-500/70 mb-1 mt-4">Aktualna cena</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-500/70 mb-1 mt-4">Current price</p>
                 <p className="text-4xl font-black text-yellow-400">${currentPrice}</p>
                 <p className="mt-1 text-xs text-gray-500">
-                  Sprzedawca: {auction.seller_name || '—'} | Ocena: {auction.card_details?.grade || '—'}
+                  Seller: {auction.seller_name || '—'} | Grade: {auction.card_details?.grade || '—'}
                 </p>
 
                 {/* Przycisk Kup Teraz dla trybu hybrid */}
@@ -290,9 +291,9 @@ export default function ProductDetail() {
           {/* Opis karty (wspólny) */}
           <div className="relative rounded-lg border border-gray-800 bg-gray-900 p-6">
             <div className={`overflow-hidden transition-all ${isDetailsExpanded ? 'max-h-[1000px]' : 'max-h-32'}`}>
-              <p className="mb-2 text-[10px] font-bold uppercase text-gray-500">Opis karty</p>
+              <p className="mb-2 text-[10px] font-bold uppercase text-gray-500">Card description</p>
               <p className="pb-4 text-sm leading-relaxed text-gray-400">
-                {auction.card_details?.description || 'Brak opisu.'}
+                {auction.card_details?.description || 'No description.'}
               </p>
 
               {!isDetailsExpanded && (
@@ -308,6 +309,9 @@ export default function ProductDetail() {
               {isDetailsExpanded ? 'Collapse' : 'Read more'}
             </button>
           </div>
+
+          {/* Oceny sprzedawcy (per seller, wg /reviews/seller/<id>/) */}
+          <SellerReviews sellerId={auction.seller} sellerName={auction.seller_name} />
 
         </div>
       </div>

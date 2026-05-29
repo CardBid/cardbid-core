@@ -145,22 +145,22 @@ export const VideoPlayer = (props) => {
           {streamState === 'checking' && (
             <>
               <div className="w-10 h-10 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin mb-3" />
-              <p className="text-xs uppercase tracking-widest font-bold">Sprawdzam transmisje...</p>
+              <p className="text-xs uppercase tracking-widest font-bold">Checking stream...</p>
             </>
           )}
           {streamState === 'offline' && (
             <>
               <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse mb-3" />
-              <p className="text-sm font-bold uppercase tracking-widest">Brak transmisji</p>
+              <p className="text-sm font-bold uppercase tracking-widest">No stream</p>
               <p className="text-[10px] text-gray-500 mt-1 tracking-wider">
-                Ponowna proba za {Math.round(pollIntervalMs / 1000)}s
+                Retrying in {Math.round(pollIntervalMs / 1000)}s
               </p>
             </>
           )}
           {streamState === 'error' && (
             <>
-              <p className="text-sm font-bold uppercase tracking-widest text-red-400">Blad odtwarzacza</p>
-              <p className="text-[10px] text-gray-500 mt-1 tracking-wider">Sprobuj odswiezyc strone</p>
+              <p className="text-sm font-bold uppercase tracking-widest text-red-400">Player error</p>
+              <p className="text-[10px] text-gray-500 mt-1 tracking-wider">Try refreshing the page</p>
             </>
           )}
         </div>

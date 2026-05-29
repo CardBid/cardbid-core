@@ -23,7 +23,7 @@ function isJwtExpired(payload) {
 
 // Wyciąga czytelny komunikat z odpowiedzi DRF (string | {detail} | {field: [...]})
 function extractError(data) {
-  if (!data) return 'Nieznany błąd serwera.';
+  if (!data) return 'Unknown server error.';
   if (typeof data === 'string') return data;
   if (data.error) return data.error;
   if (data.detail) return data.detail;
@@ -34,13 +34,13 @@ function extractError(data) {
       if (typeof item === 'string') messages.push(`${field}: ${item}`);
     });
   }
-  return messages.length ? messages.join('\n') : 'Nieznany błąd.';
+  return messages.length ? messages.join('\n') : 'Unknown error.';
 }
 
 const AUCTION_TYPES = [
-  { value: 'bidding', label: 'Licytacja' },
-  { value: 'buy_now', label: 'Kup teraz' },
-  { value: 'hybrid', label: 'Licytacja + Kup teraz' },
+  { value: 'bidding', label: 'Auction' },
+  { value: 'buy_now', label: 'Buy now' },
+  { value: 'hybrid', label: 'Auction + Buy now' },
 ];
 
 const EMPTY_FORM = {
@@ -74,7 +74,7 @@ export default function Studio() {
         const data = await res.json().catch(() => ({}));
         return { ok: res.ok, status: res.status, data };
       } catch {
-        return { ok: false, status: 0, data: { error: 'Błąd połączenia z serwerem.' } };
+        return { ok: false, status: 0, data: { error: 'Connection error.' } };
       }
     },
     [token],
@@ -127,7 +127,7 @@ export default function Studio() {
       setRoom(data.room);
       if (data.room.title) setRoomTitle(data.room.title);
     }
-    setRoomMsg(data.message || (goLive ? 'Transmisja rozpoczęta.' : 'Transmisja zakończona.'));
+    setRoomMsg(data.message || (goLive ? 'Stream started.' : 'Stream ended.'));
   };
 
   const copyStreamKey = async () => {
@@ -137,7 +137,7 @@ export default function Studio() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setRoomErr('Nie udało się skopiować klucza.');
+      setRoomErr('Could not copy the key.');
     }
   };
 
@@ -175,7 +175,7 @@ export default function Studio() {
     const cert = form.certificate_number.trim();
     setPsaMsg(null);
     if (!/^\d{8}$/.test(cert)) {
-      setPsaMsg({ type: 'err', text: 'Numer PSA musi mieć dokładnie 8 cyfr.' });
+      setPsaMsg({ type: 'err', text: 'The PSA number must be exactly 8 digits.' });
       return;
     }
     setPsaLoading(true);
@@ -190,7 +190,7 @@ export default function Studio() {
       card_name: data.card_name || cur.card_name,
       grade: data.grade != null ? String(data.grade) : cur.grade,
     }));
-    setPsaMsg({ type: 'ok', text: `Zweryfikowano: ${data.card_name} (${data.set_name}, ${data.year}), grade ${data.grade}.` });
+    setPsaMsg({ type: 'ok', text: `Verified: ${data.card_name} (${data.set_name}, ${data.year}), grade ${data.grade}.` });
   };
 
   const submitAuction = async (e) => {
@@ -198,15 +198,15 @@ export default function Studio() {
     setCreateErr(null);
     setCreatedAuction(null);
 
-    if (!form.card_name.trim()) return setCreateErr('Podaj nazwę karty.');
-    if (!form.category_id) return setCreateErr('Wybierz kategorię.');
-    if (showStarting && !form.starting_price) return setCreateErr('Podaj cenę startową.');
-    if (showBuyNow && !form.buy_now_price) return setCreateErr('Podaj cenę „Kup teraz".');
+    if (!form.card_name.trim()) return setCreateErr('Enter the card name.');
+    if (!form.category_id) return setCreateErr('Select a category.');
+    if (showStarting && !form.starting_price) return setCreateErr('Enter the starting price.');
+    if (showBuyNow && !form.buy_now_price) return setCreateErr('Enter the "Buy now" price.');
     if (
       form.auction_type === 'hybrid' &&
       Number(form.buy_now_price) <= Number(form.starting_price)
     ) {
-      return setCreateErr('W trybie hybrydowym cena „Kup teraz" musi być wyższa niż startowa.');
+      return setCreateErr('In hybrid mode the "Buy now" price must be higher than the starting price.');
     }
 
     // multipart/form-data — nie ustawiamy Content-Type, przeglądarka doda boundary.
@@ -243,8 +243,8 @@ export default function Studio() {
   const [queueStubMsg, setQueueStubMsg] = useState(null);
   const addToQueue = () => {
     setQueueStubMsg(
-      'Funkcja czeka na endpoint backendu (dodawanie aukcji do pokoju jako slot). ' +
-        'Aukcja została utworzona i jest dostępna na marketplace, ale na razie nie da się jej automatycznie wstawić do kolejki transmisji.',
+      'This feature is waiting for a backend endpoint (adding an auction to a room as a slot). ' +
+        'The auction has been created and is available on the marketplace, but for now it cannot be automatically added to the stream queue.',
     );
   };
 
@@ -286,7 +286,7 @@ export default function Studio() {
     const { ok, data } = await authedJson(`${API}/slots/${slotId}/activate/`, { method: 'POST' });
     setBusySlot(null);
     if (!ok) return setSlotErr(extractError(data));
-    setSlotMsg(data.message || 'Slot aktywowany.');
+    setSlotMsg(data.message || 'Slot activated.');
     fetchTimeline();
   };
 
@@ -297,7 +297,7 @@ export default function Studio() {
     const { ok, data } = await authedJson(`${API}/slots/${slotId}/open/`, { method: 'POST' });
     setBusySlot(null);
     if (!ok) return setSlotErr(extractError(data));
-    setSlotMsg(data.message || 'Paczka otwarta.');
+    setSlotMsg(data.message || 'Pack opened.');
     fetchTimeline();
   };
 
@@ -306,11 +306,11 @@ export default function Studio() {
     return (
       <Blocker
         icon="🔒"
-        title="Wymagane logowanie"
-        subtitle="Zaloguj się kontem streamera, aby otworzyć studio."
+        title="Login required"
+        subtitle="Log in with a streamer account to open the studio."
         action={
           <Link to="/login" className="rounded-lg bg-emerald-400 px-4 py-2 text-sm font-black text-gray-950 transition hover:bg-emerald-300">
-            Zaloguj się
+            Log in
           </Link>
         }
       />
@@ -321,11 +321,11 @@ export default function Studio() {
     return (
       <Blocker
         icon="🚫"
-        title="Tylko dla streamerów"
-        subtitle={`To studio jest dostępne wyłącznie dla konta z rolą „streamer". Twoja rola: ${role || 'brak'}.`}
+        title="Streamers only"
+        subtitle={`This studio is available only for accounts with the "streamer" role. Your role: ${role || 'none'}.`}
         action={
           <Link to="/marketplace" className="rounded-lg bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/20">
-            Wróć na marketplace
+            Back to marketplace
           </Link>
         }
       />
@@ -339,9 +339,9 @@ export default function Studio() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-6">
       <header className="mb-8">
-        <h1 className="text-2xl font-black uppercase tracking-tight">🎬 Studio streamera</h1>
+        <h1 className="text-2xl font-black uppercase tracking-tight">🎬 Streamer Studio</h1>
         <p className="mt-1 text-sm text-gray-400">
-          Zalogowany jako <span className="font-bold text-white">{username}</span> (streamer)
+          Logged in as <span className="font-bold text-white">{username}</span> (streamer)
         </p>
       </header>
 
@@ -349,7 +349,7 @@ export default function Studio() {
         {/* ====== SEKCJA A: TRANSMISJA ====== */}
         <section className="rounded-2xl border border-white/10 bg-gray-900 p-6">
           <h2 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400">
-            📡 Transmisja
+            📡 Stream
           </h2>
 
           <div className="mb-4 flex items-center gap-3">
@@ -357,17 +357,17 @@ export default function Studio() {
               className={`inline-block h-3 w-3 rounded-full ${room?.is_live ? 'animate-pulse bg-red-500' : 'bg-gray-600'}`}
             />
             <span className="text-sm font-bold">
-              {room?.is_live ? 'Na żywo' : room ? 'Offline' : 'Status nieznany (rozpocznij transmisję)'}
+              {room?.is_live ? 'Live' : room ? 'Offline' : 'Status unknown (start a stream)'}
             </span>
           </div>
 
           <label className="block">
-            <span className="text-sm font-bold text-gray-300">Tytuł transmisji</span>
+            <span className="text-sm font-bold text-gray-300">Stream title</span>
             <input
               type="text"
               value={roomTitle}
               onChange={(e) => setRoomTitle(e.target.value)}
-              placeholder="np. Wieczorne otwieranie paczek Pokémon"
+              placeholder="e.g. Evening Pokémon pack opening"
               className={inputCls}
             />
           </label>
@@ -378,32 +378,32 @@ export default function Studio() {
               disabled={toggling}
               className="flex-1 rounded-lg bg-red-600 px-4 py-3 text-sm font-black uppercase text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {toggling ? '...' : 'Rozpocznij'}
+              {toggling ? '...' : 'Start'}
             </button>
             <button
               onClick={() => toggleLive(false)}
               disabled={toggling}
               className="flex-1 rounded-lg border border-white/15 px-4 py-3 text-sm font-bold uppercase text-gray-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Zakończ
+              End
             </button>
           </div>
 
           {room?.stream_key && (
             <div className="mt-5 rounded-lg border border-white/10 bg-gray-950 p-4">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-500">Stream key (do OBS)</p>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-500">Stream key (for OBS)</p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 truncate rounded bg-black/50 px-3 py-2 text-xs text-emerald-300">{room.stream_key}</code>
                 <button
                   onClick={copyStreamKey}
                   className="rounded-lg bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20"
                 >
-                  {copied ? '✓ Skopiowano' : 'Kopiuj'}
+                  {copied ? '✓ Copied' : 'Copy'}
                 </button>
               </div>
               {room.id && (
                 <Link to={`/live/${room.id}`} className="mt-3 inline-block text-xs font-bold text-emerald-400 hover:text-emerald-300">
-                  Podgląd pokoju →
+                  Preview room →
                 </Link>
               )}
             </div>
@@ -416,18 +416,18 @@ export default function Studio() {
         {/* ====== SEKCJA B: NOWA AUKCJA ====== */}
         <section className="rounded-2xl border border-white/10 bg-gray-900 p-6">
           <h2 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400">
-            ➕ Nowa aukcja
+            ➕ New auction
           </h2>
 
           <form onSubmit={submitAuction} className="space-y-4">
             <label className="block">
-              <span className="text-sm font-bold text-gray-300">Numer certyfikatu PSA (opcjonalnie)</span>
+              <span className="text-sm font-bold text-gray-300">PSA certificate number (optional)</span>
               <div className="mt-2 flex gap-2">
                 <input
                   name="certificate_number"
                   value={form.certificate_number}
                   onChange={onFormChange}
-                  placeholder="8 cyfr"
+                  placeholder="8 digits"
                   className="flex-1 rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
                 />
                 <button
@@ -436,21 +436,21 @@ export default function Studio() {
                   disabled={psaLoading}
                   className="rounded-lg bg-white/10 px-4 py-3 text-xs font-bold uppercase text-white transition hover:bg-white/20 disabled:opacity-50"
                 >
-                  {psaLoading ? '...' : 'Sprawdź PSA'}
+                  {psaLoading ? '...' : 'Check PSA'}
                 </button>
               </div>
             </label>
             {psaMsg && <Note type={psaMsg.type}>{psaMsg.text}</Note>}
 
             <label className="block">
-              <span className="text-sm font-bold text-gray-300">Nazwa karty *</span>
+              <span className="text-sm font-bold text-gray-300">Card name *</span>
               <input name="card_name" value={form.card_name} onChange={onFormChange} className={inputCls} />
             </label>
 
             <label className="block">
-              <span className="text-sm font-bold text-gray-300">Kategoria *</span>
+              <span className="text-sm font-bold text-gray-300">Category *</span>
               <select name="category_id" value={form.category_id} onChange={onFormChange} className={inputCls}>
-                <option value="">-- Wybierz kategorię --</option>
+                <option value="">-- Select a category --</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -465,7 +465,7 @@ export default function Studio() {
                 <input name="grade" value={form.grade} onChange={onFormChange} className={inputCls} />
               </label>
               <label className="block">
-                <span className="text-sm font-bold text-gray-300">Typ aukcji</span>
+                <span className="text-sm font-bold text-gray-300">Auction type</span>
                 <select name="auction_type" value={form.auction_type} onChange={onFormChange} className={inputCls}>
                   {AUCTION_TYPES.map((t) => (
                     <option key={t.value} value={t.value}>
@@ -479,7 +479,7 @@ export default function Studio() {
             <div className="grid grid-cols-2 gap-3">
               {showStarting && (
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-300">Cena startowa *</span>
+                  <span className="text-sm font-bold text-gray-300">Starting price *</span>
                   <input
                     name="starting_price"
                     type="number"
@@ -493,7 +493,7 @@ export default function Studio() {
               )}
               {showBuyNow && (
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-300">Cena „Kup teraz" *</span>
+                  <span className="text-sm font-bold text-gray-300">"Buy now" price *</span>
                   <input
                     name="buy_now_price"
                     type="number"
@@ -508,12 +508,12 @@ export default function Studio() {
             </div>
 
             <label className="block">
-              <span className="text-sm font-bold text-gray-300">Opis</span>
+              <span className="text-sm font-bold text-gray-300">Description</span>
               <textarea name="description" rows={3} value={form.description} onChange={onFormChange} className={`${inputCls} resize-none`} />
             </label>
 
             <label className="block">
-              <span className="text-sm font-bold text-gray-300">Zdjęcie karty</span>
+              <span className="text-sm font-bold text-gray-300">Card image</span>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -528,7 +528,7 @@ export default function Studio() {
               disabled={creating}
               className="w-full rounded-lg bg-amber-400 px-5 py-3 text-sm font-black uppercase text-gray-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {creating ? 'Tworzę aukcję...' : 'Utwórz aukcję'}
+              {creating ? 'Creating auction...' : 'Create auction'}
             </button>
 
             {createErr && <Note type="err">{createErr}</Note>}
@@ -537,15 +537,15 @@ export default function Studio() {
           {createdAuction && (
             <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
               <p className="text-sm font-bold text-emerald-300">
-                ✓ Utworzono aukcję #{createdAuction.auction_id} — {createdAuction.card_name}
+                ✓ Created auction #{createdAuction.auction_id} — {createdAuction.card_name}
               </p>
               <button
                 onClick={addToQueue}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-bold text-amber-300 transition hover:bg-amber-500/20"
               >
-                Dodaj do kolejki transmisji
+                Add to stream queue
                 <span className="rounded bg-amber-500/30 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-200">
-                  brak endpointu
+                  no endpoint
                 </span>
               </button>
               {queueStubMsg && <Note type="warn">{queueStubMsg}</Note>}
@@ -558,10 +558,10 @@ export default function Studio() {
       <section className="mt-6 rounded-2xl border border-white/10 bg-gray-900 p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400">
-            🗂️ Kolejka transmisji
+            🗂️ Stream queue
           </h2>
           <label className="flex items-center gap-2 text-xs text-gray-400">
-            ID pokoju:
+            Room ID:
             <input
               type="number"
               value={manageRoomId}
@@ -574,20 +574,20 @@ export default function Studio() {
 
         {!manageRoomId ? (
           <p className="text-sm text-gray-500">
-            Rozpocznij transmisję lub wpisz ID pokoju, aby załadować kolejkę slotów.
+            Start a stream or enter a room ID to load the slot queue.
           </p>
         ) : (
           <>
             {slotMsg && <Note type="ok">{slotMsg}</Note>}
             {slotErr && <Note type="err">{slotErr}</Note>}
 
-            <SlotGroup title="🔥 Teraz na żywo" empty="Brak aktywnego slotu.">
+            <SlotGroup title="🔥 Live now" empty="No active slot.">
               {timeline.current && (
                 <SlotRow slot={timeline.current} badge="active" />
               )}
             </SlotGroup>
 
-            <SlotGroup title="⏳ W kolejce" empty="Kolejka jest pusta.">
+            <SlotGroup title="⏳ In queue" empty="The queue is empty.">
               {timeline.queue.map((s) => (
                 <SlotRow
                   key={s.slot_id}
@@ -595,14 +595,14 @@ export default function Studio() {
                   badge="queue"
                   action={
                     <ActionBtn busy={busySlot === s.slot_id} onClick={() => activateSlot(s.slot_id)}>
-                      Aktywuj
+                      Activate
                     </ActionBtn>
                   }
                 />
               ))}
             </SlotGroup>
 
-            <SlotGroup title="📦 Czeka na otwarcie" empty="Nic nie czeka na otwarcie.">
+            <SlotGroup title="📦 Waiting to open" empty="Nothing waiting to open.">
               {timeline.waiting_to_open.map((s) => (
                 <SlotRow
                   key={s.slot_id}
@@ -610,14 +610,14 @@ export default function Studio() {
                   badge="waiting"
                   action={
                     <ActionBtn busy={busySlot === s.slot_id} onClick={() => openSlot(s.slot_id)} variant="open">
-                      Otwórz paczkę
+                      Open pack
                     </ActionBtn>
                   }
                 />
               ))}
             </SlotGroup>
 
-            <SlotGroup title="✅ Otwarte" empty="Brak otwartych paczek.">
+            <SlotGroup title="✅ Opened" empty="No opened packs.">
               {timeline.opened.map((s) => (
                 <SlotRow key={s.slot_id} slot={s} badge="opened" />
               ))}
@@ -667,10 +667,10 @@ function SlotGroup({ title, empty, children }) {
 
 function SlotRow({ slot, badge, action }) {
   const badges = {
-    active: { cls: 'bg-yellow-500 text-black', label: 'TERAZ' },
-    queue: { cls: 'bg-blue-600 text-white', label: 'W KOLEJCE' },
-    waiting: { cls: 'bg-gray-600 text-white', label: 'CZEKA' },
-    opened: { cls: 'bg-gray-700 text-gray-300', label: 'OTWARTE' },
+    active: { cls: 'bg-yellow-500 text-black', label: 'NOW' },
+    queue: { cls: 'bg-blue-600 text-white', label: 'IN QUEUE' },
+    waiting: { cls: 'bg-gray-600 text-white', label: 'WAITING' },
+    opened: { cls: 'bg-gray-700 text-gray-300', label: 'OPENED' },
   };
   const b = badges[badge] || badges.queue;
   return (
@@ -680,7 +680,7 @@ function SlotRow({ slot, badge, action }) {
         <p className="truncate text-sm font-bold text-white">{slot.card_name}</p>
         <p className="text-xs text-gray-500">
           ${Number(slot.price ?? 0).toFixed(2)}
-          {slot.winner ? ` · zwycięzca: ${slot.winner}` : ''}
+          {slot.winner ? ` · winner: ${slot.winner}` : ''}
         </p>
       </div>
       <span className={`rounded px-2 py-1 text-[10px] font-black uppercase tracking-wider ${b.cls}`}>{b.label}</span>
