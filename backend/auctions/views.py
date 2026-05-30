@@ -323,7 +323,7 @@ class TopUpBalanceView(APIView):
                 return Response({"error": "Amount must be at least 5.00$."}, status=400)
 
             session = stripe.checkout.Session.create(
-                payment_method_types=['card', 'blik'],
+                payment_method_types=['card'],
                 line_items=[{
                     'price_data': {
                         'currency': 'usd',
