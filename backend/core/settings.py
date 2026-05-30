@@ -194,6 +194,11 @@ CHANNEL_LAYERS = {
 }
 
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'socket_connect_timeout': 5,
+    'socket_timeout': 5,
+    'retry_on_timeout': True,
+}
 CELERY_BEAT_SCHEDULE = {
     'close-expired-auctions-every-minute': {
         'task': 'auctions.tasks.close_expired_auctions',
