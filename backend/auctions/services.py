@@ -6,28 +6,19 @@ from asgiref.sync import async_to_sync
 from .utils import calculate_fees
 
 def process_bid_logic(user, auction_id, amount_raw):
-    """
-    Wspólna logika licytacji dla REST API i WebSocketów.
-    """
     with transaction.atomic():
-        try:
-            auction = Auction.objects.select_for_update().get(pk=auction_id)
-        except Auction.DoesNotExist:
-            return False, "Auction does not exist or is closed.", None, None
-
+        auction = Auction.objects.select_for_update().get(pk=auction_id)
+        
         if auction.status != "active":
             return False, "Auction ended", None, None
-
-        if amount_raw is None:
-            return False, "Amount is required.", None, None
 
         try:
             bid_amount = Decimal(str(amount_raw))
         except (TypeError, ValueError, InvalidOperation):
-            return False, "Invalid bid amount format.", None, None
+            return False, "Invalid bid amount.", None, None
 
         if bid_amount < auction.current_price + auction.min_increment:
-            return False, f"You must bid at least {auction.min_increment} higher than current price", None, None
+            return False, "Bid too low.", None, None
 
         fees = calculate_fees(bid_amount, user)
         total_cost = fees['total_cost']
@@ -39,151 +30,52 @@ def process_bid_logic(user, auction_id, amount_raw):
                 "current_balance": float(user.balance)
             }, None, None
 
+        user_locked = lock_user(user)
+
         previous_winner = auction.winner
         previous_price = auction.current_price
 
-        user_locked = lock_user(user)
-        
         try:
-            if previous_winner and previous_winner.id == user.id:
+            if previous_winner and previous_winner.id == user_locked.id:
                 additional_needed = total_cost - user_locked.frozen_balance
                 if additional_needed > 0:
-                    user_locked = freeze_funds(user_locked, additional_needed)
+                    freeze_funds(user_locked, additional_needed)
+            
             else:
                 if previous_winner:
-                    previous_fees = calculate_fees(previous_price, previous_winner)
-                    refund_amount = previous_fees['total_cost'].quantize(Decimal('0.01'))
-                    try:
-                        unfreeze_funds(previous_winner, refund_amount)
-                    except (InvalidFrozenFunds, ValueError):
-                        pass
+                    prev_winner_locked = lock_user(previous_winner)
+                    prev_fees = calculate_fees(previous_price, prev_winner_locked)
+                    refund_amount = prev_fees['total_cost'].quantize(Decimal('0.01'))
+                    unfreeze_funds(prev_winner_locked, refund_amount)
                 
-                user_locked = freeze_funds(user_locked, total_cost)
+                freeze_funds(user_locked, total_cost)
 
-        except InsufficientFunds:
-            return False, {"error": "Insufficient funds in account."}, None, None
+        except (InsufficientFunds, InvalidFrozenFunds) as e:
+            return False, {"error": "Funds error: " + str(e)}, None, None
 
-        Bid.objects.create(
-            auction=auction,
-            user=user_locked,
-            amount=bid_amount
-        )
-
+        Bid.objects.create(auction=auction, user=user_locked, amount=bid_amount)
         auction.current_price = bid_amount
         auction.winner = user_locked
         auction.save()
 
-        previous_highest_bid = auction.bids.exclude(user=user_locked).order_by('-amount').first()
-        if previous_highest_bid:
-            loser = previous_highest_bid.user
-            Notification.objects.create(
-                user=loser,
-                notification_type=Notification.Type.OUTBID,
-                message=f"You were outbid on {auction.card.name}!"
-            )
-        
-            channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(
-                f"user_{loser.id}",
-                {
-                    "type": "notify",
-                    "data": {
-                        "type": "outbid_alert",
-                        "auction_id": auction.id,
-                        "message": f"You were outbid on {auction.card.name}! Current price is {auction.current_price}$."
-                    }
-                }
-            )
-
         return True, "Bid accepted!", auction, total_cost
 
 
-# =====================================================
-# ESCROW / FUNDS
-# =====================================================
-
-
-class InsufficientFunds(Exception):
-    pass
-
-
-class InvalidFrozenFunds(Exception):
-    pass
-
-
 def lock_user(user):
-    """
-    pobiera ŚWIEŻĄ wersję użytkownika z bazy, jest to sposób pracy z instancją
-    użytkownika zapobiegający race conditionsah.
-    """
-    return (
-        user.__class__.objects
-        .select_for_update()
-        .get(pk=user.pk)
-    )
+    return user.__class__.objects.select_for_update().get(pk=user.pk)
 
-
-@transaction.atomic
-def freeze_funds(user, amount: Decimal):
-    user = lock_user(user)
-
-    if amount <= 0:
-        raise ValueError("Amount musi byc liczba dodatnia")
-
-    if user.balance < amount:
-        raise InsufficientFunds()
-
-    # Przenieś określoność dynamicznego salda do mrożonki (żeby zapobiegać licytacji
-    # większej ilości hajsu niż sie ma).
+def freeze_funds(user, amount):
+    if amount <= 0: raise ValueError("Amount > 0")
+    if user.balance < amount: raise InsufficientFunds()
     user.balance -= amount
     user.frozen_balance += amount
-
-    user.save(update_fields=[
-        "balance",
-        "frozen_balance",
-    ])
-
+    user.save(update_fields=["balance", "frozen_balance"])
     return user
 
-
-@transaction.atomic
-def unfreeze_funds(user, amount: Decimal):
-    user = lock_user(user)
-
-    if amount <= 0:
-        raise ValueError("Amount musi byc liczba dodatnia")
-
-    if user.frozen_balance < amount:
-        raise InvalidFrozenFunds()
-
-    # Zwróć określoność zamrożonych środków do dynamicznego salda
+def unfreeze_funds(user, amount):
+    if amount <= 0: raise ValueError("Amount > 0")
+    if user.frozen_balance < amount: raise InvalidFrozenFunds()
     user.frozen_balance -= amount
     user.balance += amount
-
-    user.save(update_fields=[
-        "balance",
-        "frozen_balance",
-    ])
-
+    user.save(update_fields=["balance", "frozen_balance"])
     return user
-    
-
-@transaction.atomic
-def capture_funds(user, amount: Decimal):
-    user = lock_user(user)
-
-    if amount <= 0:
-        raise ValueError("Amount musi byc liczba dodatnia")
-
-    if user.frozen_balance < amount:
-        raise InvalidFrozenFunds()
-
-    # Zabierz środki z zamrożonego salda, bo wygrało się aukcję
-    user.frozen_balance -= amount
-
-    user.save(update_fields=[
-        "frozen_balance",
-    ])
-
-    return user
-
