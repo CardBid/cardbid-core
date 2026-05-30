@@ -82,6 +82,9 @@ export default function NotificationBell() {
         if (cancelled) return;
         try {
           const data = JSON.parse(event.data);
+    
+          if (data.type === 'ping') return;
+          
           const msg = data.message || 'New notification';
           // Pokaż toast i dociągnij świeżą listę z backendu (rekord już zapisany w DB).
           setToast(msg);
@@ -90,8 +93,8 @@ export default function NotificationBell() {
           loadList();
         } catch {
           // ignoruj niepoprawny JSON
-        }
-      };
+      }
+};
 
       socket.onerror = () => { /* onclose poleci zaraz po */ };
 
