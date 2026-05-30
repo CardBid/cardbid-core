@@ -16,6 +16,8 @@ import time
 
 from .services import process_bid_logic
 
+import asyncio
+
 
 class AuctionConsumer(AsyncWebsocketConsumer):
 
@@ -37,8 +39,19 @@ class AuctionConsumer(AsyncWebsocketConsumer):
         state = await self.get_state()
         await self.send(text_data=json.dumps(state))
 
+        self.heartbeat_task = asyncio.create_task(self.heartbeat())
+
+    async def heartbeat(self):
+        while True:
+            await asyncio.sleep(5)
+            try:
+                await self.send(text_data=json.dumps({"type": "ping"}))
+            except Exception:
+                break
 
     async def disconnect(self, close_code):
+        if hasattr(self, 'heartbeat_task'):
+            self.heartbeat_task.cancel()
         await self.channel_layer.group_discard(
             self.group_name,
             self.channel_name
@@ -145,7 +158,20 @@ class StreamRoomConsumer(AsyncWebsocketConsumer):
         )
         await self.accept()
 
+        self.heartbeat_task = asyncio.create_task(self.heartbeat())
+
+    async def heartbeat(self):
+        while True:
+            await asyncio.sleep(5)
+            try:
+                await self.send(text_data=json.dumps({"type": "ping"}))
+            except Exception:
+                break
+
     async def disconnect(self, close_code):
+        if hasattr(self, 'heartbeat_task'):
+            self.heartbeat_task.cancel()
+
         await self.channel_layer.group_discard(
             self.group_name,
             self.channel_name
@@ -239,8 +265,19 @@ class UserNotificationConsumer(AsyncWebsocketConsumer):
         self.group_name = f"user_{self.scope['user'].id}"
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
+        self.heartbeat_task = asyncio.create_task(self.heartbeat())
+
+    async def heartbeat(self):
+        while True:
+            await asyncio.sleep(5)
+            try:
+                await self.send(text_data=json.dumps({"type": "ping"}))
+            except Exception:
+                break
 
     async def disconnect(self, close_code):
+        if hasattr(self, 'heartbeat_task'):
+            self.heartbeat_task.cancel()
         if not self.scope["user"].is_anonymous:
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
