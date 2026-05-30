@@ -56,7 +56,7 @@ def process_bid_logic(user, auction_id, amount_raw):
                 pass
                 
         try:
-            freeze_funds(user, total_cost)
+            user_locked = freeze_funds(user, total_cost)
         except InsufficientFunds:
              return False, {
                 "error": "Insufficient funds in account.",
@@ -66,12 +66,12 @@ def process_bid_logic(user, auction_id, amount_raw):
 
         Bid.objects.create(
             auction=auction,
-            user=user, 
+            user=user_locked,
             amount=bid_amount
         )
 
         auction.current_price = bid_amount
-        auction.winner = user
+        auction.winner = user_locked
         auction.save()
 
         if loser:
