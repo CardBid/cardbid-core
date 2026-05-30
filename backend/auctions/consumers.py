@@ -87,7 +87,8 @@ class AuctionConsumer(AsyncWebsocketConsumer):
 
 
     async def bid_update(self, event):
-        await self.send(text_data=json.dumps(event["data"]))
+        data = event.get("data")
+        await self.send(text_data=json.dumps(data))
 
 
     async def auction_interrupted(self, event):

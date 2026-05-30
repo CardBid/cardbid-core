@@ -314,33 +314,19 @@ const handlePointerMove = (e) => {
       return;
     }
 
-    try {
-      const response = await fetch(`https://cardbid.up.railway.app/api/auctions/${currentAuctionId}/bid/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ amount: proposedAmount })
-      });
+    const socket = wsRef.current;
+    
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: 'place_bid',
+        amount: proposedAmount
+      }));
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          setErrorMsg("Session expired. Please log in again.");
-        } else {
-          // Backend odrzucił (np. brak kasy, za mała kwota)
-          setErrorMsg(data.error || data.detail || "Bid error");
-        }
-      } else {
-        // Licytacja się udała! isWinning ustawi się autorytetnie z WS bid_update.
-        // Optymistyczny update na wypadek gdyby WS chwilowo nie działało:
-        setIsWinning(true);
-        setCustomBidAmount('');
-      }
-    } catch (err) {
-      setErrorMsg("Connection error.");
+      setIsWinning(true);
+      setCurrentPrice(proposedAmount);
+      setCustomBidAmount('');
+    } else {
+      setErrorMsg("Live connection lost. Please refresh the page.");
     }
   };
 
@@ -604,6 +590,10 @@ const handlePointerMove = (e) => {
             if (data.bidder !== undefined && currentUsername) {
               setIsWinning(data.bidder === currentUsername);
             }
+          }
+          else if (data.success === false || data.error) {
+            setErrorMsg(data.error || "Bid rejected.");
+            setIsWinning(false);
           }
         } catch {
           // niepoprawny JSON - ignorujemy
