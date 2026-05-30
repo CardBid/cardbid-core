@@ -41,28 +41,27 @@ def process_bid_logic(user, auction_id, amount_raw):
 
         previous_winner = auction.winner
         previous_price = auction.current_price
-        
-        previous_highest_bid = auction.bids.order_by('-amount').first()
-        loser = None
-        if previous_highest_bid and previous_highest_bid.user != user:
-            loser = previous_highest_bid.user
 
-        if previous_winner and previous_winner.id != user.id:
-            previous_fees = calculate_fees(previous_price, previous_winner)
-            refund_amount = previous_fees['total_cost']
-            try:
-                unfreeze_funds(previous_winner, refund_amount)
-            except InvalidFrozenFunds:
-                pass
-                
+        user_locked = lock_user(user)
+        
         try:
-            user_locked = freeze_funds(user, total_cost)
+            if previous_winner and previous_winner.id == user.id:
+                additional_needed = total_cost - user_locked.frozen_balance
+                if additional_needed > 0:
+                    user_locked = freeze_funds(user_locked, additional_needed)
+            else:
+                if previous_winner:
+                    previous_fees = calculate_fees(previous_price, previous_winner)
+                    refund_amount = previous_fees['total_cost'].quantize(Decimal('0.01'))
+                    try:
+                        unfreeze_funds(previous_winner, refund_amount)
+                    except (InvalidFrozenFunds, ValueError):
+                        pass
+                
+                user_locked = freeze_funds(user_locked, total_cost)
+
         except InsufficientFunds:
-             return False, {
-                "error": "Insufficient funds in account.",
-                "required_total": float(total_cost),
-                "current_balance": float(user.balance)
-            }, None, None
+            return False, {"error": "Insufficient funds in account."}, None, None
 
         Bid.objects.create(
             auction=auction,
@@ -74,11 +73,13 @@ def process_bid_logic(user, auction_id, amount_raw):
         auction.winner = user_locked
         auction.save()
 
-        if loser:
+        previous_highest_bid = auction.bids.exclude(user=user_locked).order_by('-amount').first()
+        if previous_highest_bid:
+            loser = previous_highest_bid.user
             Notification.objects.create(
                 user=loser,
                 notification_type=Notification.Type.OUTBID,
-                message=f"You were outbid on {auction.card.name}! Current price is {auction.current_price}$."
+                message=f"You were outbid on {auction.card.name}!"
             )
         
             channel_layer = get_channel_layer()
