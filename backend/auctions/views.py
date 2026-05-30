@@ -309,36 +309,37 @@ class TaxCalculatorView(APIView):
             return Response({"error": str(e)}, status=400)
 
 class TopUpBalanceView(APIView):
-    """
-    Endpoint: POST /api/top-up/
-    Tworzy sesję Stripe Checkout.
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
-            amount = float(request.data.get('amount', 0))
+            try:
+                data = json.loads(request.body)
+            except Exception:
+                data = request.data
+                if isinstance(data, str):
+                    data = json.loads(data)
+
+            amount = float(data.get('amount', 0))
             
             if amount < 5.00:
-                return Response({"error": "Amount must be at least 5.00$."}, status=400)
+                return Response({"error": "Amount must be at least 5.00 USD."}, status=400)
 
             session = stripe.checkout.Session.create(
-                payment_method_types=['card'],
+                payment_method_types=['card'], 
                 line_items=[{
                     'price_data': {
                         'currency': 'usd',
                         'product_data': {
                             'name': 'CardBid Balance Top-up',
-                            'description': f'Top up for {request.user.username}'
+                            'description': f'Top-up for {request.user.username}'
                         },
                         'unit_amount': int(amount * 100), 
                     },
                     'quantity': 1,
                 }],
                 mode='payment',
-                
                 client_reference_id=str(request.user.id),
-                
                 success_url='https://cardbid-core.vercel.app/account?topup=success',
                 cancel_url='https://cardbid-core.vercel.app/top-up?topup=cancelled',
             )
@@ -354,8 +355,8 @@ class TopUpBalanceView(APIView):
             return Response({"url": session.url})
 
         except Exception as e:
-            print("Stripe error:", e)
-            return Response({"error": "Error connecting to payment provider."}, status=500)
+            print(f"Stripe error: {e}") 
+            return Response({"error": f"Payment error: {str(e)}"}, status=500)
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
