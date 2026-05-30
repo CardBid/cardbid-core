@@ -8,6 +8,7 @@ import ProductDetail from './pages/ProductDetail';
 import Register from './pages/Register';
 import Studio from './pages/Studio';
 import Account from './pages/Account';
+import TopUp from './pages/TopUp';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="/live/:id" element={<LiveRoom />} />
           <Route path="/studio" element={<Studio />} />
           <Route path="/account" element={<Account />} />
+          <Route path="/top-up" element={<TopUp />} />
         </Route>
       </Routes>
     </BrowserRouter>

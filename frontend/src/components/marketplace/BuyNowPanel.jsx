@@ -23,7 +23,7 @@ export default function BuyNowPanel({ product, compact = false }) {
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase text-gray-500">Buy now</p>
-          <p className="mt-1 text-3xl font-black text-white">{product.price} PLN</p>
+          <p className="mt-1 text-3xl font-black text-white">{product.price}$</p>
         </div>
         <p className="text-right text-xs font-bold uppercase text-gray-500">
           Available: {product.stock}

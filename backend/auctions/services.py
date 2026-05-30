@@ -73,7 +73,7 @@ def process_bid_logic(user, auction_id, amount_raw):
             Notification.objects.create(
                 user=loser,
                 notification_type=Notification.Type.OUTBID,
-                message=f"You were outbid on {auction.card.name}! Current price is {auction.current_price} PLN."
+                message=f"You were outbid on {auction.card.name}! Current price is {auction.current_price}$."
             )
         
             channel_layer = get_channel_layer()
@@ -84,7 +84,7 @@ def process_bid_logic(user, auction_id, amount_raw):
                     "data": {
                         "type": "outbid_alert",
                         "auction_id": auction.id,
-                        "message": f"You were outbid on {auction.card.name}! Current price is {auction.current_price} PLN."
+                        "message": f"You were outbid on {auction.card.name}! Current price is {auction.current_price}$."
                     }
                 }
             )

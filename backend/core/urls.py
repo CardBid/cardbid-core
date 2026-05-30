@@ -14,8 +14,6 @@ from auctions.views import (
     MyTokenObtainPairView,
     TokenRefreshView,
     LogoutView,
-    create_payment,
-    stripe_webhook,
 )
 
 urlpatterns = [
@@ -27,9 +25,6 @@ urlpatterns = [
     path('auth/logout/', LogoutView.as_view(), name='auth_logout'),
 
     path("api/", include("auctions.urls")),
-    
-    path("api/top-up/", create_payment),
-    path("api/stripe-webhook/", stripe_webhook),
 ]
 
 if settings.DEBUG:

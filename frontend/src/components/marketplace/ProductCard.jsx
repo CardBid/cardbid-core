@@ -48,7 +48,7 @@ export default function ProductCard({ product }) {
         {isFixed ? (
           <div className="mt-auto rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4">
             <p className="text-xs font-bold uppercase text-emerald-300">Buy now</p>
-            <p className="mt-1 text-2xl font-black">{product.price} PLN</p>
+            <p className="mt-1 text-2xl font-black">{product.price}$</p>
             <Link
               to={`/product/${product.id}`}
               className="mt-3 inline-block w-full rounded-lg bg-emerald-400 px-4 py-3 text-center text-sm font-black uppercase text-gray-950 transition hover:bg-emerald-300"
@@ -59,7 +59,7 @@ export default function ProductCard({ product }) {
         ) : (
           <div className="mt-auto rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
             <p className="text-xs font-bold uppercase text-amber-300">Current bid</p>
-            <p className="mt-1 text-2xl font-black">{product.currentBid} PLN</p>
+            <p className="mt-1 text-2xl font-black">{product.currentBid}$</p>
             <Link
               to={`/product/${product.id}`}
               className="mt-3 inline-block w-full rounded-lg bg-amber-400 px-4 py-3 text-center text-sm font-black uppercase text-gray-950 transition hover:bg-amber-300"

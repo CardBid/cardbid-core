@@ -4,7 +4,8 @@ from .views import (
     TopUpBalanceView, UserProfileView, CardListCreateView,
     CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView, UserInventoryView, UserActiveBidsView,
     AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView, BuyNowView, AuctionLiveDataView, RoomTimelineView, SlotOpenView,
-    UserBalanceView, CreateAuctionView, UserSettingsView, ActivateSlotView, ReviewCreateView, SellerReviewsView, UserNotificationsView, MarkNotificationReadView
+    UserBalanceView, CreateAuctionView, UserSettingsView, ActivateSlotView, ReviewCreateView, SellerReviewsView, UserNotificationsView, MarkNotificationReadView,
+    stripe_webhook
 )
 
 urlpatterns = [
@@ -17,6 +18,7 @@ urlpatterns = [
     # --- FINANCES ---
     path('tax-calc/', TaxCalculatorView.as_view(), name='tax-calculator'),
     path('top-up/', TopUpBalanceView.as_view(), name='top-up-balance'),
+    path('stripe/webhook/', stripe_webhook, name='stripe-webhook'),
 
     # --- CARDS ---
     path('cards/', CardListCreateView.as_view(), name='card-list'), 

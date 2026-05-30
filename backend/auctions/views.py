@@ -54,7 +54,7 @@ def create_payment(request):
 
     intent = stripe.PaymentIntent.create(
         amount=amount,
-        currency="pln",
+        currency="usd",
         automatic_payment_methods={
             "enabled": True,
             "allow_redirects": "never"  # żeby returnurl nie cza
@@ -79,78 +79,62 @@ def create_payment(request):
 def stripe_webhook(request):
     print("WEBHOOK HIT")
     payload = request.body
-    sig_header = request.META["HTTP_STRIPE_SIGNATURE"]
+    sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
 
-    # Weryfikuj też sygnaturę dla bezpieczeństwa
     try:
         event = stripe.Webhook.construct_event(
-            payload,
-            sig_header,
-            endpoint_secret
+            payload, sig_header, endpoint_secret
         )
-
-    except Exception as e:
-        print("🔥 WEBHOOK CRASH:", e)
-        traceback.print_exc()
-        return HttpResponse(status=500)
+    except ValueError as e:
+        return HttpResponse(status=400)
+    except stripe.error.SignatureVerificationError as e:
+        print("Error webhook!")
+        return HttpResponse(status=400)
 
     event_type = event["type"]
 
-    # PAYMENT SUCCESS
-    if event_type == "payment_intent.succeeded":
+    if event_type == "checkout.session.completed":
+        session = event["data"]["object"]
+        
+        session_id = session.get("id")
+        
+        user_id = session.get("client_reference_id")
+        
+        if not user_id:
+            print("Webhook ignored: empty client_reference_id")
+            return HttpResponse(status=200)
 
-        payment_intent = event["data"]["object"]
-
-        intent_id = payment_intent["id"]
+        # Kwota pobrana z sesji (w groszach, więc dzielimy)
+        amount = Decimal(session.get("amount_total", 0)) / Decimal("100")
 
         try:
             with transaction.atomic():
+                user = CardbidUser.objects.select_for_update().get(id=user_id)
+                
+                t = Transaction.objects.filter(stripe_intent_id=session_id).first()
+                if t:
+                    if t.trans_status == Transaction.Status.COMPLETED:
+                        print("Webhook ignored: transaction already completed")
+                        return HttpResponse(status=200) # Już dodano
+                    t.trans_status = Transaction.Status.COMPLETED
+                    t.save()
+                else:
+                    Transaction.objects.create(
+                        user=user,
+                        amount=amount,
+                        trans_type=Transaction.Type.PAYMENT_IN,
+                        trans_status=Transaction.Status.COMPLETED,
+                        stripe_intent_id=session_id
+                    )
 
-                t = Transaction.objects.select_for_update().get(
-                    stripe_intent_id=intent_id
-                )
+                user.balance += amount
+                user.save()
 
-                # zabezpieczenie przed podwójnym webhookiem
-                if t.trans_status == Transaction.Status.COMPLETED:
-                    return HttpResponse(status=200)
-
-                t.trans_status = Transaction.Status.COMPLETED
-                t.save()
-
-                # Stripe zwraca w najmniejszych jednostkach waluty, zatem trzeba
-                # np. w groszach zdzielić na 100 żeby mieć w oryginalnej walucie (zł np.)
-                amount = Decimal(payment_intent["amount"]) / Decimal("100")
-
-                user = t.user
-
-                # Funkcja F zabezpiecza przed race conditions w db przy czytaniu
-                # wartości odrazu zmienianej.
-                CardbidUser.objects.filter(id=user.id).update(
-                    balance=F("balance") + amount
-                )
-
-        except Transaction.DoesNotExist:
-            print("NO TRANSACTION FOR INTENT:", intent_id)
-            return HttpResponse(status=500)
-
-    # PAYMENT FAILED
-    elif event_type == "payment_intent.payment_failed":
-
-        payment_intent = event["data"]["object"]
-
-        intent_id = payment_intent["id"]
-
-        try:
-            t = Transaction.objects.get(
-                stripe_intent_id=intent_id
-            )
-
-            t.trans_status = Transaction.Status.FAILED
-            t.save()
-
-        except Transaction.DoesNotExist:
-            pass
-
+        except CardbidUser.DoesNotExist:
+            print(f"WEBHOOK ERROR: User {user_id} does not exist!")
+            return HttpResponse(status=400)
+            
+    
     return HttpResponse(status=200)
 
 
@@ -325,24 +309,53 @@ class TaxCalculatorView(APIView):
             return Response({"error": str(e)}, status=400)
 
 class TopUpBalanceView(APIView):
+    """
+    Endpoint: POST /api/top-up/
+    Tworzy sesję Stripe Checkout.
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        amount_str = request.data.get('amount')
-        if not amount_str:
-            return Response({"error": "Please provide 'amount'"}, status=400)
-            
         try:
-            amount = Decimal(str(amount_str))
-            user = request.user
-            user.balance += amount
-            user.save()
-            return Response({
-                "message": f"Account topped up by {amount}",
-                "new_balance": user.balance
-            })
+            amount = float(request.data.get('amount', 0))
+            
+            if amount < 5.00:
+                return Response({"error": "Amount must be at least 5.00$."}, status=400)
+
+            session = stripe.checkout.Session.create(
+                payment_method_types=['card', 'blik'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': 'CardBid Balance Top-up',
+                            'description': f'Top up for {request.user.username}'
+                        },
+                        'unit_amount': int(amount * 100), 
+                    },
+                    'quantity': 1,
+                }],
+                mode='payment',
+                
+                client_reference_id=str(request.user.id),
+                
+                success_url='https://cardbid.vercel.app/account?topup=success',
+                cancel_url='https://cardbid.vercel.app/top-up?topup=cancelled',
+            )
+            
+            Transaction.objects.create(
+                user=request.user,
+                amount=amount,
+                trans_type=Transaction.Type.PAYMENT_IN,
+                trans_status=Transaction.Status.PENDING,
+                stripe_intent_id=session.id 
+            )
+
+            return Response({"url": session.url})
+
         except Exception as e:
-            return Response({"error": "Invalid amount"}, status=400)
+            print("Stripe error:", e)
+            return Response({"error": "Error connecting to payment provider."}, status=500)
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
