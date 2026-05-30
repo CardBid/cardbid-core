@@ -170,7 +170,7 @@ export default function AppLayout() {
           <NavLink to="/marketplace" className="flex items-center gap-3">
             <div className="shrink-0">
               <img
-                src="../../public/cardbid.svg"
+                src="/cardbid.svg"
                 alt="CardBid Logo"
                 className="h-10 w-auto"
               />
