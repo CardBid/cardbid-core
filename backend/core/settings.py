@@ -185,21 +185,12 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [{
-                "address": os.environ.get('REDIS_URL'),
-                "socket_keepalive": True,
-                "socket_keepalive_options": {},
-                "health_check_interval": 10,
-            }],
+            "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379') + "?ssl_cert_reqs=none"],
         },
     },
 }
 
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
-CELERY_BROKER_TRANSPORT_OPTIONS = {
-    'socket_keepalive': True,
-    'health_check_interval': 10,
-}
 CELERY_BEAT_SCHEDULE = {
     'close-expired-auctions-every-minute': {
         'task': 'auctions.tasks.close_expired_auctions',
