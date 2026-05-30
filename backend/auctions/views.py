@@ -706,7 +706,7 @@ class UserBalanceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user
+        user = CardbidUser.objects.get(pk=request.user.pk)
         return Response({
             "balance": user.balance + user.frozen_balance, 
             "frozen_balance": user.frozen_balance,
