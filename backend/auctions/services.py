@@ -47,7 +47,7 @@ def process_bid_logic(user, auction_id, amount_raw):
         if previous_highest_bid and previous_highest_bid.user != user:
             loser = previous_highest_bid.user
 
-        if previous_winner and previous_winner.id != user.id:
+        if previous_winner:
             previous_fees = calculate_fees(previous_price, previous_winner)
             refund_amount = previous_fees['total_cost']
             try:
