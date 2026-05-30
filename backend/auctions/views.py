@@ -96,16 +96,16 @@ def stripe_webhook(request):
     if event_type == "checkout.session.completed":
         session = event["data"]["object"]
         
-        session_id = session.get("id")
+        session_id = session["id"]
         
-        user_id = session.get("client_reference_id")
+        user_id = session["client_reference_id"]
         
         if not user_id:
             print("Webhook ignored: empty client_reference_id")
             return HttpResponse(status=200)
 
         # Kwota pobrana z sesji (w groszach, więc dzielimy)
-        amount = Decimal(session.get("amount_total", 0)) / Decimal("100")
+        amount = Decimal(session["amount_total"]) / Decimal("100")
 
         try:
             with transaction.atomic():
