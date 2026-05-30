@@ -339,8 +339,8 @@ class TopUpBalanceView(APIView):
                 
                 client_reference_id=str(request.user.id),
                 
-                success_url='https://cardbid.vercel.app/account?topup=success',
-                cancel_url='https://cardbid.vercel.app/top-up?topup=cancelled',
+                success_url='https://cardbid-core.vercel.app/account?topup=success',
+                cancel_url='https://cardbid-core.vercel.app/top-up?topup=cancelled',
             )
             
             Transaction.objects.create(
