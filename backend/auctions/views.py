@@ -313,20 +313,17 @@ class TopUpBalanceView(APIView):
 
     def post(self, request):
         try:
-            try:
-                data = json.loads(request.body)
-            except Exception:
-                data = request.data
-                if isinstance(data, str):
-                    data = json.loads(data)
-
+            data = request.data
+            if isinstance(data, str):
+                data = json.loads(data)
+            
             amount = float(data.get('amount', 0))
             
             if amount < 5.00:
-                return Response({"error": "Amount must be at least 5.00 USD."}, status=400)
+                return Response({"error": "Amount must be at least $5.00."}, status=400)
 
             session = stripe.checkout.Session.create(
-                payment_method_types=['card'], 
+                payment_method_types=['card'],
                 line_items=[{
                     'price_data': {
                         'currency': 'usd',
@@ -334,7 +331,7 @@ class TopUpBalanceView(APIView):
                             'name': 'CardBid Balance Top-up',
                             'description': f'Top-up for {request.user.username}'
                         },
-                        'unit_amount': int(amount * 100), 
+                        'unit_amount': int(amount * 100),
                     },
                     'quantity': 1,
                 }],
@@ -344,18 +341,10 @@ class TopUpBalanceView(APIView):
                 cancel_url='https://cardbid-core.vercel.app/top-up?topup=cancelled',
             )
             
-            Transaction.objects.create(
-                user=request.user,
-                amount=amount,
-                trans_type=Transaction.Type.PAYMENT_IN,
-                trans_status=Transaction.Status.PENDING,
-                stripe_intent_id=session.id 
-            )
-
             return Response({"url": session.url})
 
         except Exception as e:
-            print(f"Stripe error: {e}") 
+            print(f"🔥 Stripe error: {e}") 
             return Response({"error": f"Payment error: {str(e)}"}, status=500)
 
 class UserProfileView(generics.RetrieveUpdateAPIView):

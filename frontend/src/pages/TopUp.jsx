@@ -24,7 +24,8 @@ export default function TopUp() {
     try {
       const res = await authFetch('/top-up/', {
         method: 'POST',
-        body: JSON.stringify({ amount: value }), 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: value }),
       });
 
       const data = await res.json();
