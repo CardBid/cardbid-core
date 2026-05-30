@@ -22,7 +22,7 @@ export default function TopUp() {
 
     setLoading(true);
     try {
-      const res = await authFetch('https://cardbid.up.railway.app/api/top-up/', {
+      const res = await authFetch('/top-up/', {
         method: 'POST',
         body: JSON.stringify({ amount: value }), 
       });
