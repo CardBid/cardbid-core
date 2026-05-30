@@ -29,6 +29,7 @@ export default function TopUp() {
       });
 
       const data = await res.json();
+      console.log('Top-up response:', data);
 
       if (!res.ok) {
         setError(data.error || data.detail || 'Could not initialize payment.');
