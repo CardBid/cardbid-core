@@ -168,9 +168,13 @@ export default function AppLayout() {
           
           {/* LOGO */}
           <NavLink to="/marketplace" className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-emerald-400 text-sm font-black text-gray-950">
-              CB
-            </span>
+            <div className="shrink-0">
+              <img
+                src="../../public/cardbid.svg"
+                alt="CardBid Logo"
+                className="h-10 w-auto"
+              />
+            </div>
             <span className="hidden sm:block leading-tight">
               <span className="block text-lg font-black">CardBid</span>
               <span className="block text-xs font-bold uppercase text-gray-500">Marketplace & Live</span>
