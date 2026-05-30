@@ -708,9 +708,9 @@ class UserBalanceView(APIView):
     def get(self, request):
         user = request.user
         return Response({
-            "balance": user.balance,
+            "balance": user.balance + user.frozen_balance, 
             "frozen_balance": user.frozen_balance,
-            "available_balance": user.balance - user.frozen_balance 
+            "available_balance": user.balance
         })
 
 class CreateAuctionView(APIView):

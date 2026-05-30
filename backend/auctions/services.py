@@ -48,25 +48,30 @@ def process_bid_logic(user, auction_id, amount_raw):
             loser = previous_highest_bid.user
 
         if previous_winner and previous_winner.id != user.id:
-            prev_user_locked = CardbidUser.objects.select_for_update().get(id=previous_winner.id)
-            previous_fees = calculate_fees(previous_price, prev_user_locked)
+            previous_fees = calculate_fees(previous_price, previous_winner)
             refund_amount = previous_fees['total_cost']
-
-            prev_user_locked.balance += refund_amount
-            prev_user_locked.save()
-
-        user_locked = CardbidUser.objects.select_for_update().get(id=user.id)
-        user_locked.balance -= total_cost
-        user_locked.save()
+            try:
+                unfreeze_funds(previous_winner, refund_amount)
+            except InvalidFrozenFunds:
+                pass
+                
+        try:
+            freeze_funds(user, total_cost)
+        except InsufficientFunds:
+             return False, {
+                "error": "Insufficient funds in account.",
+                "required_total": float(total_cost),
+                "current_balance": float(user.balance)
+            }, None, None
 
         Bid.objects.create(
             auction=auction,
-            user=user_locked,
+            user=user, 
             amount=bid_amount
         )
 
         auction.current_price = bid_amount
-        auction.winner = user_locked
+        auction.winner = user
         auction.save()
 
         if loser:
@@ -90,7 +95,6 @@ def process_bid_logic(user, auction_id, amount_raw):
             )
 
         return True, "Bid accepted!", auction, total_cost
-        
 
 
 # =====================================================
