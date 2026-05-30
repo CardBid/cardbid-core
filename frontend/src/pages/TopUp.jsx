@@ -22,34 +22,22 @@ export default function TopUp() {
 
     setLoading(true);
     try {
-      const res = await authFetch('/top-up/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: value }),
-      });
+        const data = await authFetch('/top-up/', {
+            method: 'POST',
+            body: { amount: value },
+        });
 
-      const data = await res.json();
-      console.log('Top-up response:', data);
-
-      if (!res.ok) {
-        setError(data.error || data.detail || 'Could not initialize payment.');
-        setLoading(false);
-        return;
-      }
-
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
-      } else if (data.url) {
-        window.location.href = data.url;
-      } else {
-        setError('Received invalid response from server.');
-        setLoading(false);
-      }
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            setError('Received invalid response from server.');
+            setLoading(false);
+        }
     } catch (err) {
-      setError('Connection error. Please try again.');
-      setLoading(false);
+        setError(err.message || 'Connection error. Please try again.');
+        setLoading(false);
     }
-  };
+};
 
   return (
     <div className="mx-auto max-w-lg px-4 py-12 md:px-6">
