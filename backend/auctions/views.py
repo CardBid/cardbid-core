@@ -449,10 +449,18 @@ class UserInventoryView(generics.ListAPIView):
         return Auction.objects.filter(winner=self.request.user, status=Auction.Status.ENDED)
 
 class UserActiveBidsView(generics.ListAPIView):
+    """
+    Zwraca listę aukcji, w których zalogowany użytkownik jest AKTUALNYM liderem
+    (wygrywa), a aukcja jest nadal AKTYWNA.
+    """
+    serializer_class = AuctionSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Auction.objects.filter(winner=self.request.user, status=Auction.Status.ACTIVE)
+        return Auction.objects.filter(
+            winner=self.request.user, 
+            status=Auction.Status.ACTIVE
+        ).order_by('end_date')
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
