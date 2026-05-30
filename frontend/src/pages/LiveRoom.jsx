@@ -831,7 +831,7 @@ return (
         
 
           {/* === MOBILNY ORAZ KINOWY CZAT === */}
-          <div className={`absolute bottom-24 left-4 w-64 z-20 pointer-events-none flex flex-col justify-end h-1/3 overflow-hidden mask-image-top transition-opacity duration-300 ${overlayChatMode === 2 ? 'lg:opacity-100 lg:flex' : 'lg:opacity-0 lg:hidden'} opacity-100`}>
+          <div className={`absolute bottom-4 lg:bottom-24 left-4 right-4 lg:right-auto w-auto lg:w-64 max-w-[70%] lg:max-w-none z-20 pointer-events-none flex flex-col justify-end h-1/4 lg:h-1/3 overflow-hidden mask-image-top transition-opacity duration-300 ${overlayChatMode === 2 ? 'lg:opacity-100 lg:flex' : 'lg:opacity-0 lg:hidden'} opacity-100`}>
             <div className="flex flex-col space-y-1.5 pb-2">
               {messages.slice(-6).map(m => (
                 <div key={m.id} className="text-[11px] leading-snug drop-shadow-md">
