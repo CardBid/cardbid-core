@@ -553,10 +553,10 @@ class BuyNowView(APIView):
                     auction = Auction.objects.select_for_update().get(pk=pk)
 
                     if auction.seller == request.user:
-                    return Response(
-                        {"error": "You cannot buy your own auction."}, 
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                        return Response(
+                            {"error": "You cannot buy your own auction."}, 
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
 
                     if auction.status != "active":
                         return Response({"error": "Auction not active."}, status=404)
