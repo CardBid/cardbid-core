@@ -412,19 +412,40 @@ function SettingsSection() {
   );
 }
 
+const toLocalDatetime = (isoStr) => {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
+
 function EditAuctionModal({ auction, onClose, onRefresh }) {
   const [cardName, setCardName] = useState(auction.card_details?.name || '');
+  const [description, setDescription] = useState(auction.card_details?.description || '');
   const [startPrice, setStartPrice] = useState(auction.starting_price || '');
   const [buyNowPrice, setBuyNowPrice] = useState(auction.buy_now_price || '');
+  const [startDate, setStartDate] = useState(toLocalDatetime(auction.start_date));
+  const [endDate, setEndDate] = useState(toLocalDatetime(auction.end_date));
+
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
 
+  const hasBids = Number(auction.current_price) > Number(auction.starting_price);
+  const hasStarted = new Date(auction.start_date) <= new Date();
+
   const submit = async () => {
     setBusy(true);
+    setErr(null);
     try {
       await authFetch(`/auctions/${auction.id}/manage/`, {
         method: 'PATCH',
-        body: { card_name: cardName, starting_price: startPrice, buy_now_price: buyNowPrice },
+        body: { 
+          card_name: cardName, 
+          description: description,
+          starting_price: startPrice, 
+          buy_now_price: buyNowPrice,
+          start_date: startDate ? new Date(startDate).toISOString() : null,
+          end_date: endDate ? new Date(endDate).toISOString() : null
+        },
       });
       onRefresh();
       onClose();
@@ -436,32 +457,66 @@ function EditAuctionModal({ auction, onClose, onRefresh }) {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-gray-900 p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-gray-900 p-6" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-black text-white mb-4">Edit Listing</h3>
         
-        <label className="block mb-3">
-          <span className="text-xs font-bold text-gray-400">Name</span>
-          <input value={cardName} onChange={(e) => setCardName(e.target.value)} className="mt-1 w-full rounded border border-white/10 bg-gray-950 px-3 py-2 text-white outline-none" />
-        </label>
-        
-        <div className="flex gap-3 mb-4">
-          <label className="flex-1">
-            <span className="text-xs font-bold text-gray-400">Starting Price ($)</span>
-            <input type="number" step="0.01" value={startPrice} onChange={(e) => setStartPrice(e.target.value)} className="mt-1 w-full rounded border border-white/10 bg-gray-950 px-3 py-2 text-white outline-none" />
+        <div className="space-y-3 mb-5 max-h-[60vh] overflow-y-auto pr-2">
+          <label className="block">
+            <span className="text-xs font-bold text-gray-400">Card / Item Name</span>
+            <input value={cardName} onChange={(e) => setCardName(e.target.value)} className="mt-1 w-full rounded border border-white/10 bg-gray-950 px-3 py-2 text-white outline-none focus:border-emerald-400" />
           </label>
-          <label className="flex-1">
-            <span className="text-xs font-bold text-gray-400">Buy Now ($)</span>
-            <input type="number" step="0.01" value={buyNowPrice} onChange={(e) => setBuyNowPrice(e.target.value)} className="mt-1 w-full rounded border border-white/10 bg-gray-950 px-3 py-2 text-white outline-none" />
+
+          <label className="block">
+            <span className="text-xs font-bold text-gray-400">Description</span>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="mt-1 w-full rounded border border-white/10 bg-gray-950 px-3 py-2 text-white outline-none focus:border-emerald-400" />
           </label>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-xs font-bold text-gray-400">Starting Price ($)</span>
+              <input 
+                type="number" step="0.01" 
+                value={startPrice} 
+                onChange={(e) => setStartPrice(e.target.value)} 
+                disabled={hasBids}
+                className={`mt-1 w-full rounded border px-3 py-2 text-white outline-none ${hasBids ? 'bg-gray-800 border-transparent opacity-50 cursor-not-allowed' : 'bg-gray-950 border-white/10 focus:border-emerald-400'}`} 
+              />
+              {hasBids && <span className="text-[10px] text-amber-400 font-bold mt-1 block">Locked (Bids placed)</span>}
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-bold text-gray-400">Buy Now ($)</span>
+              <input type="number" step="0.01" value={buyNowPrice} onChange={(e) => setBuyNowPrice(e.target.value)} className="mt-1 w-full rounded border border-white/10 bg-gray-950 px-3 py-2 text-white outline-none focus:border-emerald-400" />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-xs font-bold text-gray-400">Start Date</span>
+              <input 
+                type="datetime-local" 
+                value={startDate} 
+                onChange={(e) => setStartDate(e.target.value)} 
+                disabled={hasStarted}
+                className={`mt-1 w-full rounded border px-3 py-2 text-white outline-none ${hasStarted ? 'bg-gray-800 border-transparent opacity-50 cursor-not-allowed' : 'bg-gray-950 border-white/10 focus:border-emerald-400'}`} 
+              />
+              {hasStarted && <span className="text-[10px] text-gray-500 font-bold mt-1 block">Already Started</span>}
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-bold text-gray-400">End Date</span>
+              <input type="datetime-local" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1 w-full rounded border border-white/10 bg-gray-950 px-3 py-2 text-white outline-none focus:border-emerald-400" />
+            </label>
+          </div>
         </div>
 
-        {err && <p className="mb-4 text-xs font-bold text-red-400">{err}</p>}
+        {err && <div className="mb-4 rounded bg-red-500/10 p-2 border border-red-500/20"><p className="text-xs font-bold text-red-400">{err}</p></div>}
 
         <div className="flex gap-2">
-          <button onClick={submit} disabled={busy} className="flex-1 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-black text-gray-950 hover:bg-emerald-400">
-            {busy ? 'Saving...' : 'Save'}
+          <button onClick={submit} disabled={busy} className="flex-1 rounded-lg bg-emerald-500 px-4 py-3 text-sm font-black text-gray-950 hover:bg-emerald-400 disabled:opacity-50 transition">
+            {busy ? 'Saving...' : 'Save Changes'}
           </button>
-          <button onClick={onClose} className="rounded-lg border border-white/15 px-4 py-2 text-sm font-bold text-gray-300 hover:bg-white/10">
+          <button onClick={onClose} className="rounded-lg border border-white/15 px-4 py-3 text-sm font-bold text-gray-300 hover:bg-white/10 transition">
             Cancel
           </button>
         </div>
@@ -474,6 +529,8 @@ function SellingSection() {
   const [auctions, setAuctions] = useState([]);
   const [editing, setEditing] = useState(null);
   
+  const [shippedOrders, setShippedOrders] = useState({});
+
   const fetchAuctions = () => {
     authFetch('/user/selling/')
       .then((d) => setAuctions(asList(d)))
@@ -485,13 +542,18 @@ function SellingSection() {
   }, []);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this listing?')) return;
+    if (!window.confirm('Are you sure you want to completely delete this listing?')) return;
     try {
       await authFetch(`/auctions/${id}/manage/`, { method: 'DELETE' });
       setAuctions(auctions.filter(a => a.id !== id));
     } catch (e) {
-      alert(e.message || 'Cannot delete auction. It might be already ended.');
+      alert(e.message || 'Cannot delete auction.');
     }
+  };
+
+  const handleShip = (id) => {
+    setShippedOrders(prev => ({ ...prev, [id]: true }));
+    alert("Shipping label generated! The buyer will be notified.");
   };
 
   if (auctions.length === 0) {
@@ -500,24 +562,53 @@ function SellingSection() {
 
   return (
     <div className="space-y-3">
-      {auctions.map((a) => (
-        <AuctionRow key={a.id} a={a}>
-          <div className="flex flex-col gap-1 items-end sm:flex-row">
-            {a.status === 'active' || a.status === 'pending' ? (
-              <>
-                <button onClick={() => setEditing(a)} className="rounded-lg bg-blue-600/20 px-3 py-1.5 text-xs font-bold text-blue-400 hover:bg-blue-600/40 transition">
-                  Edit
-                </button>
-                <button onClick={() => handleDelete(a.id)} className="rounded-lg bg-red-600/20 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-600/40 transition">
-                  Delete
-                </button>
-              </>
-            ) : (
-              <span className="text-xs font-bold text-gray-500 bg-gray-800 px-3 py-1 rounded">ENDED</span>
-            )}
-          </div>
-        </AuctionRow>
-      ))}
+      {auctions.map((a) => {
+        const isSold = Number(a.current_price) > Number(a.starting_price) || a.winner;
+        const hasBids = Number(a.current_price) > Number(a.starting_price);
+        
+        return (
+          <AuctionRow key={a.id} a={a}>
+            <div className="flex flex-col gap-1 items-end sm:flex-row">
+              {a.status === 'active' || a.status === 'pending' ? (
+                <>
+                  <button onClick={() => setEditing(a)} className="rounded-lg bg-blue-600/20 px-3 py-1.5 text-xs font-bold text-blue-400 hover:bg-blue-600/40 transition">
+                    Edit
+                  </button>
+                  
+                  {!hasBids ? (
+                    <button onClick={() => handleDelete(a.id)} className="rounded-lg bg-red-600/20 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-600/40 transition">
+                      Delete
+                    </button>
+                  ) : (
+                     <span className="px-2 py-1 text-[10px] font-bold text-amber-500 border border-amber-500/20 bg-amber-500/10 rounded">BIDS PLACED</span>
+                  )}
+                </>
+              ) : (
+                <>
+                  {isSold ? (
+                    shippedOrders[a.id] ? (
+                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded flex items-center gap-1">
+                        <IconCheck className="h-4 w-4" /> Shipped
+                      </span>
+                    ) : (
+                      <button 
+                        onClick={() => handleShip(a.id)} 
+                        className="rounded-lg bg-emerald-600/20 border border-emerald-500/30 px-3 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-600/40 transition"
+                      >
+                        Print Label & Ship
+                      </button>
+                    )
+                  ) : (
+                    <span className="text-xs font-bold text-gray-500 bg-gray-800 px-3 py-1 rounded">
+                      ENDED (UNSOLD)
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          </AuctionRow>
+        );
+      })}
 
       {editing && (
         <EditAuctionModal 

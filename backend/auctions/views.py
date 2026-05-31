@@ -909,8 +909,12 @@ class UserAuctionManageView(APIView):
 
     def delete(self, request, pk):
         auction = get_object_or_404(Auction, pk=pk, seller=request.user)
+        
         if auction.status == Auction.Status.ENDED:
             return Response({"error": "You cannot delete an ended auction."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if auction.bids.exists():
+            return Response({"error": "You cannot delete an auction that already has bids. You must sell it to the highest bidder."}, status=status.HTTP_400_BAD_REQUEST)
         
         card = auction.card
         auction.delete()
@@ -919,25 +923,41 @@ class UserAuctionManageView(APIView):
 
     def patch(self, request, pk):
         auction = get_object_or_404(Auction, pk=pk, seller=request.user)
+        
         if auction.status == Auction.Status.ENDED:
             return Response({"error": "You cannot edit an ended auction."}, status=status.HTTP_400_BAD_REQUEST)
 
         data = request.data
         card = auction.card
+        has_bids = auction.bids.exists()
         
-        # Edycja karty
-        if 'card_name' in data: card.name = data['card_name']
-        if 'description' in data: card.description = data['description']
-        if 'grade' in data: card.grade = data['grade']
+        if 'card_name' in data: 
+            card.name = data['card_name']
+        if 'description' in data: 
+            card.description = data['description']
         card.save()
 
-        # Edycja aukcji
-        if 'starting_price' in data and data['starting_price']: 
-            auction.starting_price = Decimal(str(data['starting_price']))
+        if 'start_date' in data and data['start_date']:
+            new_start = timezone.datetime.fromisoformat(data['start_date'].replace('Z', '+00:00'))
+            
+            if auction.start_date <= timezone.now() and new_start != auction.start_date:
+                return Response({"error": "You cannot change the start date because the auction has already started."}, status=status.HTTP_400_BAD_REQUEST)
+            auction.start_date = new_start
+
+        if 'end_date' in data and data['end_date']:
+            auction.end_date = timezone.datetime.fromisoformat(data['end_date'].replace('Z', '+00:00'))
+
+        if 'starting_price' in data and data['starting_price']:
+            new_starting_price = Decimal(str(data['starting_price']))
+            
+            if has_bids and new_starting_price != auction.starting_price:
+                return Response({"error": "Cannot change starting price after someone has already placed a bid."}, status=status.HTTP_400_BAD_REQUEST)
+            elif not has_bids:
+                auction.starting_price = new_starting_price
+                auction.current_price = new_starting_price
+
         if 'buy_now_price' in data and data['buy_now_price']: 
             auction.buy_now_price = Decimal(str(data['buy_now_price']))
-        if 'auction_type' in data: 
-            auction.auction_type = data['auction_type']
             
         auction.save()
         return Response({"message": "Auction updated successfully."})
