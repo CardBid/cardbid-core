@@ -66,28 +66,10 @@ export default function CreateAuction() {
       data.append('image', image);
     }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-
-    // Budujemy FormData (bo wysyłamy plik, a nie czystego JSONa)
-    const data = new FormData();
-    Object.keys(formData).forEach(key => {
-      if (formData[key]) {
-        data.append(key, formData[key]);
-      }
-    });
-    
-    if (image) {
-      data.append('image', image);
-    }
-
     try {
       const token = localStorage.getItem('access_token');
       if (!token) throw new Error("You must be logged in.");
 
-      // Zauważ brak nagłówka 'Content-Type' - przeglądarka sama musi ustawić 'multipart/form-data' z odpowiednim boundary
       const res = await fetch(`${API_BASE}/auctions/create/`, {
         method: 'POST',
         headers: {
@@ -101,7 +83,6 @@ export default function CreateAuction() {
         throw new Error(errData.error || "Failed to create auction.");
       }
 
-      // Sukces! Przekieruj do zakładki sprzedaży w koncie
       navigate('/account'); 
       
     } catch (err) {
