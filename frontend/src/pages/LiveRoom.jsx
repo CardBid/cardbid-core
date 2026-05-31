@@ -163,10 +163,8 @@ const handlePointerMove = (e) => {
       return null;
     }
   })();
-  const { id } = useParams();
   // URL /live/:id  →  id to ROOM_ID (tak go ustawia <Link to={`/live/${room.id}`}>)
   // Jeśli ktoś wszedł na /live bez id, roomId zostaje null - guard niżej wybierze co pokazać.
-  const roomId = id ? Number(id) : null;
   // Stan walidacji pokoju
   const [roomsLoaded, setRoomsLoaded] = useState(false);
   const [liveRoomsFetchOk, setLiveRoomsFetchOk] = useState(false);
