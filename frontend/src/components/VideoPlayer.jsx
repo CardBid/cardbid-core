@@ -35,10 +35,10 @@ export const VideoPlayer = (props) => {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const url = `${sourceUrl}${sourceUrl.includes('?') ? '&' : '?'}_t=${Date.now()}`;
-      const res = await fetch(url, { method: 'GET', signal: controller.signal, cache: 'no-store' });
+      const res = await fetch(sourceUrl, { method: 'GET', signal: controller.signal, cache: 'no-store' });
       return res.ok;
-    } catch {
+    } catch (err) {
+      console.warn("[VideoPlayer] Błąd łączenia z wideo (CORS?):", err);
       return false;
     }
   }, [sourceUrl]);
