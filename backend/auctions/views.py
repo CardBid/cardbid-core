@@ -970,8 +970,6 @@ def stream_start(request):
         path = request.POST.get('path', '') 
         raw_query = request.POST.get('query', '') 
 
-        print(f"DEBUG: path={path}, query={raw_query}")
-
         room_id = None
         if '/' in path:
             room_id = path.split('/')[1]
@@ -990,11 +988,22 @@ def stream_start(request):
             return HttpResponseForbidden("Invalid stream key or room")
             
     return HttpResponseForbidden("Method not allowed")
+
 @csrf_exempt
 def stream_stop(request):
-    """Webhook wywoływany przez MediaMTX po wyłączeniu OBS"""
+    """Webhook wywoływany przez MediaMTX po zakończeniu transmisji w OBS"""
     if request.method == 'POST':
-        room_id = request.POST.get('room_id')
-        if room_id:
-            StreamRoom.objects.filter(id=room_id).update(is_live=False)
-    return HttpResponse("OK", status=200)
+        path = request.POST.get('path', '') 
+
+        room_id = None
+        if '/' in path:
+            room_id = path.split('/')[1]
+        
+        if not room_id:
+            return HttpResponseForbidden("Missing room ID")
+
+        StreamRoom.objects.filter(id=room_id).update(is_live=False)
+        
+        return HttpResponse("OK", status=200)
+            
+    return HttpResponseForbidden("Method not allowed")
