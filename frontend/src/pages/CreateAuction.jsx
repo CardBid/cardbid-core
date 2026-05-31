@@ -37,6 +37,35 @@ export default function CreateAuction() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const selectedCategory = categories.find(c => String(c.id) === formData.category_id);
+  
+  const isCardCategory = selectedCategory 
+    ? !selectedCategory.name.toLowerCase().includes('box') && !selectedCategory.name.toLowerCase().includes('pack')
+    : true;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+
+    const data = new FormData();
+    Object.keys(formData).forEach(key => {
+      if (!isCardCategory && (key === 'grade' || key === 'certificate_number')) {
+        return; 
+      }
+      if (formData[key]) {
+        data.append(key, formData[key]);
+      }
+    });
+    
+    if (!isCardCategory) {
+        data.append('grade', 'N/A');
+    }
+
+    if (image) {
+      data.append('image', image);
+    }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setBusy(true);
@@ -86,20 +115,21 @@ export default function CreateAuction() {
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-6">
       <header className="mb-8">
         <p className="text-sm font-black uppercase text-emerald-300">Marketplace</p>
-        <h1 className="mt-1 text-3xl font-black text-white">List a Card for Sale</h1>
+        <h1 className="mt-1 text-3xl font-black text-white">List an Item for Sale</h1> {/* Zmiana z Card na Item */}
         <p className="mt-2 text-sm text-gray-400">Fill in the details below to start your auction or list a buy-now item.</p>
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-6 rounded-xl border border-white/10 bg-gray-900 p-6 md:p-8">
         
-        {/* --- SEKCJA KARTY --- */}
+        {/* --- SEKCJA PRZEDMIOTU --- */}
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-white border-b border-white/10 pb-2">Card Details</h2>
+          <h2 className="text-lg font-bold text-white border-b border-white/10 pb-2">Item Details</h2>
           
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
-              <span className="text-xs font-bold text-gray-400">Card Name *</span>
-              <input required name="card_name" value={formData.card_name} onChange={handleChange} placeholder="e.g. Charizard Base Set" className="mt-1 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400" />
+              {/* Dynamiczna nazwa etykiety */}
+              <span className="text-xs font-bold text-gray-400">{isCardCategory ? 'Card Name *' : 'Product Name *'}</span>
+              <input required name="card_name" value={formData.card_name} onChange={handleChange} placeholder={isCardCategory ? "e.g. Charizard Base Set" : "e.g. Pokemon Base Set Booster Box"} className="mt-1 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400" />
             </label>
 
             <label className="block">
@@ -113,24 +143,26 @@ export default function CreateAuction() {
             </label>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className="text-xs font-bold text-gray-400">Grade</span>
-              <select name="grade" value={formData.grade} onChange={handleChange} className="mt-1 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400">
-                <option value="Raw">Raw (Ungraded)</option>
-                <option value="PSA 10">PSA 10</option>
-                <option value="PSA 9">PSA 9</option>
-                <option value="BGS 10">BGS 10</option>
-                <option value="BGS 9.5">BGS 9.5</option>
-                <option value="Other">Other</option>
-              </select>
-            </label>
+          {isCardCategory && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-bold text-gray-400">Grade</span>
+                <select name="grade" value={formData.grade} onChange={handleChange} className="mt-1 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400">
+                  <option value="Raw">Raw (Ungraded)</option>
+                  <option value="PSA 10">PSA 10</option>
+                  <option value="PSA 9">PSA 9</option>
+                  <option value="BGS 10">BGS 10</option>
+                  <option value="BGS 9.5">BGS 9.5</option>
+                  <option value="Other">Other</option>
+                </select>
+              </label>
 
-            <label className="block">
-              <span className="text-xs font-bold text-gray-400">Certificate Number (if graded)</span>
-              <input name="certificate_number" value={formData.certificate_number} onChange={handleChange} placeholder="e.g. 84123912" className="mt-1 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400" />
-            </label>
-          </div>
+              <label className="block">
+                <span className="text-xs font-bold text-gray-400">Certificate Number (if graded)</span>
+                <input name="certificate_number" value={formData.certificate_number} onChange={handleChange} placeholder="e.g. 84123912" className="mt-1 w-full rounded-lg border border-white/10 bg-gray-950 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400" />
+              </label>
+            </div>
+          )}
 
           <label className="block">
             <span className="text-xs font-bold text-gray-400">Description</span>
@@ -138,7 +170,7 @@ export default function CreateAuction() {
           </label>
 
           <label className="block">
-            <span className="text-xs font-bold text-gray-400">Card Image</span>
+            <span className="text-xs font-bold text-gray-400">{isCardCategory ? 'Card Image' : 'Product Image'}</span>
             <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files[0])} className="mt-1 w-full text-sm text-gray-400 file:mr-4 file:rounded-full file:border-0 file:bg-emerald-500/20 file:px-4 file:py-2 file:text-xs file:font-bold file:text-emerald-400 hover:file:bg-emerald-500/30" />
           </label>
         </div>
