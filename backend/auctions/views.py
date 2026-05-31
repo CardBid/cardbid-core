@@ -720,9 +720,6 @@ class CreateAuctionView(APIView):
         data = request.data
         user = request.user
 
-        if user.role not in ['seller', 'streamer']:
-            return Response({"error": "You are not authorized to create auctions."}, status=status.HTTP_403_FORBIDDEN)
-
         try:
             category = Category.objects.get(id=data.get('category_id'))
 
@@ -897,3 +894,50 @@ class MarkNotificationReadView(APIView):
             return Response({"message": "Notification marked as read."})
         except Notification.DoesNotExist:
             return Response({"error": "Notification not found."}, status=404)
+        
+class UserSellingAuctionsView(generics.ListAPIView):
+    """Pobiera wszystkie aukcje, które wystawił zalogowany użytkownik"""
+    serializer_class = AuctionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Auction.objects.filter(seller=self.request.user).order_by('-start_date')
+
+class UserAuctionManageView(APIView):
+    """Zarządzanie własną aukcją (Edycja / Usuwanie)"""
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        auction = get_object_or_404(Auction, pk=pk, seller=request.user)
+        if auction.status == Auction.Status.ENDED:
+            return Response({"error": "You cannot delete an ended auction."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        card = auction.card
+        auction.delete()
+        card.delete()
+        return Response({"message": "Auction deleted successfully."})
+
+    def patch(self, request, pk):
+        auction = get_object_or_404(Auction, pk=pk, seller=request.user)
+        if auction.status == Auction.Status.ENDED:
+            return Response({"error": "You cannot edit an ended auction."}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = request.data
+        card = auction.card
+        
+        # Edycja karty
+        if 'card_name' in data: card.name = data['card_name']
+        if 'description' in data: card.description = data['description']
+        if 'grade' in data: card.grade = data['grade']
+        card.save()
+
+        # Edycja aukcji
+        if 'starting_price' in data and data['starting_price']: 
+            auction.starting_price = Decimal(str(data['starting_price']))
+        if 'buy_now_price' in data and data['buy_now_price']: 
+            auction.buy_now_price = Decimal(str(data['buy_now_price']))
+        if 'auction_type' in data: 
+            auction.auction_type = data['auction_type']
+            
+        auction.save()
+        return Response({"message": "Auction updated successfully."})

@@ -6,6 +6,7 @@ import { IconStar, IconCheck } from '../components/icons';
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'bids', label: 'My auctions' },
+  { id: 'selling', label: 'My listings' },
   { id: 'orders', label: 'Orders' },
   { id: 'settings', label: 'Settings' },
 ];
@@ -383,7 +384,7 @@ function SettingsSection() {
 
       {selectedCountry?.has_states && (
         <label className="block">
-          <span className="text-sm font-bold text-gray-300">Region / state</span>
+          <span className="text-sm font-bold text-gray-300">Region/state</span>
           <select
             value={stateId}
             onChange={(e) => setStateId(e.target.value)}
@@ -408,6 +409,124 @@ function SettingsSection() {
         {busy ? 'Saving...' : 'Save changes'}
       </button>
     </form>
+  );
+}
+
+function EditAuctionModal({ auction, onClose, onRefresh }) {
+  const [cardName, setCardName] = useState(auction.card_details?.name || '');
+  const [startPrice, setStartPrice] = useState(auction.starting_price || '');
+  const [buyNowPrice, setBuyNowPrice] = useState(auction.buy_now_price || '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const submit = async () => {
+    setBusy(true);
+    try {
+      await authFetch(`/auctions/${auction.id}/manage/`, {
+        method: 'PATCH',
+        body: { card_name: cardName, starting_price: startPrice, buy_now_price: buyNowPrice },
+      });
+      onRefresh();
+      onClose();
+    } catch (e) {
+      setErr(e.message || 'Error updating auction.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-gray-900 p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-black text-white mb-4">Edit Listing</h3>
+        
+        <label className="block mb-3">
+          <span className="text-xs font-bold text-gray-400">Name</span>
+          <input value={cardName} onChange={(e) => setCardName(e.target.value)} className="mt-1 w-full rounded border border-white/10 bg-gray-950 px-3 py-2 text-white outline-none" />
+        </label>
+        
+        <div className="flex gap-3 mb-4">
+          <label className="flex-1">
+            <span className="text-xs font-bold text-gray-400">Starting Price ($)</span>
+            <input type="number" step="0.01" value={startPrice} onChange={(e) => setStartPrice(e.target.value)} className="mt-1 w-full rounded border border-white/10 bg-gray-950 px-3 py-2 text-white outline-none" />
+          </label>
+          <label className="flex-1">
+            <span className="text-xs font-bold text-gray-400">Buy Now ($)</span>
+            <input type="number" step="0.01" value={buyNowPrice} onChange={(e) => setBuyNowPrice(e.target.value)} className="mt-1 w-full rounded border border-white/10 bg-gray-950 px-3 py-2 text-white outline-none" />
+          </label>
+        </div>
+
+        {err && <p className="mb-4 text-xs font-bold text-red-400">{err}</p>}
+
+        <div className="flex gap-2">
+          <button onClick={submit} disabled={busy} className="flex-1 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-black text-gray-950 hover:bg-emerald-400">
+            {busy ? 'Saving...' : 'Save'}
+          </button>
+          <button onClick={onClose} className="rounded-lg border border-white/15 px-4 py-2 text-sm font-bold text-gray-300 hover:bg-white/10">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SellingSection() {
+  const [auctions, setAuctions] = useState([]);
+  const [editing, setEditing] = useState(null);
+  
+  const fetchAuctions = () => {
+    authFetch('/user/selling/')
+      .then((d) => setAuctions(asList(d)))
+      .catch(() => setAuctions([]));
+  };
+
+  useEffect(() => {
+    fetchAuctions();
+  }, []);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this listing?')) return;
+    try {
+      await authFetch(`/auctions/${id}/manage/`, { method: 'DELETE' });
+      setAuctions(auctions.filter(a => a.id !== id));
+    } catch (e) {
+      alert(e.message || 'Cannot delete auction. It might be already ended.');
+    }
+  };
+
+  if (auctions.length === 0) {
+    return <p className="text-sm text-gray-500">You haven't listed any cards for sale yet.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {auctions.map((a) => (
+        <AuctionRow key={a.id} a={a}>
+          <div className="flex flex-col gap-1 items-end sm:flex-row">
+            {a.status === 'active' || a.status === 'pending' ? (
+              <>
+                <button onClick={() => setEditing(a)} className="rounded-lg bg-blue-600/20 px-3 py-1.5 text-xs font-bold text-blue-400 hover:bg-blue-600/40 transition">
+                  Edit
+                </button>
+                <button onClick={() => handleDelete(a.id)} className="rounded-lg bg-red-600/20 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-600/40 transition">
+                  Delete
+                </button>
+              </>
+            ) : (
+              <span className="text-xs font-bold text-gray-500 bg-gray-800 px-3 py-1 rounded">ENDED</span>
+            )}
+          </div>
+        </AuctionRow>
+      ))}
+
+      {editing && (
+        <EditAuctionModal 
+          auction={editing} 
+          onClose={() => setEditing(null)} 
+          onRefresh={fetchAuctions} 
+        />
+      )}
+    </div>
   );
 }
 
@@ -452,6 +571,7 @@ export default function Account() {
       )}
 
       {tab === 'bids' && <BidsSection />}
+      {tab === 'selling' && <SellingSection />}
       {tab === 'orders' && <OrdersSection />}
       {tab === 'settings' && <SettingsSection />}
     </div>

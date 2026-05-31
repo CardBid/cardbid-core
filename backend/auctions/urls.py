@@ -5,7 +5,7 @@ from .views import (
     CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView, UserInventoryView, UserActiveBidsView,
     AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView, BuyNowView, AuctionLiveDataView, RoomTimelineView, SlotOpenView,
     UserBalanceView, CreateAuctionView, UserSettingsView, ActivateSlotView, ReviewCreateView, SellerReviewsView, UserNotificationsView, MarkNotificationReadView,
-    stripe_webhook
+    stripe_webhook, UserSellingAuctionsView, UserAuctionManageView
 )
 
 urlpatterns = [
@@ -27,6 +27,7 @@ urlpatterns = [
     # --- USER DASHBOARD ---
     path('user/inventory/', UserInventoryView.as_view(), name='user_inventory'),
     path('user/active-bids/', UserActiveBidsView.as_view(), name='user_active_bids'),
+    path('user/selling/', UserSellingAuctionsView.as_view(), name='user_selling'),
 
     # --- AUCTIONS ---
     path('auctions/', AuctionListCreateView.as_view(), name='auction-list'),
@@ -35,6 +36,7 @@ urlpatterns = [
     path('auctions/<int:pk>/bids/', AuctionBidHistoryView.as_view(), name='auction-bids'),
     path('auctions/<int:pk>/buy-now/', BuyNowView.as_view(), name='buy-now'),
     path('auctions/create/', CreateAuctionView.as_view(), name='create-auction'),
+    path('auctions/<int:pk>/manage/', UserAuctionManageView.as_view(), name='auction-manage'),
 
     # --- AUCTION LIVE STREAMING & ROOMS ---
     path('slots/<int:slot_id>/open/', SlotOpenView.as_view(), name='slot-open'),

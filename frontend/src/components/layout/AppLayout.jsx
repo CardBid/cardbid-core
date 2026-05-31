@@ -77,10 +77,14 @@ export default function AppLayout() {
 
   // Link "Studio" widoczny tylko dla streamerów (panel zarządzania transmisją)
   const navItems = useMemo(() => {
-    if (user?.role === 'streamer') {
-      return [...baseNavItems, { to: '/studio', label: 'Studio' }];
+    let items = [...baseNavItems];
+    if (user) {
+      items.push({ to: '/create-auction', label: '+ Create Auction', isHighlight: true });
     }
-    return baseNavItems;
+    if (user?.role === 'streamer') {
+      items.push({ to: '/studio', label: 'Studio' });
+    }
+    return items;
   }, [user]);
 
   // === AUTO-REFRESH ACCESS TOKEN ===
@@ -189,9 +193,11 @@ export default function AppLayout() {
                 to={item.to}
                 className={({ isActive }) =>
                   `rounded-lg px-4 py-2 text-sm font-bold transition ${
-                    isActive
-                      ? 'bg-white text-gray-950'
-                      : 'text-gray-400 hover:bg-white/10 hover:text-white'
+                    item.isHighlight 
+                      ? 'bg-emerald-500 text-gray-950 hover:bg-emerald-400 shadow-md ml-2' 
+                      : isActive
+                        ? 'bg-white text-gray-950'
+                        : 'text-gray-400 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >

@@ -9,6 +9,7 @@ import Register from './pages/Register';
 import Studio from './pages/Studio';
 import Account from './pages/Account';
 import TopUp from './pages/TopUp';
+import CreateAuction from './pages/CreateAuction';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
           <Route path="/studio" element={<Studio />} />
           <Route path="/account" element={<Account />} />
           <Route path="/top-up" element={<TopUp />} />
+          <Route path="/create-auction" element={<CreateAuction />} />
         </Route>
       </Routes>
     </BrowserRouter>
