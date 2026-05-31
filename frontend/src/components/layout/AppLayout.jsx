@@ -77,14 +77,10 @@ export default function AppLayout() {
 
   // Link "Studio" widoczny tylko dla streamerów (panel zarządzania transmisją)
   const navItems = useMemo(() => {
-    let items = [...baseNavItems];
-    if (user) {
-      items.push({ to: '/create-auction', label: '+ Create Auction', isHighlight: true });
-    }
     if (user?.role === 'streamer') {
-      items.push({ to: '/studio', label: 'Studio' });
+      return [...baseNavItems, { to: '/studio', label: 'Studio' }];
     }
-    return items;
+    return baseNavItems;
   }, [user]);
 
   // === AUTO-REFRESH ACCESS TOKEN ===
@@ -210,6 +206,12 @@ export default function AppLayout() {
           <div className="flex items-center gap-3">
             {user ? (
               <>
+                <Link
+                  to="/create-auction"
+                  className="hidden md:flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-black text-gray-950 transition hover:bg-emerald-400 shadow-lg hover:shadow-emerald-500/20"
+                >
+                  + Create Auction
+                </Link>
                 {/* BALANCE (Widoczny na większych ekranach lub zawsze, zależy od preferencji) */}
                 {balance !== null && (
                   <div className="hidden sm:flex items-center gap-2 rounded-lg border border-white/10 bg-gray-900 pl-3 pr-1 py-1">
@@ -319,6 +321,16 @@ export default function AppLayout() {
                    <Link to="/top-up" className="rounded bg-white/10 px-3 py-1 text-xs font-black uppercase text-white hover:bg-white/20">Add funds</Link>
                  </div>
                </div>
+            )}
+
+            {user && (
+              <Link
+                to="/create-auction"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block w-full rounded-lg bg-emerald-500 px-4 py-3 text-center text-base font-black text-gray-950 transition hover:bg-emerald-400 shadow-md"
+              >
+                + Create Auction
+              </Link>
             )}
             
             {navItems.map((item) => (
