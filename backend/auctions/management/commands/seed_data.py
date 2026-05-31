@@ -12,17 +12,28 @@ from faker import Faker
 from auctions.models import CardbidUser, Card, Auction, Category, Bid, StreamRoom, AuctionSlot, Country, State
 from datetime import date
 import cloudinary.uploader
-
 import shutil
+
+# --- KONFIGURACJA KATEGORII ---
+DOMAINS = {
+    'pkmn': ('Pokémon', ['pokemon', 'pkmn']),
+    'nba': ('NBA', ['nba', 'basketball', 'basket']),
+    'soccer': ('Soccer', ['fifa', 'football', 'soccer', 'pilka']),
+    'golf': ('Golf', ['golf']),
+    'wwe': ('WWE', ['wwe', 'wrestling']),
+    'mma': ('MMA', ['mma', 'ufc'])
+}
+
+SUB_TYPES = ['Single Cards', 'Sealed Boxes', 'Booster Packs', 'Accessories']
 
 
 class Command(BaseCommand):
-    help = "Generuje dane Faker + realne zdjęcia i opisy z pliku TXT"
+    help = "Generuje dane Faker + realne zdjęcia i rozszerzone kategorie"
 
     def slugify_text(self, text):
         text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-        text = text.lower().replace(" ", ".").replace("-", ".")
-        return "".join(ch for ch in text if ch.isalnum() or ch == ".")
+        text = text.lower().replace(" ", "-").replace(".", "")
+        return "".join(ch for ch in text if ch.isalnum() or ch == "-")
 
     def handle(self, *args, **kwargs):
         fake = Faker("pl_PL")
@@ -54,8 +65,9 @@ class Command(BaseCommand):
         os.makedirs(cards_dir, exist_ok=True)
 
         self.stdout.write("Pobieram kraje i stany z bazy danych...")
-        poland = Country.objects.get(code="PL")
-        usa = Country.objects.get(code="US")
+        poland = Country.objects.filter(code="PL").first()
+        usa = Country.objects.filter(code="US").first()
+        
         all_states = list(usa.states.all())
 
         self.stdout.write("Tworzę losowych użytkowników...")
@@ -77,16 +89,12 @@ class Command(BaseCommand):
             if created:
                 user.set_password("Test1234!")
                 user.save()
-                self.stdout.write(f"Stworzono nowego użytkownika: {username}")
-            else:
-                self.stdout.write(f"Użytkownik {username} już istnieje, pomijam tworzenie.")
-            
             users.append(user)
 
             StreamRoom.objects.update_or_create(
                 streamer=user,
                 defaults={
-                    'title': f"Wielkie otwieranie kart u {username}",
+                    'title': f"Big opening {username}",
                     'stream_key': f"sb_{uuid.uuid4().hex[:8]}",
                     'is_live': True
                 }
@@ -94,7 +102,6 @@ class Command(BaseCommand):
 
         roles = ["buyer", "seller", "seller", "buyer", "seller"]
 
-        # najpierw tworzymy zwykłych userów
         for _ in range(15):
             first_name = fake.first_name()
             last_name = fake.last_name()
@@ -107,13 +114,9 @@ class Command(BaseCommand):
             role = random.choice(roles)
 
             user_country = random.choice([poland, usa])
-            user_state = random.choice(all_states) if user_country.has_states else None
+            user_state = random.choice(all_states) if user_country.has_states and all_states else None
 
-            random_age = random.randint(18, 50)
-            birth_year = date.today().year - random_age
-            birth_month = random.randint(1, 12)
-            birth_day = random.randint(1, 28)
-            user_birth_date = date(birth_year, birth_month, birth_day)
+            user_birth_date = date(date.today().year - random.randint(18, 50), random.randint(1, 12), random.randint(1, 28))
 
             user = CardbidUser.objects.create_user(
                 username=username,
@@ -133,12 +136,11 @@ class Command(BaseCommand):
             if role == "streamer":
                 StreamRoom.objects.create(
                     streamer=user,
-                    title=f"Licytacje u {username}",
+                    title=f"Auctions {username}",
                     stream_key=f"sb_{uuid.uuid4().hex[:8]}",
                     is_live=random.choice([True, False])
                 )
 
-        # losowo wybierz dwóch użytkowników i zrób z nich adminów Django
         if len(users) >= 2:
             admin_candidates = random.sample(users, 2)
             for u in admin_candidates:
@@ -152,49 +154,54 @@ class Command(BaseCommand):
 
         if not sellers:
             fallback = CardbidUser.objects.create_user(
-                username="jan_sprzedawca_101",
-                email="jan.sprzedawca101@example.com",
-                password="Test1234!",
-                role="seller",
-                first_name="Jan",
-                last_name="Sprzedawca",
-                birth_date=date(1985, 5, 15),
+                username="jan_sprzedawca_101", email="jan@example.com", password="Test1234!",
+                role="seller", first_name="Jan", last_name="Sprzedawca", birth_date=date(1985, 5, 15)
             )
             sellers.append(fallback)
             users.append(fallback)
             buyers.append(fallback)
 
-        self.stdout.write("Tworzę kategorie w bazie...")
-        cat_map = {
-            'pkmn': Category.objects.get_or_create(name='Pokémon', defaults={'slug': 'pokemon'})[0],
-            'nba': Category.objects.get_or_create(name='Koszykówka', defaults={'slug': 'koszykowka'})[0],
-            'fifa': Category.objects.get_or_create(name='Piłka Nożna', defaults={'slug': 'pilka-nozna'})[0]
-        }
+        self.stdout.write("Tworzę macierz wszystkich kategorii...")
+        categories_map = {}
+        for key, (domain_name, _) in DOMAINS.items():
+            categories_map[key] = []
+            for sub in SUB_TYPES:
+                cat_name = f"{domain_name} - {sub}"
+                cat, _ = Category.objects.get_or_create(
+                    name=cat_name, 
+                    defaults={'slug': self.slugify_text(cat_name)}
+                )
+                categories_map[key].append(cat)
 
+        self.stdout.write("Przetwarzam plik Opisy.txt...")
         with open(txt_path, 'r', encoding='utf-8') as f:
             lines = [line.strip() for line in f.readlines() if " – " in line]
         
-        desc_groups = {
-            'pkmn': lines[0:20],
-            'nba': lines[20:35],
-            'fifa': lines[35:50]
-        }
+        desc_groups = {}
+        chunk_size = max(3, len(lines) // len(DOMAINS))
+        for i, key in enumerate(DOMAINS.keys()):
+            start_idx = i * chunk_size
+            extracted = lines[start_idx:start_idx+chunk_size]
+            if not extracted:
+                extracted = [f"{DOMAINS[key][0]} Item {j} – Wspaniały przedmiot do kolekcji" for j in range(5)]
+            desc_groups[key] = extracted
 
+        self.stdout.write("Przeszukuję obrazy...")
         all_files = []
         for root, dirs, files in os.walk(source_dir):
             for file in files:
-                if file.lower().endswith(('.jpg', '.png', '.jpeg')):
+                if file.lower().endswith(('.jpg', '.png', '.jpeg', '.webp')):
                     all_files.append(os.path.join(root, file))
 
-        img_groups = {
-            'pkmn': [f for f in all_files if "pokemon" in f.lower() or "pkmn" in f.lower()],
-            'nba': [f for f in all_files if "nba" in f.lower()],
-            'fifa': [f for f in all_files if "fifa" in f.lower() or "football" in f.lower() or "pilka" in f.lower()]
-        }
+        img_groups = {}
+        for key, (_, keywords) in DOMAINS.items():
+            img_groups[key] = [f for f in all_files if any(kw in f.lower() for kw in keywords)]
+            if not img_groups[key]:
+                img_groups[key] = all_files
 
         all_auctions = []
 
-        def process_group(descriptions, available_images, category, label):
+        def process_group(descriptions, available_images, category_choices, label):
             count = 0
             used_images = set()
             
@@ -218,15 +225,19 @@ class Command(BaseCommand):
                 
                 if matched_img:
                     display_name = desc.split(' – ')[0].replace('_', ' ')
+                    
+                    chosen_category = random.choice(category_choices)
+                    is_single_card = 'Single Cards' in chosen_category.name
+                    
                     card = Card.objects.create(
-                        name=f"{display_name} #2026",
+                        name=display_name,
                         description=desc,
-                        category=category,
-                        grade=random.choice(['PSA 10', 'PSA 9', 'BGS 9.5', 'Mint 9']),
-                        certificate_number=f"CERT-{random.randint(1000000, 9999999)}"
+                        category=chosen_category,
+                        grade=random.choice(['PSA 10', 'PSA 9', 'BGS 9.5', 'Mint 9', 'Raw']) if is_single_card else 'N/A',
+                        certificate_number=f"CERT-{random.randint(1000000, 9999999)}" if is_single_card else ""
                     )
                     
-                    self.stdout.write(f"Wgrywam {os.path.basename(matched_img)} do Cloudinary...")
+                    self.stdout.write(f"Wgrywam {os.path.basename(matched_img)} do Cloudinary... Kategoria: {chosen_category.name}")
                     try:
                         filename_without_ext = os.path.splitext(os.path.basename(matched_img))[0]
                         fixed_public_id = f"cardbid_cards/{filename_without_ext}"
@@ -261,10 +272,9 @@ class Command(BaseCommand):
                     count += 1
             return count
 
-        self.stdout.write("Generuję aukcje...")
-        process_group(desc_groups['pkmn'], img_groups['pkmn'], cat_map['pkmn'], "PKMN")
-        process_group(desc_groups['nba'], img_groups['nba'], cat_map['nba'], "NBA")
-        process_group(desc_groups['fifa'], img_groups['fifa'], cat_map['fifa'], "FIFA")
+        self.stdout.write("Generuję aukcje dla wszystkich dyscyplin...")
+        for key in DOMAINS.keys():
+            process_group(desc_groups[key], img_groups[key], categories_map[key], DOMAINS[key][0].upper())
 
         self.stdout.write("Generuję historię licytacji...")
         for auction in all_auctions:
@@ -291,4 +301,4 @@ class Command(BaseCommand):
                     status=slot_status
                 )
 
-        self.stdout.write(self.style.SUCCESS(f"Dane gotowe, użyto realnych zdjęć i opisów."))
+        self.stdout.write(self.style.SUCCESS(f"Dane gotowe, wygenerowano wszystkie struktury kategorii!"))

@@ -1,50 +1,50 @@
-mr_mime – Mr. Mime – Pokémon typu Psychic, specjalizujący się w efektach obronnych. Jego zdolności ograniczają obrażenia.
-genesect_ex – Genesect EX – potężny Pokémon EX typu Metal. Łączy wysokie obrażenia z możliwością korzystania ze specjalnych narzędzi.
-seismitoad – Seismitoad – Pokémon typu Water/Fighting z solidnym zapasem HP. Często blokuje używanie kart Item przez przeciwnika.
-magcargo – Magcargo – Pokémon typu Fire, ewolucja Slugmy. Słynie z ability pozwalających manipulować wierzchem talii.
-charmeleon – Charmeleon – forma pośrednia między Charmanderem a Charizardem, typ Fire. Przygotowuje pole pod wejście Charizarda.
-charizard – Charizard – kultowy Pokémon typu Fire z wysokim HP i bardzo silnymi atakami. Główny win-condition wielu talii.
-ponyta – Ponyta – podstawowy Pokémon typu Fire, szybki, choć niezbyt wytrzymały. Przydatny na starcie gry jako baza do ewolucji.
-pikachu – Pikachu – klasyczny Pokémon typu Lightning, maskotka serii. Oferuje szybkie, elastyczne ataki i dobre synergie.
-clefairy – Clefairy – Pokémon typu Psychic/Fairy, nastawiony na wsparcie. Często posiada zdolności związane z dobieraniem kart.
-dunsparce – Dunsparce – podstawowy Pokémon o użytecznych zdolnościach. Pozwala szybko wyciągać kolejne Pokémony na ławkę.
-miltank – Miltank – Pokémon typu Colorless z dobrą wytrzymałością. Jego ataki skalują się z liczbą ewolucji na ławce.
-bosss_orders – Boss’s Orders – karta Trenera (Supporter). Pozwala wybrać jednego z Pokémonów przeciwnika z ławki i przeciągnąć go na aktywną pozycję.
-basic_r_energy – Basic R Energy – podstawowa karta Energii typu Fire. Służy do zasilania ataków Pokémonów ognistych.
-steelix – Steelix – ciężki Pokémon typu Metal, ewolucja Onixa. Znany z bardzo wysokiego HP i efektów obniżających atak wroga.
-sudowoodo – Sudowoodo – Pokémon typu Fighting, udający drzewo. Ogranicza ławkę przeciwnika i spowalnia popularne archetypy.
-ludicolo – Ludicolo – Pokémon typu Water/Grass. Jego zdolności pozwalają dobrać dodatkowe karty lub zwiększyć siłę ataków.
-sacred_charm – Sacred Charm – karta Trenera (Tool). Redukuje otrzymywane obrażenia lub chroni nosiciela przed efektami ataków.
-tyrantrum – Tyrantrum – Pokémon typu Fighting/Dragon z agresywnym profilem. Zadaje bardzo wysokie obrażenia jako główny agresor.
-doublade – Doublade – Pokémon typu Metal/Ghost. Posiada ataki omijające redukcje obrażeń przeciwnika.
-sawsbuck – Sawsbuck – Pokémon typu Grass/Normal. Oferuje elastyczne ataki i zdolności wspierające, np. leczenie ławki.
-Caris_LeVert – Caris LeVert – dynamiczny obrońca z niesamowitym zasięgiem ramion.
-Damian_Lillard – Damian Lillard – "Dame Time", jeden z najlepszych strzelców za trzy w historii.
-Daniel_Gafford – Daniel Gafford – król bloków i efektownych wsadów pod koszem.
-Deandre_Ayton – Deandre Ayton – potężny środkowy, dominator strefy podkoszowej.
-Donovan_Clingan – Donovan Clingan – młody talent, nadzieja defensywy prosto z draftu.
-Giannis_Antetokounmpo – Giannis Antetokounmpo – "Greek Freak", dwukrotny MVP ligi NBA.
-Joel_Embiid – Joel Embiid – dominująca siła, mistrz gry tyłem do kosza i rzutów z półdystansu.
-Jordan_Clarkson – Jordan Clarkson – król punktów z ławki, niezwykle kreatywny strzelec.
-Kentavious_Caldwell-Pope – Kentavious Caldwell-Pope – mistrzowski obrońca i specjalista od rzutów za trzy.
-Marcus_Sasser – Marcus Sasser – młoda krew, szybki i celny rozgrywający.
-Paolo_Banchero – Paolo Banchero – debiutant roku, lider nowej generacji gwiazd.
-RJ_Barrett – RJ Barrett – wszechstronny skrzydłowy z kanadyjskim zacięciem.
-Saddiq_Bey – Saddiq Bey – silny skrzydłowy, gwarancja twardej walki o każdą piłkę.
-Tyrese_Maxey – Tyrese Maxey – jeden z najszybszych graczy w lidie, przyszłość All-Star.
-Victor_Wembanyama – Victor Wembanyama – fenomen warunków fizycznych i techniki, przyszłość NBA.
-Ayden_Heaven – Ayden Heaven – Młody talent Arsenalu, obrońca o świetnych warunkach fizycznych.
-Diego_Leon – Diego Leon – Paragwajski talent, bramkarz o ogromnym potencjale.
-Diogo_Dalot – Diogo Dalot – Dynamiczny boczny obrońca Manchesteru United.
-Evander – Evander – Brazylijski magik środka pola, gwiazda ligi MLS.
-Jules-Anthony_Vilsaint – Jules-Anthony Vilsaint – Szybki napastnik z Kanady, wschodząca gwiazda.
-Leny_Yoro – Leny_Yoro – Jeden z najbardziej utalentowanych środkowych obrońców młodego pokolenia.
-Lionel_Messi – Lionel Messi – Legenda futbolu, mistrz świata i wielokrotny zdobywca Złotej Piłki.
-Lisandro_Martinez – Lisandro Martinez – Argentyński rzeźnik z defensywy Manchesteru United.
-Luis_Suarez – Luis Suarez – El Pistolero, jeden z najlepszych napastników w historii piłki.
-Noah_Darvich – Noah Darvich – Niemiecki talent z akademii FC Barcelony, świetna technika.
-Patrick_Dorgu – Patrick Dorgu – Duński wahadłowy o niesamowitej wydolności.
-Rayan_Cherki – Rayan Cherki – Francuski drybler, talent czystej wody z Lyonu.
-Thierry_Henry – Thierry Henry – Ikona Arsenalu i reprezentacji Francji, karta z serii Legendy.
-Thomas_Aviles – Thomas Aviles – Młody argentyński obrońca grający u boku Messiego.
-Antonio_Sivera – Antonio Sivera – Solidny bramkarz, który zawsze zachowuje zimną krew w polu karnym.
+mr_mime – Mr. Mime – Psychic-type Pokémon specializing in defensive effects. Its abilities limit damage.
+genesect_ex – Genesect EX – Powerful Metal-type Pokémon EX. Combines high damage with the ability to use special tools.
+seismitoad – Seismitoad – Water/Fighting-type Pokémon with a solid HP pool. Often blocks the opponent from using Item cards.
+magcargo – Magcargo – Fire-type Pokémon, evolution of Slugma. Famous for abilities allowing manipulation of the top of the deck.
+charmeleon – Charmeleon – Intermediate form between Charmander and Charizard, Fire-type. Prepares the field for Charizard's entry.
+charizard – Charizard – Iconic Fire-type Pokémon with high HP and very strong attacks. The main win-condition for many decks.
+ponyta – Ponyta – Basic Fire-type Pokémon, fast, though not very durable. Useful at the start of the game as a base for evolution.
+pikachu – Pikachu – Classic Lightning-type Pokémon, the mascot of the series. Offers fast, flexible attacks and good synergies.
+clefairy – Clefairy – Psychic/Fairy-type Pokémon, focused on support. Often has abilities related to drawing cards.
+dunsparce – Dunsparce – Basic Pokémon with useful abilities. Allows quickly pulling other Pokémon to the bench.
+miltank – Miltank – Colorless-type Pokémon with good durability. Its attacks scale with the number of evolutions on the bench.
+bosss_orders – Boss’s Orders – Trainer card (Supporter). Allows you to choose one of the opponent's Benched Pokémon and switch it to the Active Spot.
+basic_r_energy – Basic R Energy – Basic Fire-type Energy card. Used to power the attacks of Fire-type Pokémon.
+steelix – Steelix – Heavy Metal-type Pokémon, evolution of Onix. Known for very high HP and effects that lower the enemy's attack.
+sudowoodo – Sudowoodo – Fighting-type Pokémon, pretending to be a tree. Limits the opponent's bench and slows down popular archetypes.
+ludicolo – Ludicolo – Water/Grass-type Pokémon. Its abilities allow drawing extra cards or increasing attack power.
+sacred_charm – Sacred Charm – Trainer card (Tool). Reduces damage taken or protects the holder from attack effects.
+tyrantrum – Tyrantrum – Fighting/Dragon-type Pokémon with an aggressive profile. Deals very high damage as the main attacker.
+doublade – Doublade – Metal/Ghost-type Pokémon. Possesses attacks that bypass opponent's damage reduction.
+sawsbuck – Sawsbuck – Grass/Normal-type Pokémon. Offers flexible attacks and supporting abilities, e.g., healing the bench.
+Caris_LeVert – Caris LeVert – Dynamic guard with an incredible wingspan.
+Damian_Lillard – Damian Lillard – "Dame Time", one of the best three-point shooters in history.
+Daniel_Gafford – Daniel Gafford – King of blocks and spectacular dunks under the basket.
+Deandre_Ayton – Deandre Ayton – Powerful center, dominator of the paint.
+Donovan_Clingan – Donovan Clingan – Young talent, defensive hope straight from the draft.
+Giannis_Antetokounmpo – Giannis Antetokounmpo – "Greek Freak", two-time NBA MVP.
+Joel_Embiid – Joel Embiid – Dominating force, master of the post-up game and mid-range shots.
+Jordan_Clarkson – Jordan Clarkson – King of points off the bench, highly creative scorer.
+Kentavious_Caldwell-Pope – Kentavious Caldwell-Pope – Championship-level defender and three-point specialist.
+Marcus_Sasser – Marcus Sasser – Young blood, fast and accurate point guard.
+Paolo_Banchero – Paolo Banchero – Rookie of the Year, leader of the new generation of stars.
+RJ_Barrett – RJ Barrett – Versatile forward with a Canadian edge.
+Saddiq_Bey – Saddiq Bey – Strong forward, guaranteeing a tough fight for every ball.
+Tyrese_Maxey – Tyrese Maxey – One of the fastest players in the league, future All-Star.
+Victor_Wembanyama – Victor Wembanyama – Phenomenon of physical attributes and technique, the future of the NBA.
+Ayden_Heaven – Ayden Heaven – Young Arsenal talent, a defender with great physical attributes.
+Diego_Leon – Diego Leon – Paraguayan talent, a goalkeeper with huge potential.
+Diogo_Dalot – Diogo Dalot – Dynamic full-back for Manchester United.
+Evander – Evander – Brazilian midfield magician, MLS star.
+Jules-Anthony_Vilsaint – Jules-Anthony Vilsaint – Fast forward from Canada, a rising star.
+Leny_Yoro – Leny Yoro – One of the most talented center-backs of the young generation.
+Lionel_Messi – Lionel Messi – Football legend, World Cup winner, and multiple Ballon d'Or recipient.
+Lisandro_Martinez – Lisandro Martinez – Argentine butcher from Manchester United's defense.
+Luis_Suarez – Luis Suarez – El Pistolero, one of the best strikers in football history.
+Noah_Darvich – Noah Darvich – German talent from FC Barcelona's academy, excellent technique.
+Patrick_Dorgu – Patrick Dorgu – Danish wing-back with incredible stamina.
+Rayan_Cherki – Rayan Cherki – French dribbler, pure talent from Lyon.
+Thierry_Henry – Thierry Henry – Arsenal and French national team icon, Legends series card.
+Thomas_Aviles – Thomas Aviles – Young Argentine defender playing alongside Messi.
+Antonio_Sivera – Antonio Sivera – Solid goalkeeper who always keeps his cool in the penalty area.
