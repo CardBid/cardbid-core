@@ -7,21 +7,27 @@ import {
   IconSwords, IconLiveDot, IconMoney, IconChevronDown, IconChat, IconMinus,
 } from '../components/icons';
 
-// --- KONFIGURACJA WIDEO ---
-const videoJsOptions = {
-  autoplay: true,
-  muted: true,
-  controls: false, 
-  fill: true,
-  responsive: true,
-  sources: [{
-    src: 'https://cardbid-stream-production.up.railway.app/live/index.m3u8',
-    type: 'application/x-mpegURL'
-  }]
-};
-
 export default function LiveRoom() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const roomId = id ? Number(id) : null;
+
+  // --- KONFIGURACJA WIDEO ---
+  const videoJsOptions = React.useMemo(() => {
+    return {
+      autoplay: true,
+      muted: true,
+      controls: false, 
+      fill: true,
+      responsive: true,
+      sources: [{
+        src: `https://cardbid-stream-production.up.railway.app/live/${roomId}/index.m3u8`,
+        type: 'application/x-mpegURL'
+      }]
+    };
+  }, [roomId]);
+
+
   // --- STANY ODTWARZACZA I WIDOKU ---
   const [playerInstance, setPlayerInstance] = useState(null);
   const [isPlaying, setIsPlaying] = useState(true);

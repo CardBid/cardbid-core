@@ -28,12 +28,13 @@ from .services import process_bid_logic
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+import urllib.parse
 
 # Konfiguracja stripa
 from .models import Transaction
 from django.conf import settings
 from django.http import JsonResponse
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import F
 import json
@@ -961,3 +962,35 @@ class UserAuctionManageView(APIView):
             
         auction.save()
         return Response({"message": "Auction updated successfully."})
+    
+@csrf_exempt
+def stream_start(request):
+    """Webhook wywoływany przez MediaMTX przy próbie połączenia z OBS"""
+    if request.method == 'POST':
+        room_id = request.POST.get('room_id')
+        query = request.POST.get('query', '')
+
+        parsed_query = urllib.parse.parse_qs(query)
+        stream_key = parsed_query.get('key', [None])[0]
+
+        if not stream_key or not room_id:
+            return HttpResponseForbidden("Missing stream key or room ID")
+
+        try:
+            room = StreamRoom.objects.get(id=room_id, stream_key=stream_key)
+            room.is_live = True
+            room.save()
+            return HttpResponse("OK", status=200)
+        except StreamRoom.DoesNotExist:
+            return HttpResponseForbidden("Invalid stream key or room")
+            
+    return HttpResponseForbidden("POST only")
+
+@csrf_exempt
+def stream_stop(request):
+    """Webhook wywoływany przez MediaMTX po wyłączeniu OBS"""
+    if request.method == 'POST':
+        room_id = request.POST.get('room_id')
+        if room_id:
+            StreamRoom.objects.filter(id=room_id).update(is_live=False)
+    return HttpResponse("OK", status=200)

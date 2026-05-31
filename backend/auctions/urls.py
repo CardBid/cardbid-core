@@ -5,7 +5,7 @@ from .views import (
     CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView, UserInventoryView, UserActiveBidsView,
     AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView, BuyNowView, AuctionLiveDataView, RoomTimelineView, SlotOpenView,
     UserBalanceView, CreateAuctionView, UserSettingsView, ActivateSlotView, ReviewCreateView, SellerReviewsView, UserNotificationsView, MarkNotificationReadView,
-    stripe_webhook, UserSellingAuctionsView, UserAuctionManageView
+    stripe_webhook, UserSellingAuctionsView, UserAuctionManageView, stream_start, stream_stop
 )
 
 urlpatterns = [
@@ -55,4 +55,8 @@ urlpatterns = [
     path('reviews/seller/<int:seller_id>/', SellerReviewsView.as_view()),
     path('notifications/', UserNotificationsView.as_view()),
     path('notifications/<int:pk>/read/', MarkNotificationReadView.as_view()),
+    
+    # --- STREAM CONTROL ---
+    path('stream/start/', stream_start, name='stream-start'),
+    path('stream/stop/', stream_stop, name='stream-stop'),
 ]
