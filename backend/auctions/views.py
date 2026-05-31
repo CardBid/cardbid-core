@@ -513,7 +513,7 @@ class LiveRoomsListView(generics.ListAPIView):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        return StreamRoom.objects.filter(is_live=True)
+        return StreamRoom.objects.all()
 
 class StreamRoomToggleView(APIView):
     permission_classes = [IsAuthenticated, IsStreamer]
