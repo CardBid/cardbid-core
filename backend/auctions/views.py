@@ -968,10 +968,13 @@ def stream_start(request):
     """Webhook wywoływany przez MediaMTX przy próbie połączenia z OBS"""
     if request.method == 'POST':
         room_id = request.POST.get('room_id')
-        query = request.POST.get('query', '')
+        raw_query = request.POST.get('query', '') 
 
-        parsed_query = urllib.parse.parse_qs(query)
-        stream_key = parsed_query.get('key', [None])[0]
+        stream_key = None
+        if 'key=' in raw_query:
+            stream_key = raw_query.split('key=')[1].split('&')[0]
+        else:
+            stream_key = raw_query # fallback
 
         if not stream_key or not room_id:
             return HttpResponseForbidden("Missing stream key or room ID")
@@ -982,9 +985,9 @@ def stream_start(request):
             room.save()
             return HttpResponse("OK", status=200)
         except StreamRoom.DoesNotExist:
-            return HttpResponseForbidden("Invalid stream key or room")
+            return HttpResponseForbidden("Invalid stream key or room ID")
             
-    return HttpResponseForbidden("POST only")
+    return HttpResponseForbidden("Method not allowed")
 
 @csrf_exempt
 def stream_stop(request):
