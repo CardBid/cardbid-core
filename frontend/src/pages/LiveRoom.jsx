@@ -700,8 +700,6 @@ const handlePointerMove = (e) => {
       return;
     }
 
-    console.log("[Kalkulator] 1. Próbuję policzyć dla kwoty:", targetAmount);
-
     const delayTimer = setTimeout(async () => {
       setIsCalculating(true);
       try {
@@ -712,23 +710,18 @@ const handlePointerMove = (e) => {
           }
         });
 
-        console.log("[Kalkulator] 2. Status z serwera:", response.status);
-
         if (response.ok) {
           const data = await response.json();
-          console.log("[Kalkulator] 3. Odpowiedź sukces:", data);
           
           if (data.total_cost !== undefined) {
             setEstimatedTotal(data.total_cost);
           } else if (data.total !== undefined) {
             setEstimatedTotal(data.total);
           } else {
-            console.warn("[Kalkulator] Brak expected pola total_cost w JSON:", data);
             setEstimatedTotal(targetAmount);
           }
         } else {
           const errText = await response.text();
-          console.error("[Kalkulator] Błąd API! Serwer odpowiedział:", errText);
         }
       } catch (error) {
         console.error("[Kalkulator] Błąd połączenia (CORS / Sieć):", error);
@@ -963,18 +956,6 @@ return (
                       className="w-full text-[11px] bg-black/50 border border-gray-600 rounded-md px-2 py-1 text-white outline-none focus:border-yellow-500"
                     />
                   </div>
-                  {/* WYŚWIETLANIE CAŁKOWITEGO KOSZTU */}
-                  {token && estimatedTotal !== null && (
-                    <div className="text-[11px] text-center mt-2 px-2">
-                      {isCalculating ? (
-                        <span className="text-gray-500 animate-pulse">Calculating total cost...</span>
-                      ) : (
-                        <span className="text-gray-400">
-                          Total required balance: <b className="text-white">${Number(estimatedTotal).toFixed(2)}</b>
-                        </span>
-                      )}
-                    </div>
-                  )}
 
                   <button onClick={handleBid} disabled={isWinning || !token} className={`w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition mb-2 ${(isWinning || !token) ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_10px_rgba(22,163,7,0.4)]'}`}>
                     {!token
@@ -1592,6 +1573,18 @@ return (
                     className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-yellow-500"
                   />
                 </div>
+
+                {token && estimatedTotal !== null && (
+                  <div className="text-[12px] text-center mb-4 px-2">
+                    {isCalculating ? (
+                      <span className="text-gray-500 animate-pulse">Calculating total cost...</span>
+                    ) : (
+                      <span className="text-gray-400">
+                        Total required balance: <b className="text-white">${Number(estimatedTotal).toFixed(2)}</b>
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <button
                   onClick={handleBid}
