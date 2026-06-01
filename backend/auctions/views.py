@@ -416,33 +416,33 @@ class PlaceBidView(APIView):
             return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
         
         channel_layer = get_channel_layer()
-
-        if hasattr(auction, 'room') and auction.room:
-            async_to_sync(channel_layer.group_send)(
-                f"room_{auction.room.id}",
-                {
-                    "type": "bid_update",
-                    "data": {
-                        "type": "bid_update",
-                        "current_price": str(auction.current_price),
-                        "bidder": request.user.username,
-                        "auction_id": auction.id
-                    }
-                }
-            )
+        
+        event_data = {
+            "type": "bid_update",
+            "current_price": str(auction.current_price),
+            "bidder": request.user.username,
+            "auction_id": auction.id
+        }
 
         async_to_sync(channel_layer.group_send)(
             f"auction_{auction.id}",
             {
                 "type": "bid_update",
-                "data": {
-                    "type": "bid_update",
-                    "current_price": str(auction.current_price),
-                    "bidder": request.user.username,
-                    "auction_id": auction.id
-                }
+                "data": event_data
             }
         )
+
+        try:
+            if hasattr(auction, 'auctionslot') and auction.auctionslot.room:
+                async_to_sync(channel_layer.group_send)(
+                    f"room_{auction.auctionslot.room.id}",
+                    {
+                        "type": "bid_update",
+                        "data": event_data
+                    }
+                )
+        except Exception:
+            pass
 
         return Response({
             "message": message,

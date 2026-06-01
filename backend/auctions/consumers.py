@@ -25,10 +25,6 @@ class AuctionConsumer(AsyncWebsocketConsumer):
         self.auction_id = self.scope["url_route"]["kwargs"]["auction_id"]
         self.group_name = f"auction_{self.auction_id}"
 
-        if self.scope["user"].is_anonymous:
-            await self.close()
-            return
-
         await self.channel_layer.group_add(
             self.group_name,
             self.channel_name
@@ -61,6 +57,10 @@ class AuctionConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         action_type = data.get('type')
+        
+        if action_type == "place_bid" and self.scope["user"].is_anonymous:
+            await self.send(text_data=json.dumps({"success": False, "error": "Log in to bid."}))
+            return
 
         if action_type == "place_bid":
             success, message, auction, _ = await database_sync_to_async(process_bid_logic)(
@@ -149,10 +149,6 @@ class StreamRoomConsumer(AsyncWebsocketConsumer):
 
         self.last_message_time = 0
 
-        if self.scope["user"].is_anonymous:
-            await self.close()
-            return
-
         await self.channel_layer.group_add(
             self.group_name,
             self.channel_name
@@ -181,6 +177,10 @@ class StreamRoomConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         action_type = data.get('type')
+        
+        if action_type == "place_bid" and self.scope["user"].is_anonymous:
+            await self.send(text_data=json.dumps({"success": False, "error": "Log in to bid."}))
+            return
 
         if action_type == "place_bid":
             target_auction_id = data.get("auction_id")

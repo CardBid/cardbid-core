@@ -326,8 +326,6 @@ const handlePointerMove = (e) => {
         amount: proposedAmount
       }));
 
-      setIsWinning(true);
-      setCurrentPrice(proposedAmount);
       setCustomBidAmount('');
     } else {
       setErrorMsg("Live connection lost. Please refresh the page.");
@@ -359,10 +357,6 @@ const handlePointerMove = (e) => {
   // Backend wymaga JWT (anon = close). Bez tokenu pomijamy podłączenie.
   // Reconnect z exponential backoff, pełen cleanup na unmount.
   useEffect(() => {
-    if (!token) {
-      // Niezalogowany - nie łączymy czatu, ale UI dalej działa (read-only fake nie odpalamy)
-      return;
-    }
     if (!roomId) return; // brak id w URL - nie łączymy czatu
 
     let cancelled = false;
@@ -413,10 +407,15 @@ const handlePointerMove = (e) => {
           } else if (data.type === 'bid_update') {
             // Globalne bid_update z pokoju - aktualizujemy cenę i status "prowadzenia"
             if (String(data.auction_id) === String(currentAuctionId)) {
-              setCurrentPrice(Number(data.current_price));
-              if (data.bidder !== undefined && currentUsername) {
-                setIsWinning(data.bidder === currentUsername);
+              if (String(data.auction_id) === String(currentAuctionId)) {
+                setCurrentPrice(Number(data.current_price));
+                if (data.bidder !== undefined && currentUsername) {
+                  setIsWinning(data.bidder === currentUsername);
+                }
               }
+            }
+            else if (data.event === 'slot_changed' || data.type === 'slot_changed') {
+              setCurrentAuctionId(data.auction_id);
             }
           }
         } catch {
