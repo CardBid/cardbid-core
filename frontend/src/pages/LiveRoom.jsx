@@ -705,13 +705,11 @@ const handlePointerMove = (e) => {
     const delayTimer = setTimeout(async () => {
       setIsCalculating(true);
       try {
-        const response = await fetch('https://cardbid.up.railway.app/api/tax-calc/', {
-          method: 'POST', 
+        const response = await fetch(`https://cardbid.up.railway.app/api/tax-calc/?amount=${targetAmount}`, {
+          method: 'GET', 
           headers: {
-            'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ amount: targetAmount }) 
+          }
         });
 
         console.log("[Kalkulator] 2. Status z serwera:", response.status);
