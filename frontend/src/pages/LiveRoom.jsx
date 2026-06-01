@@ -35,6 +35,8 @@ export default function LiveRoom() {
   const [volume, setVolume] = useState(0); 
   const [isTheater, setIsTheater] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [estimatedTotal, setEstimatedTotal] = useState(null);
+  const [isCalculating, setIsCalculating] = useState(false);
   
   // Domyślne widoczności nakładek na wideo
   const [overlayChatMode, setOverlayChatMode] = useState(0); 
@@ -287,7 +289,7 @@ const handlePointerMove = (e) => {
   const [customBidAmount, setCustomBidAmount] = useState('');
 
   // Heurystyka minimalnego przebicia (zgodna z AuctionLiveDataView: 5% obecnej ceny, min $1)
-  const minBidStep = 0.5;
+  const minBidStep = 1;
   const minNextBid = Number(currentPrice || 0) + minBidStep;
 
   const handleBid = async () => {
@@ -688,6 +690,44 @@ const handlePointerMove = (e) => {
     }
   }, [defaultAuctionId, currentAuctionId]);
 
+  useEffect(() => {
+    // 1. Ustalamy kwotę do przeliczenia (wpisana ręcznie LUB obecna cena + 1$)
+    const targetAmount = customBidAmount 
+      ? Number(customBidAmount) 
+      : (Number(currentPrice || 0) + minBidStep);
+
+    // Jeśli kwota jest błędna lub użytkownik nie jest zalogowany, nie liczymy
+    if (!targetAmount || isNaN(targetAmount) || !token) {
+      setEstimatedTotal(null);
+      return;
+    }
+
+    const delayTimer = setTimeout(async () => {
+      setIsCalculating(true);
+      try {
+        const response = await fetch('https://cardbid.up.railway.app/api/tax-calc/', {
+          method: 'POST', 
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ amount: targetAmount })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setEstimatedTotal(data.total_cost);
+        }
+      } catch (error) {
+        console.error("Błąd kalkulacji opłat:", error);
+      } finally {
+        setIsCalculating(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayTimer);
+  }, [customBidAmount, currentPrice, minBidStep, token]);
+
   // --- DERIVED: status slotu dla aktualnie wybranej aukcji (jeśli jest w timeline) ---
   // Wartości: 'active' | 'upcoming' | 'opened' | 'queued' | null (poza pokojem)
   const slotStatusForCurrent = (() => {
@@ -911,6 +951,18 @@ return (
                       className="w-full text-[11px] bg-black/50 border border-gray-600 rounded-md px-2 py-1 text-white outline-none focus:border-yellow-500"
                     />
                   </div>
+                  {/* WYŚWIETLANIE CAŁKOWITEGO KOSZTU */}
+                  {token && estimatedTotal !== null && !isWinning && (
+                    <div className="text-[11px] text-center mt-2 px-2">
+                      {isCalculating ? (
+                        <span className="text-gray-500 animate-pulse">Calculating total cost...</span>
+                      ) : (
+                        <span className="text-gray-400">
+                          Total required balance: <b className="text-white">${Number(estimatedTotal).toFixed(2)}</b>
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   <button onClick={handleBid} disabled={isWinning || !token} className={`w-full py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition mb-2 ${(isWinning || !token) ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_10px_rgba(22,163,7,0.4)]'}`}>
                     {!token
