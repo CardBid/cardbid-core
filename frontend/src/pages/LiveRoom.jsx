@@ -287,7 +287,7 @@ const handlePointerMove = (e) => {
   const [customBidAmount, setCustomBidAmount] = useState('');
 
   // Heurystyka minimalnego przebicia (zgodna z AuctionLiveDataView: 5% obecnej ceny, min $1)
-  const minBidStep = Math.max(1, Math.round(Number(currentPrice || 0) * 0.05 * 100) / 100);
+  const minBidStep = 0.5;
   const minNextBid = Number(currentPrice || 0) + minBidStep;
 
   const handleBid = async () => {
