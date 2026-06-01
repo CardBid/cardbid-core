@@ -691,16 +691,16 @@ const handlePointerMove = (e) => {
   }, [defaultAuctionId, currentAuctionId]);
 
   useEffect(() => {
-    // 1. Ustalamy kwotę do przeliczenia (wpisana ręcznie LUB obecna cena + 1$)
     const targetAmount = customBidAmount 
       ? Number(customBidAmount) 
       : (Number(currentPrice || 0) + minBidStep);
 
-    // Jeśli kwota jest błędna lub użytkownik nie jest zalogowany, nie liczymy
     if (!targetAmount || isNaN(targetAmount) || !token) {
       setEstimatedTotal(null);
       return;
     }
+
+    console.log("[Kalkulator] 1. Próbuję policzyć dla kwoty:", targetAmount);
 
     const delayTimer = setTimeout(async () => {
       setIsCalculating(true);
@@ -711,15 +711,29 @@ const handlePointerMove = (e) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ amount: targetAmount })
+          body: JSON.stringify({ amount: targetAmount }) 
         });
+
+        console.log("[Kalkulator] 2. Status z serwera:", response.status);
 
         if (response.ok) {
           const data = await response.json();
-          setEstimatedTotal(data.total_cost);
+          console.log("[Kalkulator] 3. Odpowiedź sukces:", data);
+          
+          if (data.total_cost !== undefined) {
+            setEstimatedTotal(data.total_cost);
+          } else if (data.total !== undefined) {
+            setEstimatedTotal(data.total);
+          } else {
+            console.warn("[Kalkulator] Brak expected pola total_cost w JSON:", data);
+            setEstimatedTotal(targetAmount);
+          }
+        } else {
+          const errText = await response.text();
+          console.error("[Kalkulator] Błąd API! Serwer odpowiedział:", errText);
         }
       } catch (error) {
-        console.error("Błąd kalkulacji opłat:", error);
+        console.error("[Kalkulator] Błąd połączenia (CORS / Sieć):", error);
       } finally {
         setIsCalculating(false);
       }
@@ -952,7 +966,7 @@ return (
                     />
                   </div>
                   {/* WYŚWIETLANIE CAŁKOWITEGO KOSZTU */}
-                  {token && estimatedTotal !== null && !isWinning && (
+                  {token && estimatedTotal !== null && (
                     <div className="text-[11px] text-center mt-2 px-2">
                       {isCalculating ? (
                         <span className="text-gray-500 animate-pulse">Calculating total cost...</span>
