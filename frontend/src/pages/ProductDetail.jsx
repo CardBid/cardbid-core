@@ -14,6 +14,13 @@ export default function ProductDetail() {
   const [bidStatus, setBidStatus] = useState(null);
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
 
+
+  const [estimatedBidTotal, setEstimatedBidTotal] = useState(null);
+  const [isCalculatingBid, setIsCalculatingBid] = useState(false);
+
+  const [estimatedBuyNowTotal, setEstimatedBuyNowTotal] = useState(null);
+  const [isCalculatingBuyNow, setIsCalculatingBuyNow] = useState(false);
+
   // Czy user jest zalogowany - wpływa na blokady akcji
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
 
@@ -57,6 +64,65 @@ export default function ProductDetail() {
 
     fetchAuction();
   }, [id, token]);
+
+  useEffect(() => {
+    if (!token || auction?.auction_type === 'buy_now' || auction?.auction_type === 'Buy now') return;
+
+    const target = bidAmount ? parseFloat(bidAmount) : (currentPrice + 1);
+    if (!target || isNaN(target)) {
+      setEstimatedBidTotal(null);
+      return;
+    }
+
+    const delayTimer = setTimeout(async () => {
+      setIsCalculatingBid(true);
+      try {
+        const res = await fetch(`https://cardbid.up.railway.app/api/tax-calc/?amount=${target}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setEstimatedBidTotal(data.total_cost ?? data.total ?? target);
+        }
+      } catch (e) {
+        console.error("[Kalkulator] Błąd licytacji:", e);
+      } finally {
+        setIsCalculatingBid(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayTimer);
+  }, [bidAmount, currentPrice, token, auction]);
+
+  useEffect(() => {
+    if (!token || !auction) return;
+    const isBuyNowPanel = auction.auction_type === 'buy_now' || auction.auction_type === 'Buy now';
+    const target = auction.buy_now_price ?? (isBuyNowPanel ? currentPrice : null);
+
+    if (!target || isNaN(parseFloat(target))) {
+      setEstimatedBuyNowTotal(null);
+      return;
+    }
+
+    const fetchBuyNowTax = async () => {
+      setIsCalculatingBuyNow(true);
+      try {
+        const res = await fetch(`https://cardbid.up.railway.app/api/tax-calc/?amount=${target}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setEstimatedBuyNowTotal(data.total_cost ?? data.total ?? target);
+        }
+      } catch (e) {
+        console.error("[Kalkulator] Błąd kup teraz:", e);
+      } finally {
+        setIsCalculatingBuyNow(false);
+      }
+    };
+
+    fetchBuyNowTax();
+  }, [auction, currentPrice, token]);
 
   const handleBid = async (e) => {
     e.preventDefault();
@@ -135,7 +201,6 @@ export default function ProductDetail() {
   );
   if (!auction) return <div className="p-10 text-gray-400">Loading...</div>;
 
-  // Rozpoznanie typu — identyczna logika jak w LiveRoom
   const isBuyNow = auction.auction_type === 'buy_now' || auction.auction_type === 'Buy now';
   const isHybrid = auction.auction_type === 'hybrid' || auction.auction_type === 'Auction + Buy Now';
 
@@ -150,7 +215,6 @@ export default function ProductDetail() {
       )}
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        {/* Zdjęcie */}
         <div>
           <img
             src={auction.card_details?.image || '/placeholder.png'}
@@ -159,7 +223,6 @@ export default function ProductDetail() {
           />
         </div>
 
-        {/* Panel boczny */}
         <div className="space-y-6">
 
           {/* ===== PANEL: KUP TERAZ ===== */}
@@ -186,6 +249,18 @@ export default function ProductDetail() {
                   'bg-gray-800 text-gray-300'
                 }`}>
                   {bidStatus.msg}
+                </div>
+              )}
+
+              {token && estimatedBuyNowTotal !== null && (
+                <div className="mt-4 text-xs text-center">
+                  {isCalculatingBuyNow ? (
+                    <span className="text-gray-400 animate-pulse">Calculating total cost with tax...</span>
+                  ) : (
+                    <span className="text-blue-300">
+                      Total required balance: <b className="text-white">${Number(estimatedBuyNowTotal).toFixed(2)}</b>
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -225,21 +300,34 @@ export default function ProductDetail() {
                 </p>
 
                 {/* Przycisk Kup Teraz dla trybu hybrid */}
-                {isHybrid && auction.buy_now_price && (
-                  <button
-                    onClick={handleBuyNow}
-                    disabled={!token}
-                    className={`mt-4 w-full rounded-xl px-5 py-3 text-sm font-black uppercase tracking-tighter transition ${
-                      !token
-                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600'
-                        : 'bg-blue-600 hover:bg-blue-500 text-white'
-                    }`}
-                  >
-                    {!token
-                      ? 'Log in to buy now'
-                      : `Buy Now instantly for $${auction.buy_now_price}`
-                    }
-                  </button>
+                {isHybrid && !!auction.buy_now_price && (
+                  <div className="mt-4">
+                    {token && estimatedBuyNowTotal !== null && (
+                      <div className="mb-2 text-[11px] text-center">
+                        {isCalculatingBuyNow ? (
+                          <span className="text-gray-500 animate-pulse">Calculating total cost with tax...</span>
+                        ) : (
+                          <span className="text-yellow-500/70">
+                            Buy Now total: <b className="text-white">${Number(estimatedBuyNowTotal).toFixed(2)}</b>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      onClick={handleBuyNow}
+                      disabled={!token}
+                      className={`mt-4 w-full rounded-xl px-5 py-3 text-sm font-black uppercase tracking-tighter transition ${
+                        !token
+                          ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600'
+                          : 'bg-blue-600 hover:bg-blue-500 text-white'
+                      }`}
+                    >
+                      {!token
+                        ? 'Log in to buy now'
+                        : `Buy Now instantly for $${auction.buy_now_price}`
+                      }
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -264,6 +352,20 @@ export default function ProductDetail() {
                     placeholder={token ? `More than $${currentPrice}` : 'Log in to place a bid'}
                   />
                 </label>
+
+                {/* Zintegrowany kalkulator kosztów podatku licytacji wewnątrz formularza */}
+                {token && estimatedBidTotal !== null && (
+                  <div className="text-xs text-center px-2">
+                    {isCalculatingBid ? (
+                      <span className="text-gray-500 animate-pulse">Calculating total cost with tax...</span>
+                    ) : (
+                      <span className="text-gray-400">
+                        Total required balance: <b className="text-white">${Number(estimatedBidTotal).toFixed(2)}</b>
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={!token}

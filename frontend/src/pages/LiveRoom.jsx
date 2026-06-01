@@ -1577,7 +1577,7 @@ return (
                 {token && estimatedTotal !== null && (
                   <div className="text-[12px] text-center mb-4 px-2">
                     {isCalculating ? (
-                      <span className="text-gray-500 animate-pulse">Calculating total cost...</span>
+                      <span className="text-gray-500 animate-pulse">Calculating total cost with tax...</span>
                     ) : (
                       <span className="text-gray-400">
                         Total required balance: <b className="text-white">${Number(estimatedTotal).toFixed(2)}</b>
