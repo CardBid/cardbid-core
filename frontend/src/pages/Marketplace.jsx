@@ -6,7 +6,15 @@ import { IconArrowRight } from '../components/icons';
 export default function Marketplace() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [query, setQuery] = useState('');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  const [grade, setGrade] = useState('');
+  const [sort, setSort] = useState('newest');
+
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [debouncedPriceMin, setDebouncedPriceMin] = useState('');
+  const [debouncedPriceMax, setDebouncedPriceMax] = useState('');
+  const [debouncedGrade, setDebouncedGrade] = useState('');
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([{ id: 'all', label: 'All' }]);
@@ -25,6 +33,8 @@ export default function Marketplace() {
 
   const loadAuctions = async (url, append = false) => {
     setLoading(true);
+    if (!append) setProducts([]); 
+    
     const data = await safeFetchJson(url);
     
     if (data) {
@@ -53,18 +63,32 @@ export default function Marketplace() {
 
   // Debounce wpisywania w wyszukiwarce, żeby nie strzelać do API przy każdym znaku.
   useEffect(() => {
-    const id = window.setTimeout(() => setDebouncedQuery(query), 350);
+    const id = window.setTimeout(() => {
+      setDebouncedQuery(query);
+      setDebouncedPriceMin(priceMin);
+      setDebouncedPriceMax(priceMax);
+      setDebouncedGrade(grade);
+    }, 500);
     return () => window.clearTimeout(id);
-  }, [query]);
+  }, [query, priceMin, priceMax, grade]);
 
   useEffect(() => {
     const params = new URLSearchParams();
+    
     if (activeCategory !== 'all') params.append('category', activeCategory);
     if (debouncedQuery) params.append('search', debouncedQuery);
+    if (debouncedPriceMin) params.append('price_min', debouncedPriceMin);
+    if (debouncedPriceMax) params.append('price_max', debouncedPriceMax);
+    if (debouncedGrade) params.append('grade', debouncedGrade);
+
+    if (sort === 'price_low') params.append('ordering', 'current_price');
+    else if (sort === 'price_high') params.append('ordering', '-current_price');
+    else if (sort === 'ending_soon') params.append('ordering', 'end_date');
+    else if (sort === 'newest') params.append('ordering', '-start_date');
 
     const url = `https://cardbid.up.railway.app/api/auctions/?${params.toString()}`;
     loadAuctions(url, false);
-  }, [activeCategory, debouncedQuery, safeFetchJson]);
+  }, [activeCategory, debouncedQuery, debouncedPriceMin, debouncedPriceMax, debouncedGrade, sort, safeFetchJson]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -84,7 +108,7 @@ export default function Marketplace() {
   return (
     <div className="min-h-screen bg-gray-950">
       <section className="border-b border-white/10 bg-gray-900">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-[1.3fr_0.7fr] md:px-6">
+        <div className={`mx-auto grid max-w-7xl gap-8 px-4 py-10 md:px-6 transition-all ${featuredLive ? 'md:grid-cols-[1.3fr_0.7fr]' : 'md:grid-cols-1'}`}>
            <div className="flex flex-col justify-center">
             <p className="text-sm font-black uppercase text-emerald-300">Live-commerce MVP</p>
             <h1 className="mt-4 text-4xl font-black text-white md:text-6xl">Marketplace</h1>
@@ -117,6 +141,43 @@ export default function Marketplace() {
               placeholder="Search for cards, categories..."
               className="w-full md:max-w-sm rounded-lg bg-gray-900 border border-white/10 p-3 text-white outline-none focus:border-emerald-400"
           />
+        </div>
+
+        <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-900/50 p-4 rounded-xl border border-white/10">
+           <select 
+              className="bg-black text-white border border-gray-700 rounded-lg p-2.5 outline-none focus:border-emerald-400 text-sm" 
+              onChange={e => setSort(e.target.value)} 
+              value={sort}
+           >
+             <option value="newest">Newest first</option>
+             <option value="price_low">Price: Low to High</option>
+             <option value="price_high">Price: High to Low</option>
+             <option value="ending_soon">Ending soon</option>
+           </select>
+           
+           <input 
+              type="text" 
+              placeholder="Grade (e.g. PSA 10)" 
+              value={grade} 
+              onChange={e => setGrade(e.target.value)} 
+              className="bg-black text-white border border-gray-700 rounded-lg p-2.5 outline-none focus:border-emerald-400 text-sm placeholder-gray-600" 
+           />
+           
+           <input 
+              type="number" 
+              placeholder="Min Price ($)" 
+              value={priceMin} 
+              onChange={e => setPriceMin(e.target.value)} 
+              className="bg-black text-white border border-gray-700 rounded-lg p-2.5 outline-none focus:border-emerald-400 text-sm placeholder-gray-600" 
+           />
+           
+           <input 
+              type="number" 
+              placeholder="Max Price ($)" 
+              value={priceMax} 
+              onChange={e => setPriceMax(e.target.value)} 
+              className="bg-black text-white border border-gray-700 rounded-lg p-2.5 outline-none focus:border-emerald-400 text-sm placeholder-gray-600" 
+           />
         </div>
 
         <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
