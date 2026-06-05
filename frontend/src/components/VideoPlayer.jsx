@@ -28,20 +28,21 @@ export const VideoPlayer = (props) => {
   const [streamState, setStreamState] = useState('checking');
 
   const sourceUrl = options?.sources?.[0]?.src;
+  const cleanSourceUrl = sourceUrl ? sourceUrl.split('?')[0] : '';
 
   const probeStream = useCallback(async () => {
-    if (!sourceUrl) return false;
+    if (!cleanSourceUrl) return false;
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const res = await fetch(sourceUrl, { method: 'GET', signal: controller.signal, cache: 'no-store' });
+      const res = await fetch(cleanSourceUrl, { method: 'GET', signal: controller.signal, cache: 'no-store' });
       return res.ok;
     } catch (err) {
       console.warn("[VideoPlayer] Błąd łączenia z wideo (CORS?):", err);
       return false;
     }
-  }, [sourceUrl]);
+  }, [cleanSourceUrl]);
 
   const initPlayer = useCallback(() => {
     if (!placeholderRef.current || playerRef.current) return;
