@@ -392,6 +392,10 @@ class AuctionListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         qs = Auction.objects.filter(status=Auction.Status.ACTIVE)
 
+        category_id = self.request.query_params.get('category')
+        if category_id:
+            qs = qs.filter(card__category_id=category_id)
+
         price_min = self.request.query_params.get('price_min')
         price_max = self.request.query_params.get('price_max')
         
