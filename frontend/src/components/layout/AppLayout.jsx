@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-do
 import { useMemo, useState, useRef, useEffect } from 'react';
 import NotificationBell from '../notifications/NotificationBell';
 import Footer from '../Footer';
+import CookieBanner from '../CookieBanner';
 
 // --- Helpery JWT ---
 // Dekoduje payload JWT (base64url -> JSON). Zwraca null jak coś nie tak.
@@ -373,6 +374,7 @@ export default function AppLayout() {
       </main>
 
       <Footer />
+      <CookieBanner />
     </div>
   );
 }
