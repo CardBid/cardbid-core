@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CardbidUser, Card, Category, Auction, Bid, Country, State, StreamRoom
+from .models import CardbidUser, Card, Category, Auction, Bid, Country, State, StreamRoom, Review, Notification
 from django.contrib.auth.hashers import make_password
 from datetime import date
 
@@ -11,9 +11,14 @@ class CategorySerializer(serializers.ModelSerializer):
 class CardSerializer(serializers.ModelSerializer):
     category_name = serializers.ReadOnlyField(source='category.name')
 
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = Card
         fields = ['id', 'name', 'category', 'category_name', 'grade', 'certificate_number', 'description', 'image']
+    
+    def get_image(self, obj):
+        return obj.image.url if obj.image else None
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -105,3 +110,16 @@ class CountrySerializer(serializers.ModelSerializer):
     class Meta:
         model = Country
         fields = ['id', 'name', 'code', 'has_states', 'default_vat', 'states']
+
+class ReviewSerializer(serializers.ModelSerializer):
+    buyer_name = serializers.ReadOnlyField(source='buyer.username')
+
+    class Meta:
+        model = Review
+        fields = ['id', 'buyer_name', 'seller', 'auction', 'rating', 'comment', 'created_at']
+        read_only_fields = ['buyer']
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'notification_type', 'message', 'is_read', 'created_at']

@@ -14,7 +14,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -243,7 +242,7 @@ yarn-error.log*
 # --- CardBid Custom Ignores ---
 media/cards/
 
-backend/media/
+backend/media/cards/
 postgres_data/
 backend/staticfiles/
 

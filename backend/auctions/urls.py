@@ -4,7 +4,8 @@ from .views import (
     TopUpBalanceView, UserProfileView, CardListCreateView,
     CategoryListView, AuctionListCreateView, AuctionDetailView, PlaceBidView, UserInventoryView, UserActiveBidsView,
     AuctionBidHistoryView, LiveRoomsListView, StreamRoomToggleView, CountryListView, BuyNowView, AuctionLiveDataView, RoomTimelineView, SlotOpenView,
-    UserBalanceView, CreateAuctionView, UserSettingsView, ActivateSlotView
+    UserBalanceView, CreateAuctionView, UserSettingsView, ActivateSlotView, ReviewCreateView, SellerReviewsView, UserNotificationsView, MarkNotificationReadView,
+    stripe_webhook, UserSellingAuctionsView, UserAuctionManageView, stream_start, stream_stop
 )
 
 urlpatterns = [
@@ -17,6 +18,7 @@ urlpatterns = [
     # --- FINANCES ---
     path('tax-calc/', TaxCalculatorView.as_view(), name='tax-calculator'),
     path('top-up/', TopUpBalanceView.as_view(), name='top-up-balance'),
+    path('stripe/webhook/', stripe_webhook, name='stripe-webhook'),
 
     # --- CARDS ---
     path('cards/', CardListCreateView.as_view(), name='card-list'), 
@@ -25,6 +27,7 @@ urlpatterns = [
     # --- USER DASHBOARD ---
     path('user/inventory/', UserInventoryView.as_view(), name='user_inventory'),
     path('user/active-bids/', UserActiveBidsView.as_view(), name='user_active_bids'),
+    path('user/selling/', UserSellingAuctionsView.as_view(), name='user_selling'),
 
     # --- AUCTIONS ---
     path('auctions/', AuctionListCreateView.as_view(), name='auction-list'),
@@ -33,6 +36,7 @@ urlpatterns = [
     path('auctions/<int:pk>/bids/', AuctionBidHistoryView.as_view(), name='auction-bids'),
     path('auctions/<int:pk>/buy-now/', BuyNowView.as_view(), name='buy-now'),
     path('auctions/create/', CreateAuctionView.as_view(), name='create-auction'),
+    path('auctions/<int:pk>/manage/', UserAuctionManageView.as_view(), name='auction-manage'),
 
     # --- AUCTION LIVE STREAMING & ROOMS ---
     path('slots/<int:slot_id>/open/', SlotOpenView.as_view(), name='slot-open'),
@@ -45,4 +49,14 @@ urlpatterns = [
     # --- COUNTRIES & STATES ---
     path('countries/', CountryListView.as_view(), name='country-list'),
     path('user/settings/', UserSettingsView.as_view(), name='user-settings'),
+
+    # --- REVIEWS & NOTIFICATIONS ---
+    path('reviews/create/', ReviewCreateView.as_view()),
+    path('reviews/seller/<int:seller_id>/', SellerReviewsView.as_view()),
+    path('notifications/', UserNotificationsView.as_view()),
+    path('notifications/<int:pk>/read/', MarkNotificationReadView.as_view()),
+    
+    # --- STREAM CONTROL ---
+    path('stream/start/', stream_start, name='stream-start'),
+    path('stream/stop/', stream_stop, name='stream-stop'),
 ]

@@ -13,11 +13,11 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from .permissions import IsStreamer
-from .models import Card, Category, Auction, CardbidUser, Country, State, Bid, AuctionSlot, StreamRoom
+from .models import Card, Category, Auction, CardbidUser, Country, State, Bid, AuctionSlot, StreamRoom, Review, Notification
 from .serializers import (
     CardSerializer, CategorySerializer, AuctionSerializer, UserProfileSerializer,
     RegisterSerializer, BidSerializer, StreamRoomSerializer,
-    StateSerializer, CountrySerializer
+    StateSerializer, CountrySerializer, ReviewSerializer, NotificationSerializer
 )
 
 from django.db import transaction
@@ -28,7 +28,7 @@ from .services import process_bid_logic
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.shortcuts import get_object_or_404
+import urllib.parse
 
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Count, Q
@@ -37,11 +37,12 @@ from django.db.models import Count, Q
 from .models import Transaction
 from django.conf import settings
 from django.http import JsonResponse
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import F
 import json
 import stripe
+import traceback
 stripe.api_key = settings.STRIPE_SECRET_KEY
 endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
 
@@ -57,7 +58,7 @@ def create_payment(request):
 
     intent = stripe.PaymentIntent.create(
         amount=amount,
-        currency="pln",
+        currency="usd",
         automatic_payment_methods={
             "enabled": True,
             "allow_redirects": "never"  # żeby returnurl nie cza
@@ -82,78 +83,62 @@ def create_payment(request):
 def stripe_webhook(request):
     print("WEBHOOK HIT")
     payload = request.body
-    sig_header = request.META["HTTP_STRIPE_SIGNATURE"]
+    sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
 
-    # Weryfikuj też sygnaturę dla bezpieczeństwa
     try:
         event = stripe.Webhook.construct_event(
-            payload,
-            sig_header,
-            endpoint_secret
+            payload, sig_header, endpoint_secret
         )
-
-    except Exception as e:
-        print("🔥 WEBHOOK CRASH:", e)
-        traceback.print_exc()
-        return HttpResponse(status=500)
+    except ValueError as e:
+        return HttpResponse(status=400)
+    except stripe.error.SignatureVerificationError as e:
+        print("Error webhook!")
+        return HttpResponse(status=400)
 
     event_type = event["type"]
 
-    # PAYMENT SUCCESS
-    if event_type == "payment_intent.succeeded":
+    if event_type == "checkout.session.completed":
+        session = event["data"]["object"]
+        
+        session_id = session["id"]
+        
+        user_id = session["client_reference_id"]
+        
+        if not user_id:
+            print("Webhook ignored: empty client_reference_id")
+            return HttpResponse(status=200)
 
-        payment_intent = event["data"]["object"]
-
-        intent_id = payment_intent["id"]
+        # Kwota pobrana z sesji (w groszach, więc dzielimy)
+        amount = Decimal(session["amount_total"]) / Decimal("100")
 
         try:
             with transaction.atomic():
+                user = CardbidUser.objects.select_for_update().get(id=user_id)
+                
+                t = Transaction.objects.filter(stripe_intent_id=session_id).first()
+                if t:
+                    if t.trans_status == Transaction.Status.COMPLETED:
+                        print("Webhook ignored: transaction already completed")
+                        return HttpResponse(status=200) # Już dodano
+                    t.trans_status = Transaction.Status.COMPLETED
+                    t.save()
+                else:
+                    Transaction.objects.create(
+                        user=user,
+                        amount=amount,
+                        trans_type=Transaction.Type.PAYMENT_IN,
+                        trans_status=Transaction.Status.COMPLETED,
+                        stripe_intent_id=session_id
+                    )
 
-                t = Transaction.objects.select_for_update().get(
-                    stripe_intent_id=intent_id
-                )
+                user.balance += amount
+                user.save()
 
-                # zabezpieczenie przed podwójnym webhookiem
-                if t.trans_status == Transaction.Status.COMPLETED:
-                    return HttpResponse(status=200)
-
-                t.trans_status = Transaction.Status.COMPLETED
-                t.save()
-
-                # Stripe zwraca w najmniejszych jednostkach waluty, zatem trzeba
-                # np. w groszach zdzielić na 100 żeby mieć w oryginalnej walucie (zł np.)
-                amount = Decimal(payment_intent["amount"]) / Decimal("100")
-
-                user = t.user
-
-                # Funkcja F zabezpiecza przed race conditions w db przy czytaniu
-                # wartości odrazu zmienianej.
-                CardbidUser.objects.filter(id=user.id).update(
-                    balance=F("balance") + amount
-                )
-
-        except Transaction.DoesNotExist:
-            print("NO TRANSACTION FOR INTENT:", intent_id)
-            return HttpResponse(status=500)
-
-    # PAYMENT FAILED
-    elif event_type == "payment_intent.payment_failed":
-
-        payment_intent = event["data"]["object"]
-
-        intent_id = payment_intent["id"]
-
-        try:
-            t = Transaction.objects.get(
-                stripe_intent_id=intent_id
-            )
-
-            t.trans_status = Transaction.Status.FAILED
-            t.save()
-
-        except Transaction.DoesNotExist:
-            pass
-
+        except CardbidUser.DoesNotExist:
+            print(f"WEBHOOK ERROR: User {user_id} does not exist!")
+            return HttpResponse(status=400)
+            
+    
     return HttpResponse(status=200)
 
 
@@ -270,7 +255,7 @@ class AuctionLiveDataView(APIView):
             "auction_type": auction.auction_type,
             "starting_price": auction.starting_price,
             "current_price": auction.current_price,
-            "min_bid_increment": round(auction.current_price * Decimal("0.05"), 2) if auction.current_price else None,
+            "min_bid_increment": auction.min_increment,
             "buy_now_price": auction.buy_now_price,
             "status": auction.status,
             "start_date": auction.start_date,
@@ -331,21 +316,40 @@ class TopUpBalanceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        amount_str = request.data.get('amount')
-        if not amount_str:
-            return Response({"error": "Please provide 'amount'"}, status=400)
-            
         try:
-            amount = Decimal(str(amount_str))
-            user = request.user
-            user.balance += amount
-            user.save()
-            return Response({
-                "message": f"Account topped up by {amount}",
-                "new_balance": user.balance
-            })
+            data = request.data
+            if isinstance(data, str):
+                data = json.loads(data)
+            
+            amount = float(data.get('amount', 0))
+            
+            if amount < 5.00:
+                return Response({"error": "Amount must be at least $5.00."}, status=400)
+
+            session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': 'CardBid Balance Top-up',
+                            'description': f'Top-up for {request.user.username}'
+                        },
+                        'unit_amount': int(amount * 100),
+                    },
+                    'quantity': 1,
+                }],
+                mode='payment',
+                client_reference_id=str(request.user.id),
+                success_url='https://cardbid-core.vercel.app/account?topup=success',
+                cancel_url='https://cardbid-core.vercel.app/top-up?topup=cancelled',
+            )
+            
+            return Response({"url": session.url})
+
         except Exception as e:
-            return Response({"error": "Invalid amount"}, status=400)
+            print(f"🔥 Stripe error: {e}") 
+            return Response({"error": f"Payment error: {str(e)}"}, status=500)
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
@@ -372,37 +376,27 @@ class CategoryListView(generics.ListAPIView):
 class AuctionListCreateView(generics.ListCreateAPIView):
     serializer_class = AuctionSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['card__name', 'card__certificate_number', 'card__category__name']
+
     ordering_fields = ['end_date', 'current_price', 'start_date']
     pagination_class = AuctionPagination
 
     def get_queryset(self):
         qs = Auction.objects.filter(status=Auction.Status.ACTIVE)
 
-        # Zakres cenowy
         price_min = self.request.query_params.get('price_min')
         price_max = self.request.query_params.get('price_max')
+        
         if price_min:
             qs = qs.filter(current_price__gte=price_min)
         if price_max:
             qs = qs.filter(current_price__lte=price_max)
 
-        # Filtrowanie po grade karty
         grade = self.request.query_params.get('grade')
         if grade:
             qs = qs.filter(card__grade__iexact=grade)
-
-        # Sortowanie
-        sort = self.request.query_params.get('sort')
-        if sort == 'ending_soon':
-            qs = qs.order_by('end_date')
-        elif sort == 'price_low':
-            qs = qs.order_by('current_price')
-        elif sort == 'price_high':
-            qs = qs.order_by('-current_price')
-        elif sort == 'newest':
-            qs = qs.order_by('-start_date')
 
         return qs
 
@@ -417,6 +411,14 @@ class PlaceBidView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
+        auction = get_object_or_404(Auction, pk=pk)
+
+        if auction.seller == request.user:
+            return Response(
+                {"error": "You cannot bid on your own auction."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         success, message, auction, total_cost = process_bid_logic(
             request.user, pk, request.data.get('amount')
         )
@@ -425,20 +427,35 @@ class PlaceBidView(APIView):
             if isinstance(message, dict):
                 return Response(message, status=status.HTTP_400_BAD_REQUEST)
             return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
-
+        
         channel_layer = get_channel_layer()
+        
+        event_data = {
+            "type": "bid_update",
+            "current_price": str(auction.current_price),
+            "bidder": request.user.username,
+            "auction_id": auction.id
+        }
+
         async_to_sync(channel_layer.group_send)(
             f"auction_{auction.id}",
             {
                 "type": "bid_update",
-                "data": {
-                    "type": "bid_update",
-                    "current_price": str(auction.current_price),
-                    "bidder": request.user.username,
-                    "auction_id": auction.id
-                }
+                "data": event_data
             }
         )
+
+        try:
+            if hasattr(auction, 'auctionslot') and auction.auctionslot.room:
+                async_to_sync(channel_layer.group_send)(
+                    f"room_{auction.auctionslot.room.id}",
+                    {
+                        "type": "bid_update",
+                        "data": event_data
+                    }
+                )
+        except Exception:
+            pass
 
         return Response({
             "message": message,
@@ -472,10 +489,18 @@ class UserInventoryView(generics.ListAPIView):
         return Auction.objects.filter(winner=self.request.user, status=Auction.Status.ENDED)
 
 class UserActiveBidsView(generics.ListAPIView):
+    """
+    Zwraca listę aukcji, w których zalogowany użytkownik jest AKTUALNYM liderem
+    (wygrywa), a aukcja jest nadal AKTYWNA.
+    """
+    serializer_class = AuctionSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Auction.objects.filter(winner=self.request.user, status=Auction.Status.ACTIVE)
+        return Auction.objects.filter(
+            winner=self.request.user, 
+            status=Auction.Status.ACTIVE
+        ).order_by('end_date')
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
@@ -501,7 +526,7 @@ class LiveRoomsListView(generics.ListAPIView):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        return StreamRoom.objects.filter(is_live=True)
+        return StreamRoom.objects.all()
 
 class StreamRoomToggleView(APIView):
     permission_classes = [IsAuthenticated, IsStreamer]
@@ -524,9 +549,10 @@ class StreamRoomToggleView(APIView):
         return Response({"message": status_msg, "room": StreamRoomSerializer(room).data})
 
 class CountryListView(generics.ListAPIView):
-    queryset = Country.objects.all()
+    queryset = Country.objects.prefetch_related('states').all()
     serializer_class = CountrySerializer
     permission_classes = [AllowAny]
+    pagination_class = None
 
 
 class BuyNowView(APIView):
@@ -539,6 +565,12 @@ class BuyNowView(APIView):
             with transaction.atomic():
                 try:
                     auction = Auction.objects.select_for_update().get(pk=pk)
+
+                    if auction.seller == request.user:
+                        return Response(
+                            {"error": "You cannot buy your own auction."}, 
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
 
                     if auction.status != "active":
                         return Response({"error": "Auction not active."}, status=404)
@@ -688,11 +720,11 @@ class UserBalanceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user
+        user = CardbidUser.objects.get(pk=request.user.pk)
         return Response({
-            "balance": user.balance,
+            "balance": user.balance + user.frozen_balance, 
             "frozen_balance": user.frozen_balance,
-            "available_balance": user.balance - user.frozen_balance 
+            "available_balance": user.balance
         })
 
 class CreateAuctionView(APIView):
@@ -701,9 +733,6 @@ class CreateAuctionView(APIView):
     def post(self, request):
         data = request.data
         user = request.user
-
-        if user.role not in ['seller', 'streamer']:
-            return Response({"error": "You are not authorized to create auctions."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             category = Category.objects.get(id=data.get('category_id'))
@@ -770,17 +799,22 @@ class UserSettingsView(APIView):
 
         if 'shipping_address' in data:
             user.shipping_address = data['shipping_address']
-        
         if 'country_id' in data:
             user.country_id = data['country_id']
         if 'state_id' in data:
             user.state_id = data['state_id']
+            
+        if 'username' in data:
+            new_username = data['username']
+            if CardbidUser.objects.filter(username=new_username).exclude(id=user.id).exists():
+                return Response({"error": "Username is already taken."}, status=400)
+            user.username = new_username
 
         try:
             user.save()
-            return Response({"message": "Settings have been saved."})
+            return Response({"message": "Settings have been saved.", "username": user.username})
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(e)}, status=400)
 
 class ActivateSlotView(APIView):
     permission_classes = [IsAuthenticated]
@@ -788,12 +822,13 @@ class ActivateSlotView(APIView):
     def post(self, request, slot_id):
         user = request.user
 
+        slot = get_object_or_404(AuctionSlot, id=slot_id)
+
         if slot.status == 'active':
             return Response({"error": "This slot is already activated!"}, status=400)
         if slot.status == 'finished':
             return Response({"error": "This slot has already been finished and opened!"}, status=400)
 
-        slot = get_object_or_404(AuctionSlot, id=slot_id)
         if slot.room.streamer != user:
             return Response({"error": "This is not your stream!"}, status=status.HTTP_403_FORBIDDEN)
 
@@ -838,7 +873,155 @@ class ActivateSlotView(APIView):
             "message": f"Slot {slot.order} (Auction {current_auction.id}) is now active!",
             "start_date": current_auction.start_date
         })
+        
 class AuctionPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = 'page_size'
     max_page_size = 100
+
+class ReviewCreateView(generics.CreateAPIView):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(buyer=self.request.user)
+
+class SellerReviewsView(generics.ListAPIView):
+    serializer_class = ReviewSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        seller_id = self.kwargs['seller_id']
+        return Review.objects.filter(seller_id=seller_id).order_by('-created_at')
+
+class UserNotificationsView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+
+class MarkNotificationReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            notif = Notification.objects.get(pk=pk, user=request.user)
+            notif.is_read = True
+            notif.save()
+            return Response({"message": "Notification marked as read."})
+        except Notification.DoesNotExist:
+            return Response({"error": "Notification not found."}, status=404)
+        
+class UserSellingAuctionsView(generics.ListAPIView):
+    """Pobiera wszystkie aukcje, które wystawił zalogowany użytkownik"""
+    serializer_class = AuctionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Auction.objects.filter(seller=self.request.user).order_by('-start_date')
+
+class UserAuctionManageView(APIView):
+    """Zarządzanie własną aukcją (Edycja / Usuwanie)"""
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        auction = get_object_or_404(Auction, pk=pk, seller=request.user)
+        
+        if auction.status == Auction.Status.ENDED:
+            return Response({"error": "You cannot delete an ended auction."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if auction.bids.exists():
+            return Response({"error": "You cannot delete an auction that already has bids. You must sell it to the highest bidder."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        card = auction.card
+        auction.delete()
+        card.delete()
+        return Response({"message": "Auction deleted successfully."})
+
+    def patch(self, request, pk):
+        auction = get_object_or_404(Auction, pk=pk, seller=request.user)
+        
+        if auction.status == Auction.Status.ENDED:
+            return Response({"error": "You cannot edit an ended auction."}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = request.data
+        card = auction.card
+        has_bids = auction.bids.exists()
+        
+        if 'card_name' in data: 
+            card.name = data['card_name']
+        if 'description' in data: 
+            card.description = data['description']
+        card.save()
+
+        if 'start_date' in data and data['start_date']:
+            new_start = timezone.datetime.fromisoformat(data['start_date'].replace('Z', '+00:00'))
+            
+            if auction.start_date <= timezone.now() and new_start != auction.start_date:
+                return Response({"error": "You cannot change the start date because the auction has already started."}, status=status.HTTP_400_BAD_REQUEST)
+            auction.start_date = new_start
+
+        if 'end_date' in data and data['end_date']:
+            auction.end_date = timezone.datetime.fromisoformat(data['end_date'].replace('Z', '+00:00'))
+
+        if 'starting_price' in data and data['starting_price']:
+            new_starting_price = Decimal(str(data['starting_price']))
+            
+            if has_bids and new_starting_price != auction.starting_price:
+                return Response({"error": "Cannot change starting price after someone has already placed a bid."}, status=status.HTTP_400_BAD_REQUEST)
+            elif not has_bids:
+                auction.starting_price = new_starting_price
+                auction.current_price = new_starting_price
+
+        if 'buy_now_price' in data and data['buy_now_price']: 
+            auction.buy_now_price = Decimal(str(data['buy_now_price']))
+            
+        auction.save()
+        return Response({"message": "Auction updated successfully."})
+    
+@csrf_exempt
+def stream_start(request):
+    """Webhook wywoływany przez MediaMTX przy próbie połączenia z OBS"""
+    if request.method == 'POST':
+        path = request.POST.get('path', '') 
+        raw_query = request.POST.get('query', '') 
+
+        room_id = None
+        if '/' in path:
+            room_id = path.split('/')[1]
+        
+        stream_key = raw_query.replace('key=', '').split('&')[0]
+
+        if not stream_key or not room_id:
+            return HttpResponseForbidden("Missing stream key or room ID")
+
+        try:
+            room = StreamRoom.objects.get(id=room_id, stream_key=stream_key)
+            room.is_live = True
+            room.save()
+            return HttpResponse("OK", status=200)
+        except StreamRoom.DoesNotExist:
+            return HttpResponseForbidden("Invalid stream key or room")
+            
+    return HttpResponseForbidden("Method not allowed")
+
+@csrf_exempt
+def stream_stop(request):
+    """Webhook wywoływany przez MediaMTX po zakończeniu transmisji w OBS"""
+    if request.method == 'POST':
+        path = request.POST.get('path', '') 
+
+        room_id = None
+        if '/' in path:
+            room_id = path.split('/')[1]
+        
+        if not room_id:
+            return HttpResponseForbidden("Missing room ID")
+
+        StreamRoom.objects.filter(id=room_id).update(is_live=False)
+        
+        return HttpResponse("OK", status=200)
+            
+    return HttpResponseForbidden("Method not allowed")

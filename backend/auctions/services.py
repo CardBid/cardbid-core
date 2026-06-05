@@ -1,6 +1,8 @@
 from decimal import Decimal, InvalidOperation
 from django.db import transaction
-from .models import Auction, Bid, CardbidUser
+from .models import Auction, Bid, CardbidUser, Notification
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 from .utils import calculate_fees
 
 def process_bid_logic(user, auction_id, amount_raw):
@@ -39,19 +41,28 @@ def process_bid_logic(user, auction_id, amount_raw):
 
         previous_winner = auction.winner
         previous_price = auction.current_price
+        
+        previous_highest_bid = auction.bids.order_by('-amount').first()
+        loser = None
+        if previous_highest_bid and previous_highest_bid.user != user:
+            loser = previous_highest_bid.user
 
-        if previous_winner and previous_winner.id != user.id:
-            prev_user_locked = CardbidUser.objects.select_for_update().get(id=previous_winner.id)
-
-            previous_fees = calculate_fees(previous_price, prev_user_locked)
+        if previous_winner:
+            previous_fees = calculate_fees(previous_price, previous_winner)
             refund_amount = previous_fees['total_cost']
-
-            prev_user_locked.balance += refund_amount
-            prev_user_locked.save()
-
-        user_locked = CardbidUser.objects.select_for_update().get(id=user.id)
-        user_locked.balance -= total_cost
-        user_locked.save()
+            try:
+                unfreeze_funds(previous_winner, refund_amount)
+            except InvalidFrozenFunds:
+                pass
+                
+        try:
+            user_locked = freeze_funds(user, total_cost)
+        except InsufficientFunds:
+             return False, {
+                "error": "Insufficient funds in account.",
+                "required_total": float(total_cost),
+                "current_balance": float(user.balance)
+            }, None, None
 
         Bid.objects.create(
             auction=auction,
@@ -63,8 +74,27 @@ def process_bid_logic(user, auction_id, amount_raw):
         auction.winner = user_locked
         auction.save()
 
-        return True, "Bid accepted!", auction, total_cost
+        if loser:
+            Notification.objects.create(
+                user=loser,
+                notification_type=Notification.Type.OUTBID,
+                message=f"You were outbid on {auction.card.name}! Current price is {auction.current_price}$."
+            )
         
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"user_{loser.id}",
+                {
+                    "type": "notify",
+                    "data": {
+                        "type": "outbid_alert",
+                        "auction_id": auction.id,
+                        "message": f"You were outbid on {auction.card.name}! Current price is {auction.current_price}$."
+                    }
+                }
+            )
+
+        return True, "Bid accepted!", auction, total_cost
 
 
 # =====================================================

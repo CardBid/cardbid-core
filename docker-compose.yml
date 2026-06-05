@@ -37,6 +37,7 @@ services:
 
     volumes:
       - ./backend:/app
+      - /usr/local/lib/python3.13/site-packages
       - ./media:/app/media
     environment:
       - DB_HOST=db

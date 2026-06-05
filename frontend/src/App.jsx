@@ -6,6 +6,10 @@ import Login from './pages/Login';
 import Marketplace from './pages/Marketplace';
 import ProductDetail from './pages/ProductDetail';
 import Register from './pages/Register';
+import Studio from './pages/Studio';
+import Account from './pages/Account';
+import TopUp from './pages/TopUp';
+import CreateAuction from './pages/CreateAuction';
 
 function App() {
   return (
@@ -20,6 +24,10 @@ function App() {
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/live" element={<LiveRoom />} />
           <Route path="/live/:id" element={<LiveRoom />} />
+          <Route path="/studio" element={<Studio />} />
+          <Route path="/account" element={<Account />} />
+          <Route path="/top-up" element={<TopUp />} />
+          <Route path="/create-auction" element={<CreateAuction />} />
         </Route>
       </Routes>
     </BrowserRouter>

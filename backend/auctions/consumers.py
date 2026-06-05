@@ -16,16 +16,14 @@ import time
 
 from .services import process_bid_logic
 
+import asyncio
+
 
 class AuctionConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         self.auction_id = self.scope["url_route"]["kwargs"]["auction_id"]
         self.group_name = f"auction_{self.auction_id}"
-
-        if self.scope["user"].is_anonymous:
-            await self.close()
-            return
 
         await self.channel_layer.group_add(
             self.group_name,
@@ -37,8 +35,19 @@ class AuctionConsumer(AsyncWebsocketConsumer):
         state = await self.get_state()
         await self.send(text_data=json.dumps(state))
 
+        self.heartbeat_task = asyncio.create_task(self.heartbeat())
+
+    async def heartbeat(self):
+        while True:
+            await asyncio.sleep(5)
+            try:
+                await self.send(text_data=json.dumps({"type": "ping"}))
+            except Exception:
+                break
 
     async def disconnect(self, close_code):
+        if hasattr(self, 'heartbeat_task'):
+            self.heartbeat_task.cancel()
         await self.channel_layer.group_discard(
             self.group_name,
             self.channel_name
@@ -48,6 +57,10 @@ class AuctionConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         action_type = data.get('type')
+        
+        if action_type == "place_bid" and self.scope["user"].is_anonymous:
+            await self.send(text_data=json.dumps({"success": False, "error": "Log in to bid."}))
+            return
 
         if action_type == "place_bid":
             success, message, auction, _ = await database_sync_to_async(process_bid_logic)(
@@ -74,7 +87,8 @@ class AuctionConsumer(AsyncWebsocketConsumer):
 
 
     async def bid_update(self, event):
-        await self.send(text_data=json.dumps(event["data"]))
+        data = event.get("data")
+        await self.send(text_data=json.dumps(data))
 
 
     async def auction_interrupted(self, event):
@@ -135,17 +149,26 @@ class StreamRoomConsumer(AsyncWebsocketConsumer):
 
         self.last_message_time = 0
 
-        if self.scope["user"].is_anonymous:
-            await self.close()
-            return
-
         await self.channel_layer.group_add(
             self.group_name,
             self.channel_name
         )
         await self.accept()
 
+        self.heartbeat_task = asyncio.create_task(self.heartbeat())
+
+    async def heartbeat(self):
+        while True:
+            await asyncio.sleep(5)
+            try:
+                await self.send(text_data=json.dumps({"type": "ping"}))
+            except Exception:
+                break
+
     async def disconnect(self, close_code):
+        if hasattr(self, 'heartbeat_task'):
+            self.heartbeat_task.cancel()
+
         await self.channel_layer.group_discard(
             self.group_name,
             self.channel_name
@@ -154,6 +177,10 @@ class StreamRoomConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         action_type = data.get('type')
+        
+        if action_type == "place_bid" and self.scope["user"].is_anonymous:
+            await self.send(text_data=json.dumps({"success": False, "error": "Log in to bid."}))
+            return
 
         if action_type == "place_bid":
             target_auction_id = data.get("auction_id")
@@ -228,4 +255,32 @@ class StreamRoomConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps(event["data"]))
 
     async def package_opened(self, event):
+        await self.send(text_data=json.dumps(event["data"]))
+
+class UserNotificationConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        if self.scope["user"].is_anonymous:
+            await self.close()
+            return
+
+        self.group_name = f"user_{self.scope['user'].id}"
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+        self.heartbeat_task = asyncio.create_task(self.heartbeat())
+
+    async def heartbeat(self):
+        while True:
+            await asyncio.sleep(5)
+            try:
+                await self.send(text_data=json.dumps({"type": "ping"}))
+            except Exception:
+                break
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'heartbeat_task'):
+            self.heartbeat_task.cancel()
+        if not self.scope["user"].is_anonymous:
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def notify(self, event):
         await self.send(text_data=json.dumps(event["data"]))
