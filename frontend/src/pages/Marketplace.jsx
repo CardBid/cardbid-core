@@ -103,7 +103,7 @@ export default function Marketplace() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [nextUrl, loading]);
 
-  const featuredLive = liveRooms.length > 0 ? liveRooms[0] : null;
+  const featuredLive = liveRooms.find(room => room.is_live === true) || null;
 
   return (
     <div className="min-h-screen bg-gray-950">
