@@ -42,9 +42,6 @@ export const VideoPlayer = (props) => {
         method: 'GET', 
         signal: controller.signal, 
         cache: 'no-store',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : ''
-        }
       });
       return res.ok;
     } catch (err) {
