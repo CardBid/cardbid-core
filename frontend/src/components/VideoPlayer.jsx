@@ -50,14 +50,7 @@ export const VideoPlayer = (props) => {
     videoElement.classList.add('vjs-big-play-centered', 'w-full', 'h-full', 'vjs-default-skin', 'object-cover');
     placeholderRef.current.appendChild(videoElement);
 
-    const player = videojs(videoElement, {
-      ...options,
-      html5: {
-        vhs: {
-          withCredentials: true
-        }
-      }
-    }, () => {
+    const player = videojs(videoElement, options, () => {
       if (!mountedRef.current) return;
       onReady && onReady(player);
     });
