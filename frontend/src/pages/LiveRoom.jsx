@@ -665,6 +665,9 @@ const handlePointerMove = (e) => {
   // --- DERIVED: "Inne transmisje live" - bez aktualnego pokoju ---
   const otherLiveRooms = liveRooms.filter(r => Number(r.id) !== roomId);
 
+  const currentRoom = liveRooms.find(r => Number(r.id) === roomId);
+  const isStreamLive = currentRoom?.is_live === true;
+
   // --- DERIVED: domyślna aukcja dla quick-panelu ---
   // Priorytet: aktywna licytacja (timeline.current) → pierwsza w queue (bid/hybrid) → pierwsza buy_now w queue
   // (Slot.is_opened === true znaczy zakończone i otwarte; pomijamy.)
@@ -833,7 +836,12 @@ const handlePointerMove = (e) => {
             to={`/live/${r.id}`}
             className="block px-4 py-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-emerald-400 transition text-left"
           >
-            <p className="font-bold text-white">{r.title}</p>
+            <p className="font-bold text-white flex justify-between items-center">
+              {r.title}
+              {r.is_live 
+                ? <span className="bg-red-600/90 text-white text-[9px] px-1.5 py-0.5 rounded shadow-sm">LIVE</span>
+                : <span className="bg-gray-600 text-gray-300 text-[9px] px-1.5 py-0.5 rounded border border-gray-500 shadow-sm">OFFLINE</span>}
+            </p>
             <p className="text-xs text-gray-400 mt-0.5">Streamer: {r.streamer_name || r.streamer || '—'}</p>
           </Link>
         ))}
@@ -865,8 +873,9 @@ return (
           {/* NIEWIDZIALNA WARSTWA ŁAPIĄCA DOTYK NA MOBILE */}
           <div className="absolute inset-0 z-10 lg:hidden" onClick={() => setShowMobileControls(!showMobileControls)}></div>
 
-          <div className="absolute top-4 left-4 bg-red-600/90 backdrop-blur-sm text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse z-20 shadow-lg pointer-events-none">LIVE</div>
-        
+          <div className={`absolute top-4 left-4 backdrop-blur-sm text-white text-xs font-bold px-3 py-1 rounded-full z-20 shadow-lg pointer-events-none transition-colors ${isStreamLive ? 'bg-red-600/90 animate-pulse' : 'bg-gray-700/90 border border-gray-500 text-gray-300'}`}>
+    {isStreamLive ? 'LIVE' : 'OFFLINE'}
+  </div>
 
           {/* === MOBILNY ORAZ KINOWY CZAT === */}
           <div className={`absolute bottom-4 lg:bottom-24 left-4 right-4 lg:right-auto w-auto lg:w-64 max-w-[70%] lg:max-w-none z-20 pointer-events-none flex flex-col justify-end h-1/4 lg:h-1/3 overflow-hidden mask-image-top transition-opacity duration-300 ${overlayChatMode === 2 ? 'lg:opacity-100 lg:flex' : 'lg:opacity-0 lg:hidden'} opacity-100`}>
@@ -893,8 +902,8 @@ return (
             </button>
           </div>
           {/* Znaczek LIVE */}
-          <div className="absolute top-4 left-4 bg-red-600/90 backdrop-blur-sm text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse z-20 shadow-lg pointer-events-none">
-            LIVE
+          <div className={`absolute top-4 left-4 backdrop-blur-sm text-white text-xs font-bold px-3 py-1 rounded-full z-20 shadow-lg pointer-events-none transition-colors ${isStreamLive ? 'bg-red-600/90 animate-pulse' : 'bg-gray-700/90 border border-gray-500 text-gray-300'}`}>
+            {isStreamLive ? 'LIVE' : 'OFFLINE'}
           </div>
           
           <VideoPlayer options={videoJsOptions} onReady={handlePlayerReady} />
