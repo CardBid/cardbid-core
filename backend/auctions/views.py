@@ -374,6 +374,11 @@ class CategoryListView(generics.ListAPIView):
     serializer_class = CategorySerializer
     permission_classes = [permissions.AllowAny]
 
+class AuctionPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class AuctionListCreateView(generics.ListCreateAPIView):
     serializer_class = AuctionSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
@@ -874,11 +879,6 @@ class ActivateSlotView(APIView):
             "message": f"Slot {slot.order} (Auction {current_auction.id}) is now active!",
             "start_date": current_auction.start_date
         })
-        
-class AuctionPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = 'page_size'
-    max_page_size = 100
 
 class ReviewCreateView(generics.CreateAPIView):
     queryset = Review.objects.all()
