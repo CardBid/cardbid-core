@@ -10,6 +10,9 @@ import Studio from './pages/Studio';
 import Account from './pages/Account';
 import TopUp from './pages/TopUp';
 import CreateAuction from './pages/CreateAuction';
+import TermsOfService from './pages/TermsOfService';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import Contact from './pages/Contact';
 
 function App() {
   return (
@@ -28,6 +31,9 @@ function App() {
           <Route path="/account" element={<Account />} />
           <Route path="/top-up" element={<TopUp />} />
           <Route path="/create-auction" element={<CreateAuction />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/contact" element={<Contact />} />
         </Route>
       </Routes>
     </BrowserRouter>

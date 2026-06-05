@@ -874,8 +874,8 @@ return (
           <div className="absolute inset-0 z-10 lg:hidden" onClick={() => setShowMobileControls(!showMobileControls)}></div>
 
           <div className={`absolute top-4 left-4 backdrop-blur-sm text-white text-xs font-bold px-3 py-1 rounded-full z-20 shadow-lg pointer-events-none transition-colors ${isStreamLive ? 'bg-red-600/90 animate-pulse' : 'bg-gray-700/90 border border-gray-500 text-gray-300'}`}>
-    {isStreamLive ? 'LIVE' : 'OFFLINE'}
-  </div>
+            {isStreamLive ? 'LIVE' : 'OFFLINE'}
+          </div>
 
           {/* === MOBILNY ORAZ KINOWY CZAT === */}
           <div className={`absolute bottom-4 lg:bottom-24 left-4 right-4 lg:right-auto w-auto lg:w-64 max-w-[70%] lg:max-w-none z-20 pointer-events-none flex flex-col justify-end h-1/4 lg:h-1/3 overflow-hidden mask-image-top transition-opacity duration-300 ${overlayChatMode === 2 ? 'lg:opacity-100 lg:flex' : 'lg:opacity-0 lg:hidden'} opacity-100`}>
