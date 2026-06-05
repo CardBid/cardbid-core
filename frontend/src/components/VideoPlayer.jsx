@@ -32,14 +32,23 @@ export const VideoPlayer = (props) => {
 
   const probeStream = useCallback(async () => {
     if (!cleanSourceUrl) return false;
+    const token = localStorage.getItem('access_token');   
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    
     try {
-      const res = await fetch(cleanSourceUrl, { method: 'GET', signal: controller.signal, cache: 'no-store' });
+      const res = await fetch(cleanSourceUrl, { 
+        method: 'GET', 
+        signal: controller.signal, 
+        cache: 'no-store',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      });
       return res.ok;
     } catch (err) {
-      console.warn("[VideoPlayer] Błąd łączenia z wideo (CORS?):", err);
+      console.warn("[VideoPlayer] Błąd łączenia z wideo:", err);
       return false;
     }
   }, [cleanSourceUrl]);
