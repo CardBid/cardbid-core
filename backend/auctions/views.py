@@ -30,6 +30,9 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 import urllib.parse
 
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Count, Q
+
 # Konfiguracja stripa
 from .models import Transaction
 from django.conf import settings
@@ -373,19 +376,29 @@ class CategoryListView(generics.ListAPIView):
 class AuctionListCreateView(generics.ListCreateAPIView):
     serializer_class = AuctionSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    
+
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['card__name', 'card__certificate_number', 'card__category__name']
-    ordering_fields = ['end_date', 'current_price']
+
+    ordering_fields = ['end_date', 'current_price', 'start_date']
+    pagination_class = AuctionPagination
 
     def get_queryset(self):
-        queryset = Auction.objects.filter(status=Auction.Status.ACTIVE).select_related('card', 'card__category')
+        qs = Auction.objects.filter(status=Auction.Status.ACTIVE)
 
-        category_id = self.request.query_params.get('category')
-        if category_id and category_id != 'all':
-            queryset = queryset.filter(card__category_id=category_id)
-            
-        return queryset
+        price_min = self.request.query_params.get('price_min')
+        price_max = self.request.query_params.get('price_max')
+        
+        if price_min:
+            qs = qs.filter(current_price__gte=price_min)
+        if price_max:
+            qs = qs.filter(current_price__lte=price_max)
+
+        grade = self.request.query_params.get('grade')
+        if grade:
+            qs = qs.filter(card__grade__iexact=grade)
+
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
@@ -860,6 +873,11 @@ class ActivateSlotView(APIView):
             "message": f"Slot {slot.order} (Auction {current_auction.id}) is now active!",
             "start_date": current_auction.start_date
         })
+        
+class AuctionPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 class ReviewCreateView(generics.CreateAPIView):
     queryset = Review.objects.all()
