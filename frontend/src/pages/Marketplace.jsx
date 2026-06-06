@@ -180,7 +180,7 @@ export default function Marketplace() {
            />
         </div>
 
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-2 no-scrollbar">
           {categories.map((cat) => (
             <button
               key={cat.id}
