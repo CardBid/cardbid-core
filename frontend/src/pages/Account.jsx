@@ -242,7 +242,7 @@ function OrdersSection() {
   return (
     <div>
       <div className="mb-4 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-xs text-gray-400">
-        Order tracking is for demonstration only — the backend does not provide logistics data yet.
+        Order tracking is for demonstration only.
       </div>
       {orders.length === 0 ? (
         <p className="text-sm text-gray-500">No orders. Win an auction to see your shipment here.</p>
